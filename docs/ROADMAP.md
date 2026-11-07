@@ -29,7 +29,7 @@ O médico do trabalho acompanha os colaboradores da empresa por questionários v
 
 **Fluxo do colaborador**
 
-1. Recebe mensagem: quem fala, quanto tempo leva, que só o médico vê. Responde SIM para começar.
+1. Recebe mensagem: quem fala, quanto tempo leva, que só o médico vê. Responde 1 (Sim, aceito) para começar.
 2. Responde os itens com número ou texto curto. Pode escrever PARAR a qualquer hora.
 3. Se escrever algo de risco, o bot para, manda CVV 188 e SAMU 192 e avisa o médico. CONTINUAR retoma depois.
 4. Ao fim, recebe agradecimento e o lembrete do CVV.
@@ -137,6 +137,6 @@ Um motor de pauta em código monta a ordem: os domínios com item em atenção n
 
 1. Leia o desenho e o plano em `docs/superpowers/`.
 2. No hackhub, pegue uma issue livre com `issue_claim`. Respeite as dependências.
-3. Git flow: crie `feature/<tarefa>` a partir de `develop`, abra PR para `develop`. Nada direto em `main` ou `develop`.
+3. Git flow: crie `feature/<tarefa>` a partir de `develop`, abra PR para `develop`. Nada direto em `main` ou `develop`. Enquanto os PRs #1 a #4 não entram na `develop`, parta de `feature/m3-whatsapp`.
 4. Escreva o teste antes do código. Rode `pnpm test` antes do PR.
 5. Toda tela passa pela skill impeccable antes do PR.
