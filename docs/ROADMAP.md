@@ -65,8 +65,8 @@ Leva de 5 a 8,5 minutos. A demo usa 8 itens: tronco, WPAI Q5, BAT 1, PHQ 1, 2 e 
 | Marco | Tarefas | Quem | Status |
 |---|---|---|---|
 | M1 Infra e banco | T1 esqueleto + Docker · T2 schema | Marco | Pronto (PR #2) |
-| M2 Questionário e regras | T3 itens e pontuação · T4 detector de crise · T5 camada de IA · T8 motor do questionário | Marco | T3, T4, T5 prontas; T8 em andamento |
-| M3 WhatsApp | T7 cliente Evolution · T10 webhook | Marco | T7 pronta; T10 depois da T8 |
+| M2 Questionário e regras | T3 itens e pontuação · T4 detector de crise · T5 camada de IA · T8 motor do questionário | Marco | Pronto (PR #3) |
+| M3 WhatsApp | T7 cliente Evolution · T10 webhook | Marco | Pronto (PR #4); falta teste com celular real |
 | M4 RAG e indícios | T6 ingestão dos documentos · T9 indícios com fonte e resumo | **Livre** | A fazer |
 | M5 Telas do médico | T11 login e tema · T12 Conexão · T13 Contatos · T14 Fila · T15 Caso | **Livre** | A fazer |
 | M6 Demo | T16 dados sintéticos · T17 evals de segurança · T18 polimento e ensaio | T16 e T17 livres, T18 Marco | A fazer |
