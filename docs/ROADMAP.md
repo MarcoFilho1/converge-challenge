@@ -34,15 +34,26 @@ O médico do trabalho acompanha os colaboradores da empresa por questionários v
 3. Se escrever algo de risco, o bot para, manda CVV 188 e SAMU 192 e avisa o médico. CONTINUAR retoma depois.
 4. Ao fim, recebe agradecimento e o lembrete do CVV.
 
-**Questionário.** Instrumentos validados no Brasil e de uso livre: presenteísmo (SPS-6 e um item do WPAI), esgotamento (BAT-12), rastreio de depressão e ansiedade (PHQ-9 e GAD-7), e duas perguntas abertas sobre o trabalho. A lista final de itens, com versão curta para WhatsApp, está sendo pesquisada em `docs/questionario-whatsapp.md`. A demo usa uma versão de 8 itens.
+**Questionário.** Pesquisado e fechado em `docs/questionario-whatsapp.md`. Só instrumentos validados no Brasil e de uso livre, com o texto original:
+
+| Bloco | Itens | Para quê |
+|---|---|---|
+| Presenteísmo | Pergunta-tronco (trabalhou doente nos últimos 30 dias?) e WPAI Q5 (prejuízo de 0 a 10) | Se o problema de saúde atrapalha o trabalho |
+| Humor | PHQ-2, com os outros itens do PHQ-9 só se der positivo. O item 9 é sempre perguntado | Rastreio de depressão e segurança |
+| Ansiedade | GAD-2, com o GAD-7 completo só se der positivo | Rastreio de ansiedade |
+| Cansaço no trabalho | BAT-12 | Esgotamento ligado ao trabalho |
+| Ambiente de trabalho | COPSOQ II-Br: ritmo, influência, apoio do chefe, assédio | O porquê no trabalho, que é o foco da NR-1 |
+| Abertas | O que está mais difícil? O que ajudaria? | A voz do colaborador |
+
+Leva de 5 a 8,5 minutos. A demo usa 8 itens: tronco, WPAI Q5, BAT 1, PHQ 1, 2 e 9, ritmo e uma aberta.
 
 **Gravidade (em código)**
 
 | Nível | Quando |
 |---|---|
-| Urgência | Frase de risco ou item 9 do PHQ-9 acima de zero |
-| Prioridade | Trabalhou com problema de saúde, com prejuízo no trabalho, e sinal de esgotamento, depressão ou ansiedade |
-| Atenção | Trabalhou com problema de saúde e prejuízo no trabalho, ou sinal clínico sozinho |
+| Urgência | Item 9 do PHQ-9 acima de zero, ou frase de risco em qualquer mensagem |
+| Prioridade | Sofrimento (BAT-12 ≥2,54, PHQ-9 ≥10 ou GAD-7 ≥10) junto com presenteísmo ou prejuízo no trabalho. Ou sofrimento grave sozinho |
+| Atenção | Presenteísmo com prejuízo no trabalho, ou sofrimento sozinho, ou relato de assédio |
 | Sem indício | Nenhum dos anteriores |
 
 **Telas do médico.** Login simples, Conexão (QR Code), Contatos (cadastro, CSV, disparo), Fila (por gravidade), Caso (conversa, escores, indícios com trecho, resumo, encaminhar/acompanhar/encerrar). Paleta vermelha com tons pastéis.
@@ -53,9 +64,9 @@ O médico do trabalho acompanha os colaboradores da empresa por questionários v
 
 | Marco | Tarefas | Quem | Status |
 |---|---|---|---|
-| M1 Infra e banco | T1 esqueleto + Docker · T2 schema | Marco | T1 pronta, T2 em andamento |
-| M2 Questionário e regras | T3 itens e pontuação · T4 detector de crise · T5 camada de IA · T8 motor do questionário | Marco | A fazer |
-| M3 WhatsApp | T7 cliente Evolution · T10 webhook | Marco | A fazer |
+| M1 Infra e banco | T1 esqueleto + Docker · T2 schema | Marco | Pronto (PR #2) |
+| M2 Questionário e regras | T3 itens e pontuação · T4 detector de crise · T5 camada de IA · T8 motor do questionário | Marco | T3, T4, T5 prontas; T8 em andamento |
+| M3 WhatsApp | T7 cliente Evolution · T10 webhook | Marco | T7 pronta; T10 depois da T8 |
 | M4 RAG e indícios | T6 ingestão dos documentos · T9 indícios com fonte e resumo | **Livre** | A fazer |
 | M5 Telas do médico | T11 login e tema · T12 Conexão · T13 Contatos · T14 Fila · T15 Caso | **Livre** | A fazer |
 | M6 Demo | T16 dados sintéticos · T17 evals de segurança · T18 polimento e ensaio | T16 e T17 livres, T18 Marco | A fazer |

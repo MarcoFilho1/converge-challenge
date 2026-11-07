@@ -74,6 +74,9 @@ Por que agora: a NR-1 exige gestão de fatores psicossociais desde 26/5/2026 e m
 - impeccable para desenho e crítica das telas antes do PR.
 
 ### 5.2 Fluxo do colaborador (via WhatsApp)
+
+> **Atualizado em 7/11 20h com a pesquisa `docs/questionario-whatsapp.md`, que prevalece sobre os itens 2 e 3 abaixo e sobre a regra de 5.3.** Roteiro completo: tronco de presenteísmo → WPAI Q5 (se tronco sim) → PHQ-2 (+ itens 3–8 se ≥2) → PHQ item 9 sempre → GAD-2 (+ itens 3–7 se ≥2) → BAT-12 → COPSOQ 2A, 4A, 12B, 23 → 2 abertas (5 a 8,5 min). SPS-6 sai (licença Merck/Stanford). Demo: tronco, WPAI Q5, BAT 1, PHQ 1, 2 e 9, COPSOQ 2A, aberta 1. Regra: urgência = PHQ item 9 ≥1 ou crise no texto; prioridade = C e (A ou B), ou C grave; atenção = (A e B) ou C ou assédio. Cortes: PHQ-9 ≥10 (grave ≥15), GAD-7 ≥10 (grave ≥15), BAT-12 média ≥2,54 (grave ≥2,96), WPAI Q5 ≥3 (operacional). Implementado em `src/lib/instruments/`.
+
 1. Médico seleciona contatos e clica "Enviar questionário". Bot envia: quem é, o que vai perguntar, quanto tempo leva (~6 min), que o destinatário é o médico do trabalho, e pede consentimento ("responda SIM para começar").
 2. Blocos, nesta ordem: tronco da SPS-6 (trabalhou com problema de saúde no último mês?) → SPS-6 (6 itens) → WPAI-GH (4 itens) → BAT-12 (12 itens) → PHQ-9 (9 itens) → GAD-7 (7 itens) → 2 abertas ("o que no trabalho está mais difícil agora?", "o que ajudaria?"). Um item por mensagem, com a escala em texto (ex.: "1 nunca · 2 raramente · 3 às vezes · 4 frequentemente · 5 sempre").
 3. Resposta fora do formato: o LLM interpreta texto para o valor da escala; se não der, o bot repete o item uma vez.

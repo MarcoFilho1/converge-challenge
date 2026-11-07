@@ -17,8 +17,8 @@ const phq1: Item = {
   },
 };
 const trunk: Item = {
-  code: "SPS6_TRUNK",
-  instrument: "SPS6",
+  code: "TRUNK",
+  instrument: "TRUNK",
   text: "No último mês, você trabalhou mesmo com algum problema de saúde?",
   scale: { min: 0, max: 1, higherIsWorse: true, labels: ["não", "sim"] },
 };
@@ -40,6 +40,11 @@ describe("mock embed", () => {
 });
 
 describe("mock interpretAnswer", () => {
+  it("lê sim/não no tronco com escala 1 não, 2 sim", async () => {
+    const trunk12: Item = { ...trunk, scale: { min: 1, max: 2, higherIsWorse: true, labels: ["não", "sim"] } };
+    expect(await ai.interpretAnswer(trunk12, "Sim")).toBe(2);
+    expect(await ai.interpretAnswer(trunk12, "nao")).toBe(1);
+  });
   it("lê número dentro da escala", async () => {
     expect(await ai.interpretAnswer(phq1, "2")).toBe(2);
   });

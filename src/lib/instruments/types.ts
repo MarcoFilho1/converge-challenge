@@ -1,4 +1,4 @@
-export type InstrumentCode = "SPS6" | "WPAI" | "BAT12" | "PHQ9" | "GAD7" | "OPEN";
+export type InstrumentCode = "TRUNK" | "WPAI" | "BAT12" | "PHQ9" | "GAD7" | "COPSOQ" | "OPEN";
 
 export type Scale = {
   min: number;
@@ -15,7 +15,17 @@ export type Item = {
   text: string;
   /** null = resposta aberta, sem escala. */
   scale: Scale | null;
+  /** Instrução e período de lembrança repetidos no topo de cada mensagem. */
+  instruction?: string;
+  /** Rótulo do bloco, ex.: "Parte 2 de 5 · Humor". */
+  part?: string;
+  /** Linha da escala como aparece no WhatsApp. */
+  scaleLine?: string;
+  /** Porta de entrada: o item só é perguntado se devolver true. */
+  when?: (answers: Answers) => boolean;
 };
+
+export type Answers = Record<string, number | null | undefined>;
 
 export type Score = {
   instrument: string;

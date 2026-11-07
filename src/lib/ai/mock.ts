@@ -49,10 +49,11 @@ function interpretLocal(item: Item, text: string): number | null {
     const value = Number(numberMatch[1].replace(",", "."));
     return value >= scale.min && value <= scale.max ? value : null;
   }
-  if (scale.min === 0 && scale.max === 1) {
+  const isYesNo = scale.labels?.length === 2 && scale.labels.map(normalizeText).join("|") === "nao|sim";
+  if (isYesNo) {
     const first = normalized.split(/[^a-z]+/)[0];
-    if (YES.includes(first)) return 1;
-    if (NO.includes(first)) return 0;
+    if (YES.includes(first)) return scale.min + 1;
+    if (NO.includes(first)) return scale.min;
   }
   if (scale.labels) {
     let best: { value: number; length: number } | null = null;
