@@ -19,6 +19,7 @@ beforeEach(() => {
   process.env.EVOLUTION_INSTANCE = "consultorio";
   process.env.APP_PUBLIC_URL = "http://host.docker.internal:3100";
   process.env.WHATSAPP_DRY_RUN = "false";
+  process.env.WEBHOOK_SECRET = "segredo";
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -71,11 +72,22 @@ describe("ensureInstance", () => {
     expect(body.webhook.events).toEqual(["MESSAGES_UPSERT", "CONNECTION_UPDATE"]);
   });
 
+  it("sempre reaplica o webhook com o cabeçalho secreto", async () => {
+    stubFetch(() => ({ status: 201, body: {} }));
+    await ensureInstance();
+    const set = calls.find((c) => c.url === "http://evo.test/webhook/set/consultorio");
+    expect(set).toBeTruthy();
+    const body = JSON.parse(set!.init.body as string);
+    expect(body.webhook.headers).toEqual({ "x-webhook-secret": "segredo" });
+    expect(body.webhook.url).toBe("http://host.docker.internal:3100/api/webhook/whatsapp");
+  });
+
   it("trata 'já existe' como sucesso", async () => {
-    stubFetch(() => ({
-      status: 403,
-      body: { status: 403, response: { message: ['This name "consultorio" is already in use.'] } },
-    }));
+    stubFetch((url) =>
+      url.endsWith("/instance/create")
+        ? { status: 403, body: { status: 403, response: { message: ['This name "consultorio" is already in use.'] } } }
+        : { status: 201, body: {} },
+    );
     await expect(ensureInstance()).resolves.toBeUndefined();
   });
 });

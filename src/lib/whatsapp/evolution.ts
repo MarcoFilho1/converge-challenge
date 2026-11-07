@@ -43,26 +43,33 @@ async function call<T>(method: "GET" | "POST" | "DELETE", path: string, body?: u
   return json as T;
 }
 
+function webhookConfig() {
+  const { appUrl } = cfg();
+  return {
+    enabled: true,
+    url: `${appUrl}/api/webhook/whatsapp`,
+    headers: { "x-webhook-secret": process.env.WEBHOOK_SECRET ?? "" },
+    byEvents: false,
+    base64: false,
+    events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
+  };
+}
+
+/** Cria a instância Baileys (se não existir) e sempre reaplica o webhook com o cabeçalho secreto. */
 export async function ensureInstance(): Promise<void> {
-  const { instance, appUrl } = cfg();
+  const { instance } = cfg();
   try {
     await call("POST", "/instance/create", {
       instanceName: instance,
       qrcode: true,
       integration: "WHATSAPP-BAILEYS",
       groupsIgnore: true,
-      webhook: {
-        enabled: true,
-        url: `${appUrl}/api/webhook/whatsapp`,
-        byEvents: false,
-        base64: false,
-        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
-      },
+      webhook: webhookConfig(),
     });
   } catch (err) {
-    if (err instanceof EvolutionError && err.status === 403 && /already in use/i.test(err.message)) return;
-    throw err;
+    if (!(err instanceof EvolutionError && err.status === 403 && /already in use/i.test(err.message))) throw err;
   }
+  await call("POST", `/webhook/set/${instance}`, { webhook: webhookConfig() });
 }
 
 export async function getQr(): Promise<{ base64: string | null; code: string | null; count: number }> {
