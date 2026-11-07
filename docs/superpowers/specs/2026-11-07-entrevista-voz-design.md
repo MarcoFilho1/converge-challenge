@@ -179,7 +179,7 @@ O Marco pediu ao agente Antigravity #2 (Maestro) que construa as telas (M5 do m�
 - Ponta a ponta: abrir o link, falar, ouvir a Helena responder em ≤ 4 s, 3 turnos, encerrar, resumo visível ao médico com origem clicável.
 - Latência medida e registrada em `docs/medicoes-voz.md`.
 
-## 8. Decisões em aberto para o Marco
-1. **Chave do AI Gateway para a demo por voz** (sem ela a entrevista roda, mas com acolhimento fixo e extração por regra).
-2. **Voz de quem**: clonar a voz de alguém do time (precisa de 10 a 30 s de áudio limpo e consentimento) ou criar uma voz por descrição (Qwen VoiceDesign/CustomVoice). Nome provisório da entrevistadora: Helena.
-3. **Onde o médico vê**: página própria `/medico/entrevista/[id]` (esta spec) ou esperar a tela do Caso do MVP1 e entrar como aba.
+## 8. Decisões do Marco (7/11, 22h30)
+1. **Chave do AI Gateway**: a providenciar pelo Marco; até lá o motor roda em mock. O código fica pronto para os dois modos.
+2. **Voz criada por descrição** (Qwen VoiceDesign no Voicebox), sem clonar ninguém. Entrevistadora: Helena. Descrição inicial (minha): "mulher brasileira, 35 a 45 anos, voz calma e acolhedora, ritmo pausado, sem sotaque marcado". Plano B: preset pt do Qwen CustomVoice ou Kokoro.
+3. **Onde o médico vê**: aba "Entrevista" em `/caso/[runId]`, construída pelo Antigravity #2 (seção 5.12).
