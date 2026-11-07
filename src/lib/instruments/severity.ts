@@ -38,7 +38,7 @@ export function computeSeverity(input: {
     const gad = score(scores, "GAD7", "total");
     C = !!bat?.flagged || !!phq?.flagged || !!gad?.flagged;
     Cgrave =
-      (!!bat?.complete && bat.value >= CUTOFFS.BAT12_SEVERE) ||
+      (!!bat?.flagged && bat.value >= CUTOFFS.BAT12_SEVERE) ||
       (!!phq && phq.value >= CUTOFFS.PHQ9_SEVERE) ||
       (!!gad && gad.value >= CUTOFFS.GAD7_SEVERE);
   }

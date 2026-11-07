@@ -25,6 +25,8 @@ export const CUTOFFS = {
 } as const;
 
 const has = (a: Answers, code: string) => a[code] !== undefined && a[code] !== null;
+/** O item foi perguntado (tem linha de resposta, mesmo que nula). */
+const asked = (a: Answers, codes: string[]) => codes.some((c) => c in a);
 const val = (a: Answers, code: string) => a[code] as number;
 
 function total(a: Answers, codes: string[]) {
@@ -47,8 +49,12 @@ export function scoreRun(answers: Answers, demoShort: boolean): Score[] {
     const cutoff = demoShort ? CUTOFFS.PHQ2_DEMO : CUTOFFS.PHQ2_GATE;
     push("PHQ2", "total", phq2.sum, cutoff, phq2.sum >= cutoff);
   }
+  // Total do PHQ-9 sempre que a porta abriu (algum item 3–8 foi perguntado). Com item nulo, a soma
+  // dos presentes é limite inferior do total: se já passa do corte, o sinal é certo.
   const phq9 = total(answers, Array.from({ length: 9 }, (_, i) => `PHQ9_${i + 1}`));
-  if (phq9.complete) push("PHQ9", "total", phq9.sum, CUTOFFS.PHQ9, phq9.sum >= CUTOFFS.PHQ9);
+  if (phq9.complete || asked(answers, [3, 4, 5, 6, 7, 8].map((i) => `PHQ9_${i}`))) {
+    push("PHQ9", "total", phq9.sum, CUTOFFS.PHQ9, phq9.sum >= CUTOFFS.PHQ9, phq9.complete);
+  }
   if (has(answers, "PHQ9_9")) {
     const v = val(answers, "PHQ9_9");
     push("PHQ9", "item9", v, CUTOFFS.PHQ9_ITEM9, v >= CUTOFFS.PHQ9_ITEM9);
@@ -57,7 +63,9 @@ export function scoreRun(answers: Answers, demoShort: boolean): Score[] {
   const gad2 = total(answers, ["GAD7_1", "GAD7_2"]);
   if (gad2.complete) push("GAD2", "total", gad2.sum, CUTOFFS.GAD2_GATE, gad2.sum >= CUTOFFS.GAD2_GATE);
   const gad7 = total(answers, Array.from({ length: 7 }, (_, i) => `GAD7_${i + 1}`));
-  if (gad7.complete) push("GAD7", "total", gad7.sum, CUTOFFS.GAD7, gad7.sum >= CUTOFFS.GAD7);
+  if (gad7.complete || asked(answers, [3, 4, 5, 6, 7].map((i) => `GAD7_${i}`))) {
+    push("GAD7", "total", gad7.sum, CUTOFFS.GAD7, gad7.sum >= CUTOFFS.GAD7, gad7.complete);
+  }
 
   if (demoShort) {
     if (has(answers, "BAT_1")) {
@@ -68,7 +76,8 @@ export function scoreRun(answers: Answers, demoShort: boolean): Score[] {
     const bat = total(answers, BAT12_NUMBERS.map((n) => `BAT_${n}`));
     if (bat.any) {
       const mean = bat.sum / bat.n;
-      push("BAT12", "total", mean, CUTOFFS.BAT12, bat.complete && mean >= CUTOFFS.BAT12, bat.complete);
+      // Média dos presentes; só sinaliza com pelo menos metade dos 12 itens respondidos.
+      push("BAT12", "total", mean, CUTOFFS.BAT12, bat.n >= 6 && mean >= CUTOFFS.BAT12, bat.complete);
     }
   }
 

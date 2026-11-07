@@ -7,6 +7,8 @@ const saveConnectionState = vi.fn();
 vi.mock("@/lib/engine/engine", () => ({ handleIncoming: (...a: unknown[]) => handleIncoming(...a) }));
 vi.mock("@/lib/whatsapp/evolution", () => ({ sendText: (...a: unknown[]) => sendText(...a) }));
 vi.mock("@/lib/whatsapp/session", () => ({ saveConnectionState: (...a: unknown[]) => saveConnectionState(...a) }));
+const markDelivery = vi.fn();
+vi.mock("@/lib/engine/repo", () => ({ markDelivery: (...a: unknown[]) => markDelivery(...a) }));
 
 const body = (fromMe: boolean, id = "X1") => ({
   event: "messages.upsert",
@@ -64,6 +66,21 @@ describe("POST /api/webhook/whatsapp", () => {
     handleIncoming.mockRejectedValue(new Error("banco fora"));
     const res = await post(body(false));
     expect(res.status).toBe(200);
+  });
+
+  it("tenta de novo quando o envio falha e não pula as mensagens seguintes", async () => {
+    process.env.SEND_RETRY_DELAY_MS = "0";
+    handleIncoming.mockResolvedValue({ outbound: ["crise", "depois"], outboundIds: ["m1", "m2"], runId: "r", event: "crisis" });
+    sendText
+      .mockRejectedValueOnce(new Error("fora"))
+      .mockRejectedValueOnce(new Error("fora"))
+      .mockResolvedValueOnce({ waMessageId: "ok1" })
+      .mockRejectedValue(new Error("fora de vez"));
+    const res = await post(body(false, "R1"));
+    expect(res.status).toBe(200);
+    expect(sendText.mock.calls.map((c) => c[1])).toEqual(["crise", "crise", "crise", "depois", "depois", "depois"]);
+    expect(markDelivery).toHaveBeenCalledWith("m1", "ok1");
+    expect(markDelivery).toHaveBeenCalledWith("m2", null);
   });
 
   it("grava o estado da conexão", async () => {

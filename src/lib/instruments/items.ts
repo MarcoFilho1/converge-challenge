@@ -28,6 +28,8 @@ const BAT_INSTRUCTION =
 const COPSOQ_INSTRUCTION = "Sobre o seu trabalho:";
 
 const sum = (a: Answers, codes: string[]) => codes.reduce((s, c) => s + (a[c] ?? 0), 0);
+/** Porta de entrada falha aberta: resposta nula ou ausente não conta como negativa. */
+const unknown = (a: Answers, codes: string[]) => codes.some((c) => a[c] === null || a[c] === undefined);
 export const phq2 = (a: Answers) => sum(a, ["PHQ9_1", "PHQ9_2"]);
 export const gad2 = (a: Answers) => sum(a, ["GAD7_1", "GAD7_2"]);
 export const TRUNK_YES = 2;
@@ -51,7 +53,7 @@ const wpaiQ5: Item = {
   text: "Durante os últimos sete dias, até que ponto seus problemas de saúde afetaram sua produtividade enquanto estava trabalhando? Considere os dias em que você ficou limitado em relação à quantidade ou ao tipo de trabalho que você pôde realizar, os dias em que você realizou muito menos do que gostaria ou os dias em que você não conseguiu trabalhar de forma tão cuidadosa como o normal. Se seus problemas de saúde apenas afetaram um pouco seu trabalho, escolha um número baixo. Escolha um número alto se seus problemas de saúde afetaram muito seu trabalho.",
   scale: { min: 0, max: 10, higherIsWorse: true },
   scaleLine: "Responda de 0 a 10 · 0 = não tiveram nenhum efeito sobre meu trabalho · 10 = me impediram completamente de realizar meu trabalho",
-  when: (a) => a.TRUNK === TRUNK_YES,
+  when: (a) => a.TRUNK === TRUNK_YES || a.TRUNK === null || a.TRUNK === undefined,
 };
 
 const PHQ_TEXTS = [
@@ -75,7 +77,7 @@ const phq = PHQ_TEXTS.map<Item>((text, i) => ({
   scale: PHQ_SCALE,
   scaleLine: PHQ_LINE,
   // Itens 3–8 só se PHQ-2 >= 2 (Levis 2020). Item 9 sempre.
-  when: i >= 2 && i <= 7 ? (a) => phq2(a) >= 2 : undefined,
+  when: i >= 2 && i <= 7 ? (a) => unknown(a, ["PHQ9_1", "PHQ9_2"]) || phq2(a) >= 2 : undefined,
 }));
 
 const GAD_TEXTS = [
@@ -97,7 +99,7 @@ const gad = GAD_TEXTS.map<Item>((text, i) => ({
   scale: PHQ_SCALE,
   scaleLine: PHQ_LINE,
   // Itens 3–7 só se GAD-2 >= 2 (escolha de produto, ver pesquisa 1.2).
-  when: i >= 2 ? (a) => gad2(a) >= 2 : undefined,
+  when: i >= 2 ? (a) => unknown(a, ["GAD7_1", "GAD7_2"]) || gad2(a) >= 2 : undefined,
 }));
 
 /** BAT-12: números do formulário brasileiro de 23 itens (versão reduzida). */

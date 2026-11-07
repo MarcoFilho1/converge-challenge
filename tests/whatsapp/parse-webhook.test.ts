@@ -54,3 +54,27 @@ describe("parseWebhook", () => {
     expect(parseWebhook({ event: "contacts.update" })).toEqual({ kind: "ignore" });
   });
 });
+
+describe("parseWebhook · contatos @lid", () => {
+  it("usa o número alternativo quando o remoteJid é @lid", () => {
+    const out = parseWebhook({
+      event: "messages.upsert",
+      data: {
+        key: { remoteJid: "123456789@lid", remoteJidAlt: "5581999990001@s.whatsapp.net", fromMe: false, id: "L1" },
+        message: { conversation: "sim" },
+      },
+    });
+    expect(out).toMatchObject({ kind: "message", phone: "5581999990001", text: "sim" });
+  });
+
+  it("usa senderPn quando não há remoteJidAlt", () => {
+    const out = parseWebhook({
+      event: "messages.upsert",
+      data: {
+        key: { remoteJid: "123456789@lid", senderPn: "5581999990001@s.whatsapp.net", fromMe: false, id: "L2" },
+        message: { conversation: "2" },
+      },
+    });
+    expect(out).toMatchObject({ kind: "message", phone: "5581999990001" });
+  });
+});

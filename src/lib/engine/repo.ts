@@ -47,13 +47,22 @@ export async function updateRun(id: string, patch: Partial<QuestionnaireRun>) {
   await db.update(questionnaireRuns).set(patch).where(eq(questionnaireRuns.id, id));
 }
 
-export async function messageExists(waMessageId: string) {
-  const [m] = await db.select({ id: messages.id }).from(messages).where(eq(messages.waMessageId, waMessageId));
-  return !!m;
+/** Grava a mensagem e devolve o id, ou null se o waMessageId já existia (duplicata). */
+export async function insertMessage(values: typeof messages.$inferInsert): Promise<string | null> {
+  const rows = await db.insert(messages).values(values).onConflictDoNothing().returning({ id: messages.id });
+  return rows[0]?.id ?? null;
 }
 
-export async function insertMessage(values: typeof messages.$inferInsert) {
-  await db.insert(messages).values(values).onConflictDoNothing();
+export async function setMessageRun(messageId: string, runId: string) {
+  await db.update(messages).set({ runId }).where(eq(messages.id, messageId));
+}
+
+/** Depois do envio: guarda o id do WhatsApp ou marca que não foi entregue. */
+export async function markDelivery(messageId: string, waMessageId: string | null) {
+  await db
+    .update(messages)
+    .set(waMessageId ? { waMessageId, deliveryFailed: false } : { deliveryFailed: true })
+    .where(eq(messages.id, messageId));
 }
 
 export async function getAnswers(runId: string): Promise<Answers> {

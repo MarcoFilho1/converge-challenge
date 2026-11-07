@@ -20,7 +20,13 @@ export type EngineEvent =
   | "finished"
   | "no_active_run";
 
-export type EngineResult = { outbound: string[]; runId: string | null; event: EngineEvent };
+export type EngineResult = {
+  outbound: string[];
+  /** Ids das linhas em `messages` de cada outbound, na mesma ordem (para marcar entrega). */
+  outboundIds: string[];
+  runId: string | null;
+  event: EngineEvent;
+};
 
 type Hooks = {
   onAnswer?: (answerId: string) => Promise<void>;
@@ -43,7 +49,10 @@ const YES = new Set(["1", "sim", "s", "aceito", "sim, aceito", "aceitar", "ok"])
 const NO = new Set(["2", "nao", "n", "nao quero", "nao quero participar"]);
 const unknownNotified = new Set<string>();
 
-export async function startRun(contactId: string, opts: { demoShort?: boolean } = {}): Promise<{ runId: string; outbound: string[] }> {
+export async function startRun(
+  contactId: string,
+  opts: { demoShort?: boolean } = {},
+): Promise<{ runId: string; outbound: string[]; outboundIds: string[] }> {
   const contact = await repo.getContact(contactId);
   if (!contact) throw new Error("Contato não encontrado");
   const demoShort = opts.demoShort ?? process.env.DEMO_SHORT === "true";
@@ -51,12 +60,29 @@ export async function startRun(contactId: string, opts: { demoShort?: boolean } 
   if (active) await repo.updateRun(active.id, { status: "stopped", finishedAt: new Date() });
   const run = await repo.createRun({ contactId, status: "consent", demoShort, startedAt: new Date() });
   const outbound = [copy.consent(contact.name, demoShort)];
-  await recordOut(contactId, run.id, outbound);
-  return { runId: run.id, outbound };
+  const outboundIds = await recordOut(contactId, run.id, outbound);
+  return { runId: run.id, outbound, outboundIds };
 }
 
-async function recordOut(contactId: string, runId: string | null, outbound: string[]) {
-  for (const text of outbound) await repo.insertMessage({ contactId, runId, direction: "out", text });
+async function recordOut(contactId: string, runId: string | null, outbound: string[]): Promise<string[]> {
+  const ids: string[] = [];
+  for (const text of outbound) {
+    const id = await repo.insertMessage({ contactId, runId, direction: "out", text });
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
+/** Uma fila por telefone: mensagens da mesma pessoa são processadas uma de cada vez, na ordem de chegada. */
+const queues = new Map<string, Promise<unknown>>();
+function serialize<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = queues.get(key) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(task);
+  queues.set(key, current);
+  current.finally(() => {
+    if (queues.get(key) === current) queues.delete(key);
+  }).catch(() => undefined);
+  return current;
 }
 
 export async function finishRun(
@@ -77,23 +103,35 @@ export async function finishRun(
   await runHook(hooks.onRunFinished && (() => hooks.onRunFinished!(run.id)));
 }
 
-export async function handleIncoming(input: { phone: string; text: string; waMessageId: string }): Promise<EngineResult> {
+export function handleIncoming(input: { phone: string; text: string; waMessageId: string }): Promise<EngineResult> {
+  return serialize(input.phone, () => processIncoming(input));
+}
+
+async function processIncoming(input: { phone: string; text: string; waMessageId: string }): Promise<EngineResult> {
   const { phone, text, waMessageId } = input;
-  if (waMessageId && (await repo.messageExists(waMessageId))) return { outbound: [], runId: null, event: "duplicate" };
+  const none = (event: EngineEvent, outbound: string[] = []): EngineResult => ({ outbound, outboundIds: [], runId: null, event });
 
   const contact = await repo.findContactByPhone(phone);
   if (!contact) {
-    if (unknownNotified.has(phone)) return { outbound: [], runId: null, event: "ignored_unknown" };
+    if (unknownNotified.has(phone)) return none("ignored_unknown");
     unknownNotified.add(phone);
-    return { outbound: [copy.unknownNumber], runId: null, event: "ignored_unknown" };
+    return none("ignored_unknown", [copy.unknownNumber]);
   }
 
   const active = await repo.getActiveRun(contact.id);
-  await repo.insertMessage({ contactId: contact.id, runId: active?.id ?? null, direction: "in", text, waMessageId });
+  // Gravar primeiro: o índice único em wa_message_id torna a detecção de duplicata atômica.
+  const inboundId = await repo.insertMessage({
+    contactId: contact.id,
+    runId: active?.id ?? null,
+    direction: "in",
+    text,
+    waMessageId: waMessageId || null,
+  });
+  if (!inboundId) return none("duplicate");
 
   const reply = async (runId: string | null, event: EngineEvent, outbound: string[]): Promise<EngineResult> => {
-    await recordOut(contact.id, runId, outbound);
-    return { outbound, runId, event };
+    const outboundIds = await recordOut(contact.id, runId, outbound);
+    return { outbound, outboundIds, runId, event };
   };
 
   // 1. Corte de crise: sempre primeiro, antes de qualquer IA.
@@ -110,6 +148,7 @@ export async function handleIncoming(input: { phone: string; text: string; waMes
       startedAt: new Date(),
       finishedAt: new Date(),
     });
+    await repo.setMessageRun(inboundId, run.id);
     return reply(run.id, "crisis", [CRISIS_REPLY]);
   }
 
@@ -127,12 +166,18 @@ export async function handleIncoming(input: { phone: string; text: string; waMes
     if (!latest || (latest.status !== "crisis" && latest.status !== "stopped") || latest.currentItem < 0) {
       return reply(null, "no_active_run", [copy.noActiveRun]);
     }
+    // Sem consentimento dado antes, não há o que retomar: pede o consentimento de novo.
+    if (!latest.consentedAt) {
+      const started = await startRun(contact.id, { demoShort: latest.demoShort });
+      return { ...started, event: "consent_repeat" };
+    }
     const items = getItems(latest.demoShort);
     const run = await repo.createRun({
       contactId: contact.id,
       status: "in_progress",
       demoShort: latest.demoShort,
       resumedFromRunId: latest.id,
+      consentedAt: latest.consentedAt,
       startedAt: new Date(),
     });
     await repo.copyAnswers(latest.id, run.id);
@@ -148,8 +193,8 @@ export async function handleIncoming(input: { phone: string; text: string; waMes
   }
 
   if (command === "comecar" && !active) {
-    const { runId, outbound } = await startRun(contact.id);
-    return { outbound, runId, event: "consent_repeat" };
+    const started = await startRun(contact.id);
+    return { ...started, event: "consent_repeat" };
   }
 
   if (!active) return reply(null, "no_active_run", [copy.noActiveRun]);
@@ -160,7 +205,7 @@ export async function handleIncoming(input: { phone: string; text: string; waMes
   if (active.status === "consent") {
     if (YES.has(command)) {
       const first = nextItemIndex(items, {}, 0);
-      await repo.updateRun(active.id, { status: "in_progress", currentItem: first });
+      await repo.updateRun(active.id, { status: "in_progress", currentItem: first, consentedAt: new Date() });
       return reply(active.id, "consent_ok", [copy.opening, formatItem(items[first])]);
     }
     if (NO.has(command)) {
