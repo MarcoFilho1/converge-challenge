@@ -14,6 +14,7 @@
     "evals": "tsx scripts/evals.ts"
   },
   "dependencies": {
+    "ai": "^7.0.164",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.5",
     "pdf-parse": "^2.4.5",
