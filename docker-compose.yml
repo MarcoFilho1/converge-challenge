@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: consultorio
+      POSTGRES_PASSWORD: consultorio
+      POSTGRES_DB: consultorio
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U consultorio"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8082:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SERVER_URL: http://localhost:8082
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-consultorio-dev-key}
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://consultorio:consultorio@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/1
+      CACHE_REDIS_PREFIX_KEY: evo
+      CACHE_LOCAL_ENABLED: "false"
+      QRCODE_LIMIT: "30"
+      LANGUAGE: pt-BR
+      DEL_INSTANCE: "false"
+      LOG_LEVEL: ERROR,WARN,INFO
+
+volumes:
+  pgdata:
+  evolution_instances:

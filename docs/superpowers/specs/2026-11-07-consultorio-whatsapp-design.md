@@ -40,7 +40,7 @@ Por que agora: a NR-1 exige gestão de fatores psicossociais desde 26/5/2026 e m
 ## 3. Restrições
 
 - Tempo: ~11,5 h de build, 4 pessoas, demo de 3 min no fim.
-- Máquina: Mac do Marco, Docker 29 (OrbStack), Node 22, pnpm. Portas 3000, 5432, 6379 e 8080 **já estão ocupadas** por outros serviços; usar 3100 (Next), 5433 (Postgres), 6380 (Redis), 8081 (Evolution).
+- Máquina: Mac do Marco, Docker 29 (OrbStack), Node 22, pnpm. Portas 3000, 5432, 6379 e 8080 **já estão ocupadas** por outros serviços; usar 3100 (Next), 5434 (Postgres), 6380 (Redis), 8082 (Evolution).
 - WhatsApp: celular real da empresa (ou de alguém do time na demo), número não oficial. Evolution API usa Baileys; risco de ban se houver spam. Enviar só a quem foi cadastrado, com intervalo entre mensagens.
 - Dados: só sintéticos na demo. Telefones reais só do time.
 - LGPD: dado de saúde é sensível. Mesmo sem autenticação real agora, o banco do consultório é separado e nada dele é exposto por API pública sem a sessão de login.
@@ -67,8 +67,8 @@ Por que agora: a NR-1 exige gestão de fatores psicossociais desde 26/5/2026 e m
 
 ### 5.1 Pilha
 - Next.js 15 (App Router, TypeScript) na porta 3100. Server Actions e Route Handlers para API.
-- Postgres 16 com pgvector (imagem `pgvector/pgvector:pg16`) na 5433, com dois bancos: `evolution` e `consultorio`. Redis na 6380 só para o Evolution.
-- Evolution API v2 (imagem `atendai/evolution-api:v2.x`) na 8081, com webhook apontando para `http://host.docker.internal:3100/api/webhook/whatsapp`.
+- Postgres 16 com pgvector (imagem `pgvector/pgvector:pg16`) na 5434, com dois bancos: `evolution` e `consultorio`. Redis na 6380 só para o Evolution.
+- Evolution API v2 (imagem `atendai/evolution-api:v2.x`) na 8082, com webhook apontando para `http://host.docker.internal:3100/api/webhook/whatsapp`.
 - Camada de IA com provedor trocável por `.env` (ver seção 8): `mock` por padrão, `gateway` (Vercel AI SDK + AI Gateway, Claude Sonnet 5.5) quando houver chave.
 - Drizzle ORM para o schema do app. `docker-compose.yml` na raiz sobe tudo.
 - impeccable para desenho e crítica das telas antes do PR.
