@@ -11,7 +11,8 @@
     "db:push": "drizzle-kit push --force",
     "ingest": "tsx scripts/ingest.ts",
     "seed": "tsx scripts/seed.ts",
-    "evals": "tsx scripts/evals.ts"
+    "evals": "tsx scripts/evals.ts",
+    "ai:check": "tsx scripts/ai-check.ts"
   },
   "dependencies": {
     "ai": "^7.0.164",

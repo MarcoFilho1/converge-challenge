@@ -16,4 +16,14 @@ pnpm dev                    # http://localhost:3100
 pnpm test
 ```
 
-IA roda em modo simulado (`AI_PROVIDER=mock`). Para usar um modelo real, preencha `AI_GATEWAY_API_KEY` e troque para `AI_PROVIDER=gateway`.
+IA roda em modo simulado (`AI_PROVIDER=mock`). Para ligar a IA real:
+
+```bash
+# 1. preencha AI_GATEWAY_API_KEY no .env
+pnpm ai:check      # confere embeddings (1536 dimensões) e chat em menos de um minuto
+# 2. troque AI_PROVIDER=mock por AI_PROVIDER=gateway no .env
+pnpm ingest        # refaz os vetores da base com o modelo real
+pnpm evals         # confere origem, termos e crise com a IA real
+```
+
+Outros comandos: `pnpm db:push` (schema), `pnpm ingest` (base de conhecimento), `pnpm evals` (checagens de segurança no banco de teste).
