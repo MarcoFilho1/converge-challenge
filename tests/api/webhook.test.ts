@@ -161,7 +161,7 @@ describe("tempo de resposta no rastro", () => {
     const ev = recordEvent.mock.calls.map((c) => c[0]).find((e) => e.kind === "resposta no WhatsApp");
     expect(ev).toMatchObject({ outcome: "ok", runId: "r1", waMessageId: "MSG-1" });
     expect(typeof ev.latencyMs).toBe("number");
-    expect(ev.detail).toMatch(/texto · 2 mensagens/);
+    expect(ev.detail).toMatch(/texto · 2 mensagens enviadas · resposta gravada/);
   });
 
   it("duplicata e número desconhecido não contam como resposta", async () => {

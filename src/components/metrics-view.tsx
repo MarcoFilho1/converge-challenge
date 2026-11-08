@@ -4,6 +4,9 @@ const usd = (v: number | null, digits = 4) =>
   v === null ? "—" : `US$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 const secs = (ms: number | null) => (ms === null ? "—" : `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`);
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
+const int = (v: number) => v.toLocaleString("pt-BR");
+const dec = (v: number | null) => (v === null ? "—" : v.toLocaleString("pt-BR", { maximumFractionDigits: 1 }));
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return <th className={`border-b border-[var(--border)] px-3 pb-2.5 text-[12px] font-normal text-[var(--muted)] ${right ? "text-right" : "text-left"}`}>{children}</th>;
@@ -19,6 +22,7 @@ function Td({ children, right, strong }: { children: React.ReactNode; right?: bo
 /** Página Medição: quanto custa e quanto demora cada atendimento, e quão confiável é cada etapa. */
 export function MetricsView({ metrics, since, events }: { metrics: Metrics; since: string | null; events: number }) {
   const m = metrics;
+  const w = m.whatsapp;
   const perCase = m.costPerQuestionnaire !== null || m.costPerInterview !== null ? (m.costPerQuestionnaire ?? 0) + (m.costPerInterview ?? 0) : null;
   const fallbacks = m.stages.reduce((a, s) => a + s.fallbacks, 0);
   const sinceText = since ? new Date(since).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Recife" }) : null;
@@ -58,6 +62,34 @@ export function MetricsView({ metrics, since, events }: { metrics: Metrics; sinc
         </tbody>
       </table>
 
+      <h2 className="mt-10 text-[15px] font-semibold">WhatsApp</h2>
+      <p className="mt-1 text-[13px] text-[var(--muted)]">
+        Cada mensagem que o colaborador mandou, com tudo o que ela disparou: transcrição do áudio, leitura da resposta, crise, indícios e envio.
+      </p>
+      {w.messages === 0 ? (
+        <p className="mt-3 text-[14px] text-[var(--muted)]">Ainda não há mensagens do WhatsApp registradas no rastro.</p>
+      ) : (
+        <table className="mt-3 w-full border-collapse" aria-label="WhatsApp">
+          <thead>
+            <tr>
+              <Th>Medida</Th>
+              <Th right>Valor</Th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><Td>Mensagens atendidas</Td><Td right strong>{int(w.messages)}{w.audio ? ` (${int(w.audio)} por áudio)` : ""}</Td></tr>
+            <tr><Td>Custo de IA por mensagem</Td><Td right strong>{usd(w.costPerMessage, 5)}</Td></tr>
+            <tr><Td>Chamadas de IA por mensagem</Td><Td right strong>{dec(w.aiCallsPerMessage)}</Td></tr>
+            <tr><Td>Tempo até a resposta chegar · típico e pior (p95)</Td><Td right strong>{secs(w.replyP50Ms)} · {secs(w.replyP95Ms)}</Td></tr>
+            <tr><Td>Respostas entendidas de primeira</Td><Td right strong>{pct(w.firstTime)}</Td></tr>
+            <tr><Td>Respostas em que o bot pediu confirmação</Td><Td right strong>{pct(w.confirmed)}</Td></tr>
+            <tr><Td>Respostas que não deu para ler (bot pediu de novo com as opções)</Td><Td right strong>{pct(w.rejected)}</Td></tr>
+            <tr><Td>Lidas pela regra local, sem IA (rótulo exato ou IA fora do ar)</Td><Td right strong>{pct(w.localRule)}</Td></tr>
+            <tr><Td>Áudios que não deu para transcrever</Td><Td right strong>{int(w.transcriptionFailures)}</Td></tr>
+          </tbody>
+        </table>
+      )}
+
       <h2 className="mt-10 text-[15px] font-semibold">Por etapa</h2>
       <p className="mt-1 text-[13px] text-[var(--muted)]">Tempo típico é a mediana; pior tempo é o p95 das chamadas que deram certo.</p>
       <div className="mt-3 overflow-x-auto">
@@ -92,24 +124,32 @@ export function MetricsView({ metrics, since, events }: { metrics: Metrics; sinc
       {m.models.length > 0 && (
         <>
           <h2 className="mt-10 text-[15px] font-semibold">Por modelo</h2>
-          <table className="mt-3 w-full border-collapse" aria-label="Por modelo">
-            <thead>
-              <tr>
-                <Th>Modelo</Th>
-                <Th right>Chamadas</Th>
-                <Th right>Custo</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {m.models.map((x) => (
-                <tr key={x.model}>
-                  <Td strong>{x.model}</Td>
-                  <Td right>{x.calls}</Td>
-                  <Td right>{usd(x.costUsd)}</Td>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse" aria-label="Por modelo">
+              <thead>
+                <tr>
+                  <Th>Modelo</Th>
+                  <Th right>Chamadas</Th>
+                  <Th right>Tokens de entrada</Th>
+                  <Th right>Tokens de saída</Th>
+                  <Th right>Por mil tokens</Th>
+                  <Th right>Custo</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {m.models.map((x) => (
+                  <tr key={x.model}>
+                    <Td strong>{x.model}</Td>
+                    <Td right>{int(x.calls)}</Td>
+                    <Td right>{int(x.tokensIn)}</Td>
+                    <Td right>{int(x.tokensOut)}</Td>
+                    <Td right>{usd(x.usdPer1kTokens, 5)}</Td>
+                    <Td right>{usd(x.costUsd)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
       <p className="mt-6 text-[12px] text-[var(--muted)]">Custo informado pela Featherless em cada chamada. A gravidade e o convite são regras em código e não custam nada.</p>

@@ -27,6 +27,8 @@ export function recordEvent(e: EventInput): void {
   if (process.env.OBS_DISABLED === "true") return;
   const ctx = obsContext();
   const row = {
+    // hora do passo, não da gravação (as gravações são em paralelo e podem chegar fora de ordem)
+    createdAt: new Date(),
     runId: e.runId ?? ctx.runId ?? null,
     interviewId: e.interviewId ?? ctx.interviewId ?? null,
     answerId: e.answerId ?? ctx.answerId ?? null,

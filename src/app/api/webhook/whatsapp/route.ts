@@ -41,6 +41,28 @@ async function deliver(phone: string, result: EngineResult) {
   }
 }
 
+/** O que o bot fez com a mensagem, em palavras (aparece no rastro do Caso). */
+const REPLY_LABEL: Partial<Record<EngineResult["event"], string>> = {
+  answer: "resposta gravada",
+  confirm: "pediu confirmação",
+  repeat: "pediu de novo com as opções",
+  doubt: "explicou a pergunta",
+  corrected: "corrigiu a resposta anterior",
+  consent_ok: "aceitou participar",
+  consent_repeat: "pediu sim ou não para começar",
+  declined: "recusou participar",
+  stopped: "parou o questionário",
+  crisis: "crise: CVV 188 e SAMU 192 enviados",
+  crisis_confirm: "pediu confirmação de risco",
+  crisis_denied: "negou risco e seguiu",
+  finished: "terminou o questionário",
+  resumed: "retomou o questionário",
+  joined: "entrou pela entrada aberta",
+  already_running: "repetiu a pergunta atual",
+  no_active_run: "sem questionário ativo",
+  media: "mídia que o bot não lê",
+};
+
 /** Quanto a pessoa esperou, do webhook chegar até a última resposta sair. Duplicata e número desconhecido não contam. */
 function recordReply(waMessageId: string, result: EngineResult, startedMs: number, via: "texto" | "áudio" | "mídia") {
   if (result.event === "duplicate" || result.event === "ignored_unknown") return;
@@ -51,7 +73,7 @@ function recordReply(waMessageId: string, result: EngineResult, startedMs: numbe
     runId: result.runId,
     waMessageId,
     latencyMs: Date.now() - startedMs,
-    detail: `${via} · ${n} ${n === 1 ? "mensagem" : "mensagens"} · ${result.event}`,
+    detail: `${via} · ${n} ${n === 1 ? "mensagem enviada" : "mensagens enviadas"} · ${REPLY_LABEL[result.event] ?? result.event}`,
   });
 }
 
