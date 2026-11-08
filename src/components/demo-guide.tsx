@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { ChannelEntry } from "@/components/channel-entry";
 import type { PublicChannels } from "@/lib/channels/public";
 
@@ -51,32 +50,18 @@ function Step({ n, role, title, last, children }: { n: number; role: Role; title
   );
 }
 
-function EntryQr() {
-  const [qr, setQr] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    import("qrcode")
-      .then((QRCode) => QRCode.toString(`${window.location.origin}/entrar`, { type: "svg", margin: 1, color: { dark: "#24363B", light: "#FFFFFF" } }))
-      .then((svg) => {
-        if (alive) setQr(svg);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
-  if (!qr) return <div className="hidden h-[168px] w-[168px] rounded-[12px] bg-[var(--raised)] sm:block" aria-hidden="true" />;
+function EntryQr({ svg }: { svg: string }) {
   return (
     <div
       role="img"
       aria-label="QR code para abrir o teste no celular"
       className="hidden w-[168px] shrink-0 rounded-[12px] border border-[var(--frame-line)] bg-[#FFFFFF] p-2 sm:block [&_svg]:h-auto [&_svg]:w-full"
-      dangerouslySetInnerHTML={{ __html: qr }}
+      dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
 }
 
-export function DemoGuide({ channels }: { channels: PublicChannels }) {
+export function DemoGuide({ channels, qr }: { channels: PublicChannels; qr: string }) {
   return (
     <div className="min-h-svh bg-[var(--frame)] px-4 py-8 text-[var(--ink)] sm:py-14">
       <main className="mx-auto w-full max-w-[720px] rounded-[18px] border border-[var(--frame-line)] bg-[var(--card)] px-6 py-8 shadow-[var(--sheet-shadow)] sm:px-10 sm:py-12">
@@ -110,7 +95,7 @@ export function DemoGuide({ channels }: { channels: PublicChannels }) {
               momento, escreva PARAR.
             </p>
             <div className="flex items-start gap-6">
-              <EntryQr />
+              <EntryQr svg={qr} />
               <div className="min-w-0 flex-1 space-y-3">
                 <p className="text-[14px] text-[var(--muted)]">No computador, leia o QR code com a câmera do celular. No celular, toque no botão.</p>
                 <ChannelEntry initial={channels} />
