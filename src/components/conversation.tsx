@@ -3,6 +3,8 @@
 import type { RunStatus } from "@/db/schema";
 import type { CaseMessageItem } from "@/lib/demo/fixtures";
 
+const READING_HOW = { ia: "lido pela IA", regra: "regra local", ia_confirmada: "confirmado pela pessoa" } as const;
+
 export function ConversationPanel({
   messages,
   status,
@@ -54,6 +56,27 @@ export function ConversationPanel({
               >
                 {msg.text}
               </div>
+
+              {!isBot && (msg.viaAudio || msg.reading) && (
+                <div className="mt-1 flex max-w-[88%] flex-col items-end gap-0.5 px-1 text-right text-[11px] leading-[15px] text-[var(--muted)]">
+                  {msg.viaAudio && (
+                    <span className="inline-flex items-center gap-1">
+                      <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="2" width="6" height="12" rx="3" />
+                        <path d="M5 10a7 7 0 0 0 14 0M12 17v5" />
+                      </svg>
+                      Transcrito de áudio · pode conter erros
+                    </span>
+                  )}
+                  {msg.reading && (
+                    <span>
+                      Entendido como <strong className="font-medium text-[var(--ink)]">{msg.reading.label}</strong>
+                      {" · "}
+                      {READING_HOW[msg.reading.how]}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

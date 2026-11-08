@@ -409,7 +409,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
 
   /** Grava a resposta do item atual, avança e manda a próxima pergunta (com frase de ligação se a fala já tocou nela). */
   const saveAndAdvance = async (value: number | null, rawText: string, meta: repo.AnswerMeta, mentions: string[] = [], prefix: string[] = []): Promise<EngineResult> => {
-    const answerRow = await repo.upsertAnswer(active.id, item, rawText, value, { ...meta, messageId: inboundId });
+    const answerRow = await repo.upsertAnswer(active.id, item, rawText, value, { messageId: inboundId, ...meta });
     if (hooks.onAnswer) inBackground(active.id, () => hooks.onAnswer!(answerRow.id));
 
     const answers = await repo.getAnswers(active.id);
@@ -447,7 +447,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
     if (intent === "yes") {
       recordEvent({ kind: "valor da resposta", outcome: "ok", model: "regra em código", runId: active.id, detail: `Confirmou ${pending} para ${item.code}` });
       const firstText = (await repo.getAnswerRows(active.id)).find((a) => a.itemCode === item.code);
-      return saveAndAdvance(pending, firstText?.rawText ?? text, { source: "ia_confirmada", quote: firstText?.quote ?? null });
+      return saveAndAdvance(pending, firstText?.rawText ?? text, { source: "ia_confirmada", quote: firstText?.quote ?? null, messageId: firstText?.messageId ?? inboundId });
     }
     if (intent === "no") {
       recordEvent({ kind: "leitura da resposta", outcome: "descartado", model: "regra em código", runId: active.id, detail: `Não confirmou o valor proposto (${pending}); perguntou de novo com as opções` });

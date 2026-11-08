@@ -60,6 +60,10 @@ export interface CaseMessageItem {
   direction: "in" | "out";
   text: string;
   createdAt: string;
+  /** Mensagem recebida que veio de áudio: o texto é a transcrição e pode conter erros. */
+  viaAudio?: boolean;
+  /** Como a resposta desta mensagem foi entendida (rótulo da escala) e por quem. */
+  reading?: { label: string; how: "regra" | "ia" | "ia_confirmada" };
 }
 
 export interface CaseEvidenceItem {
@@ -724,6 +728,8 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
         id: "m-108",
         direction: "in",
         text: "com frequência, principalmente no fechamento do mês",
+        viaAudio: true,
+        reading: { label: "com frequência", how: "ia" },
         createdAt: "18:26",
       },
       {

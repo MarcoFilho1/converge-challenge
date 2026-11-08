@@ -46,6 +46,24 @@ describe("Caso real nunca mostra dado sintético", () => {
     expect(c.patient?.interview.state).toBe("convidada");
   });
 
+  it("conversa marca o que veio de áudio e mostra como cada resposta foi entendida", async () => {
+    const { db } = await import("@/db/client");
+    const { contacts } = await import("@/db/schema");
+    const [contact] = await db.insert(contacts).values({ name: "Pessoa Áudio", phoneE164: PHONE }).returning();
+    const { startRun, handleIncoming } = await import("@/lib/engine/engine");
+    const { runId } = await startRun(contact.id, { demoShort: true });
+    await say("sim");
+    await handleIncoming({ phone: PHONE, text: "sim, fui trabalhar gripado", waMessageId: `case-audio-${n++}`, viaAudio: true });
+    await say("6");
+    await say("acho que com frequência");
+    const { getCase } = await import("@/lib/case/query");
+    const c = await getCase(runId);
+    const audio = c.messages.find((m) => m.text === "sim, fui trabalhar gripado");
+    expect(audio).toMatchObject({ viaAudio: true, reading: { label: "sim", how: "regra" } });
+    expect(c.messages.find((m) => m.text === "acho que com frequência")).toMatchObject({ viaAudio: false, reading: { label: "com frequência" } });
+    expect(c.messages.find((m) => m.text === "6")?.reading).toMatchObject({ label: "6 de 10" });
+  });
+
   it("id que não existe não vira caso sintético", async () => {
     const { getCase } = await import("@/lib/case/query");
     await expect(getCase("00000000-0000-4000-8000-000000000000")).rejects.toThrow();
