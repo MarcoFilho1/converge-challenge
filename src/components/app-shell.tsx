@@ -4,18 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/app/login/actions";
+import { ChannelBanner } from "@/components/channel-banner";
 
 interface AppShellProps {
   children: React.ReactNode;
   urgentCount: number;
   priorityCount: number;
+  /** Avisos ainda não lidos (ex.: entrevista terminou). */
+  noticeCount?: number;
 }
 
 /**
  * Moldura "Prontuário em ordem": sem cor no chrome, barra lateral com marca, três itens e a médica.
  * A única cor da moldura é a contagem de casos urgentes.
  */
-export function AppShell({ children, urgentCount, priorityCount }: AppShellProps) {
+export function AppShell({ children, urgentCount, priorityCount, noticeCount = 0 }: AppShellProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const waiting = urgentCount + priorityCount;
@@ -23,7 +26,10 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
   const nav = [
     { href: "/fila", label: "Fila", count: waiting > 0 ? String(waiting) : null, hot: urgentCount > 0 },
     { href: "/contatos", label: "Colaboradores", count: null, hot: false },
-    { href: "/conexao", label: "WhatsApp", count: null, hot: false },
+    { href: "/avisos", label: "Avisos", count: noticeCount > 0 ? String(noticeCount) : null, hot: false },
+    { href: "/conexao", label: "Canais", count: null, hot: false },
+    { href: "/medicao", label: "Medição", count: null, hot: false },
+    { href: "/configuracoes", label: "Configurações", count: null, hot: false },
   ];
   const isActive = (href: string) =>
     href === "/fila" ? pathname === "/fila" || pathname.startsWith("/caso/") : pathname.startsWith(href);
@@ -51,7 +57,7 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
               }`}
             >
               {item.count}
-              <span className="sr-only"> casos aguardando avaliação</span>
+              <span className="sr-only">{item.href === "/avisos" ? " avisos não lidos" : " casos aguardando avaliação"}</span>
             </span>
           )}
         </Link>
@@ -119,6 +125,7 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
           </div>
         )}
         <main className="min-w-0 flex-1 px-2 pb-2 sm:px-3 sm:pb-3 lg:py-3 lg:pl-0 lg:pr-3">
+          <ChannelBanner />
           <div className="enter min-h-full rounded-[18px] border border-[var(--frame-line)] bg-[var(--card)] px-4 py-6 shadow-[var(--sheet-shadow)] sm:px-8 lg:px-12 lg:py-9">
             <div className="mx-auto w-full max-w-[1080px]">{children}</div>
           </div>

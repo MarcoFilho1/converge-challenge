@@ -61,7 +61,7 @@ describe("revisão 2 e 3 · motor", () => {
     const contact = await setupContact();
     const { startRun } = await import("@/lib/engine/engine");
     const { runId } = await startRun(contact.id, { demoShort: true });
-    await say("1");
+    await say("sim");
     const [a, b] = await Promise.all([say("sim"), say("6")]);
     expect([a.event, b.event]).toEqual(["answer", "answer"]);
     const { db } = await import("@/db/client");
@@ -74,7 +74,7 @@ describe("revisão 2 e 3 · motor", () => {
     const contact = await setupContact();
     const { startRun } = await import("@/lib/engine/engine");
     await startRun(contact.id, { demoShort: true });
-    await say("1");
+    await say("sim");
     const results = await Promise.all([say("sim", "same-id"), say("sim", "same-id")]);
     expect(results.map((r) => r.event).sort()).toEqual(["answer", "duplicate"]);
   });
@@ -83,9 +83,9 @@ describe("revisão 2 e 3 · motor", () => {
     const contact = await setupContact();
     const { startRun } = await import("@/lib/engine/engine");
     await startRun(contact.id, { demoShort: true });
-    await say("2");
+    await say("não quero");
     const r = await say("CONTINUAR");
     expect(r.event).not.toBe("resumed");
-    expect(r.outbound.join("\n")).toMatch(/aceita participar/i);
+    expect(r.outbound.join("\n")).toMatch(/Vamos começar/i);
   });
 });

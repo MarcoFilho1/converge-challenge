@@ -26,6 +26,27 @@ describe("ElevenLabs (só a fala; a escuta continua no Whisper)", () => {
     await expect(el.tts("oi")).rejects.toBeInstanceOf(VoiceUnavailable);
   });
 
+  it("quando a cota da primeira chave acaba, fala com a segunda e não volta mais na primeira", async () => {
+    const used: string[] = [];
+    const el = createElevenLabs({ apiKeys: ["k1", "k2"], voiceId: "v", fetchImpl: fake((_url, init) => {
+      const key = (init.headers as Record<string, string>)["xi-api-key"];
+      used.push(key);
+      return key === "k1"
+        ? new Response('{"detail":{"status":"quota_exceeded"}}', { status: 401 })
+        : new Response(Buffer.alloc(480), { status: 200 });
+    }) });
+    expect((await el.tts("oi"))!.audio.subarray(0, 4).toString()).toBe("RIFF");
+    expect(used).toEqual(["k1", "k2"]);
+    used.length = 0;
+    await el.tts("de novo");
+    expect(used).toEqual(["k2"]);
+  });
+
+  it("todas as chaves sem cota: VoiceUnavailable", async () => {
+    const el = createElevenLabs({ apiKeys: ["k1", "k2"], voiceId: "v", fetchImpl: fake(() => new Response('{"detail":{"status":"quota_exceeded"}}', { status: 401 })) });
+    await expect(el.tts("oi")).rejects.toBeInstanceOf(VoiceUnavailable);
+  });
+
   it("delega a transcrição para o provedor de escuta", async () => {
     const el = createElevenLabs({ apiKey: "k", voiceId: "v", stt: { async tts() { return null; }, async stt() { return { text: "ouvi", ms: 1 }; }, async health() { return true; } } });
     expect((await el.stt(Buffer.alloc(10), "audio/wav")).text).toBe("ouvi");

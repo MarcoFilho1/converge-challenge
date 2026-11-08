@@ -1,3 +1,22 @@
+import type { PatientSummary } from "@/lib/case/patient-summary";
+
+export interface TrailItem {
+  id: string;
+  at: string;
+  kind: string;
+  outcome: string;
+  model: string | null;
+  latencyMs: number | null;
+  costUsd: number | null;
+  tokensIn: number | null;
+  tokensOut: number | null;
+  detail: string | null;
+  inInterview: boolean;
+  /** Mensagem do WhatsApp que disparou o passo (agrupa o rastro por mensagem). */
+  waMessageId?: string | null;
+  /** Texto da mensagem recebida, quando o passo veio de uma (só o primeiro passo do grupo precisa). */
+  message?: { text: string; viaAudio: boolean; at: string } | null;
+}
 import type { CaseState, RunStatus, Severity } from "@/db/schema";
 import type { RunSummary } from "@/lib/ai/types";
 import type { InterviewDetail, InterviewListItem, InterviewView } from "@/lib/interview/contract";
@@ -34,6 +53,8 @@ export interface QueueRow {
     hasCrisis: boolean;
   };
   scores: QueueScoreChip[];
+  /** Índice de bem-estar de 0 a 100 (100 = melhor), calculado das respostas. Ausente nos dados sintéticos. */
+  wellbeingIndex?: number | null;
   hasVoiceInterview: boolean;
   voiceInterviewToken?: string;
 }
@@ -43,6 +64,10 @@ export interface CaseMessageItem {
   direction: "in" | "out";
   text: string;
   createdAt: string;
+  /** Mensagem recebida que veio de áudio: o texto é a transcrição e pode conter erros. */
+  viaAudio?: boolean;
+  /** Como a resposta desta mensagem foi entendida (rótulo da escala) e por quem. */
+  reading?: { label: string; how: "regra" | "ia" | "ia_confirmada" };
 }
 
 export interface CaseEvidenceItem {
@@ -66,6 +91,10 @@ export interface CaseDetailData {
   summary: RunSummary | null;
   interviews: InterviewListItem[];
   interviewDetail: InterviewDetail | null;
+  /** Resumo da pessoa para o topo do caso (src/lib/case/patient-summary.ts). */
+  patient?: PatientSummary;
+  /** Rastro do agente neste caso e nas entrevistas dele, em ordem de tempo. */
+  trail?: TrailItem[];
 }
 
 export const SYNTHETIC_QUEUE_ROWS: QueueRow[] = [
@@ -554,37 +583,37 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
         {
           id: "m-1",
           direction: "out",
-          text: "Olá, Lucas. Aqui é o canal do Consultório NR-7 (Dra. Ana Lima). Suas respostas são confidenciais e vistas apenas pela médica do trabalho. Responda 1 (Sim, aceito) para iniciar ou PARAR a qualquer momento.",
+          text: "Olá, Lucas! Aqui é o canal de saúde ocupacional da Dra. Ana Lima. São perguntas curtas sobre sua saúde e seu trabalho. *Responda do seu jeito:* escrevendo ou mandando áudio. Só a médica vê suas respostas. Vamos começar?",
           createdAt: "18:10",
         },
         {
           id: "m-2",
           direction: "in",
-          text: "1",
+          text: "pode sim",
           createdAt: "18:11",
         },
         {
           id: "m-3",
           direction: "out",
-          text: "Durante o último mês, você precisou trabalhar em algum dia mesmo se sentindo mal ou com algum problema de saúde física ou mental? (1 não · 2 sim)",
+          text: "NOS ÚLTIMOS 30 DIAS, você esteve presente no trabalho apesar de apresentar algum problema de saúde ou algum sinal ou sintoma de adoecimento?\nsim · não",
           createdAt: "18:11",
         },
         {
           id: "m-4",
           direction: "in",
-          text: "2, trabalhei todos os dias assim",
+          text: "sim, trabalhei todos os dias assim",
           createdAt: "18:12",
         },
         {
           id: "m-5",
           direction: "out",
-          text: "Nas últimas duas semanas, quantos dias você pensou em se ferir de alguma maneira ou que seria melhor estar morto(a)? (1 nenhuma vez · 2 vários dias · 3 mais da metade dos dias · 4 quase todos os dias)",
+          text: "Pensar em se ferir de alguma maneira ou que seria melhor estar morto/a\nnenhuma vez · vários dias · mais da metade dos dias · quase todos os dias",
           createdAt: "18:15",
         },
         {
           id: "m-6",
           direction: "in",
-          text: "3, às vezes penso que não aguento mais viver nessa pressão",
+          text: "mais da metade dos dias, às vezes penso que não aguento mais viver nessa pressão",
           createdAt: "18:16",
         },
         {
@@ -660,25 +689,25 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
       {
         id: "m-101",
         direction: "out",
-        text: `Olá, ${row.contactName.split(" ")[0]}. Aqui é o canal do Consultório NR-7 (Dra. Ana Lima). Leva cerca de 6 minutos e apenas a médica do trabalho tem acesso individual. Responda 1 (Sim, aceito) para começar.`,
+        text: `Olá, ${row.contactName.split(" ")[0]}. Aqui é o canal do Consultório NR-7 (Dra. Ana Lima). São perguntas curtas, cerca de 6 minutos. *Responda do seu jeito:* escrevendo ou mandando áudio. Só a médica vê suas respostas. Vamos começar?`,
         createdAt: "18:22",
       },
       {
         id: "m-102",
         direction: "in",
-        text: "1",
+        text: "sim, pode mandar",
         createdAt: "18:22",
       },
       {
         id: "m-103",
         direction: "out",
-        text: "Durante o último mês, você precisou trabalhar em algum dia mesmo se sentindo mal ou com algum problema de saúde física ou mental? (1 não · 2 sim)",
+        text: "NOS ÚLTIMOS 30 DIAS, você esteve presente no trabalho apesar de apresentar algum problema de saúde ou algum sinal ou sintoma de adoecimento?\nsim · não",
         createdAt: "18:23",
       },
       {
         id: "m-104",
         direction: "in",
-        text: "2",
+        text: "sim, várias vezes",
         createdAt: "18:23",
       },
       {
@@ -690,19 +719,21 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
       {
         id: "m-106",
         direction: "in",
-        text: "7",
+        text: "acho que uns 7, atrapalhou bastante",
         createdAt: "18:24",
       },
       {
         id: "m-107",
         direction: "out",
-        text: "No trabalho, sinto-me mentalmente exausto(a). (1 nunca · 2 raramente · 3 algumas vezes · 4 com frequência · 5 sempre)",
+        text: "No trabalho, sinto-me mentalmente exausto\nnunca · raramente · algumas vezes · com frequência · sempre",
         createdAt: "18:25",
       },
       {
         id: "m-108",
         direction: "in",
-        text: "4",
+        text: "com frequência, principalmente no fechamento do mês",
+        viaAudio: true,
+        reading: { label: "com frequência", how: "ia" },
         createdAt: "18:26",
       },
       {

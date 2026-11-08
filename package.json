@@ -18,14 +18,23 @@
     "voz:pregerar": "tsx scripts/voz-pregerar.ts",
     "voz:medir": "tsx scripts/voz-medir.ts",
     "voz:cota": "tsx scripts/voz-cota.ts",
-    "evals:entrevista": "tsx evals/entrevista.ts"
+    "evals:entrevista": "tsx evals/entrevista.ts",
+    "evals:whatsapp": "tsx evals/whatsapp.ts",
+    "obs:db": "tsx scripts/obs-db.ts",
+    "telegram:db": "tsx scripts/telegram-db.ts",
+    "evals:entrevista:real": "EVAL_REAL=true tsx evals/entrevista.ts",
+    "avisos:db": "tsx scripts/avisos-db.ts",
+    "config:db": "tsx scripts/config-db.ts",
+    "whatsapp:db": "tsx scripts/whatsapp-db.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.85",
     "ai": "^7.0.164",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.5",
     "pdf-parse": "^2.4.5",
     "postgres": "^4.1.0",
+    "qrcode": "1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "^4.6.7"
@@ -33,6 +42,7 @@
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^18.0.9",

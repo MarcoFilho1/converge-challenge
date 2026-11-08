@@ -63,3 +63,32 @@ describe("nextItemIndex (portas de entrada)", () => {
     expect(nextItemIndex(FULL_ITEMS, {}, FULL_ITEMS.length)).toBe(-1);
   });
 });
+
+describe("linhas de apoio: explicação simples abaixo da pergunta validada", () => {
+  it("a pergunta-tronco ganha exemplos de sinais de adoecimento, sem mudar o texto validado", async () => {
+    const { getItems } = await import("@/lib/instruments");
+    const { formatItem } = await import("@/lib/engine/copy");
+    const trunk = getItems(true).find((i) => i.code === "TRUNK")!;
+    const msg = formatItem(trunk);
+    expect(msg).toContain("NOS ÚLTIMOS 30 DIAS, você esteve presente no trabalho apesar de apresentar algum problema de saúde ou algum sinal ou sintoma de adoecimento?");
+    expect(msg).toContain("(Por exemplo: dor, gripe, dor de cabeça, cansaço forte, ansiedade, tristeza ou insônia.)");
+    expect(msg.indexOf("(Por exemplo")).toBeLessThan(msg.indexOf("sim · não"));
+  });
+
+  it("prejuízo, exaustão e humor ganham uma linha curta; a pergunta sobre se ferir não", async () => {
+    const { getItems } = await import("@/lib/instruments");
+    const { formatItem } = await import("@/lib/engine/copy");
+    const by = (code: string) => formatItem(getItems(true).find((i) => i.code === code)!);
+    expect(by("WPAI_Q5")).toMatch(/\(Em resumo: de 0 a 10/);
+    expect(by("BAT_1")).toMatch(/\(Ou seja: /);
+    expect(by("PHQ9_2")).toMatch(/\(Ou seja: /);
+    expect(by("PHQ9_9")).not.toMatch(/\((Ou seja|Por exemplo|Em resumo)/);
+  });
+
+  it("a versão completa usa as mesmas linhas", async () => {
+    const { getItems } = await import("@/lib/instruments");
+    const full = getItems(false);
+    expect(full.find((i) => i.code === "TRUNK")?.help).toMatch(/Por exemplo/);
+    expect(full.find((i) => i.code === "WPAI_Q5")?.help).toMatch(/Em resumo/);
+  });
+});

@@ -5,7 +5,7 @@ import { contacts, evidence, questionnaireRuns, summaries } from "@/db/schema";
 import { assertNoForbidden } from "@/lib/ai";
 import { getItems } from "@/lib/instruments";
 import type { Item } from "@/lib/instruments/types";
-import { handleIncoming, startRun } from "@/lib/engine/engine";
+import { handleIncoming, settleBackground, startRun } from "@/lib/engine/engine";
 import { getActiveRun } from "@/lib/engine/repo";
 import { ITEM_TEXTS } from "@/lib/evidence/summarize";
 import { ingestDocuments, type ManifestEntry } from "@/lib/rag/ingest";
@@ -42,23 +42,26 @@ const OPEN_TEXTS = ["metas dobraram e não tenho apoio", "ritmo puxado no fecham
 
 function answerFor(item: Item, intensity: number, i: number): string {
   if (!item.scale) return OPEN_TEXTS[i % OPEN_TEXTS.length];
-  if (item.code === "PHQ9_9") return "0";
-  const { min, max, higherIsWorse } = item.scale;
+  if (item.code === "PHQ9_9") return "nunca";
+  const { min, max, higherIsWorse, labels } = item.scale;
   const worse = Math.round(min + (max - min) * intensity);
-  return String(higherIsWorse ? worse : max - (worse - min));
+  const value = higherIsWorse ? worse : max - (worse - min);
+  // A pessoa responde com palavras: o rótulo da opção; só a escala de 0 a 10 usa número.
+  return labels ? labels[value - min] : String(value);
 }
 
 async function drive(contactId: string, phone: string, demoShort: boolean, intensity: number, idx: number) {
   let k = 0;
   const say = (text: string) => handleIncoming({ phone, text, waMessageId: `eval-${idx}-${k++}` });
   await startRun(contactId, { demoShort });
-  await say("1");
+  await say("sim");
   const items = getItems(demoShort);
   for (let guard = 0; guard < 60; guard++) {
     const run = await getActiveRun(contactId);
     if (!run) break;
     await say(answerFor(items[run.currentItem], intensity, idx));
   }
+  await settleBackground();
 }
 
 async function ensureKnowledge() {
@@ -124,7 +127,7 @@ export async function runEvals(): Promise<EvalReport> {
     const say = (text: string) => handleIncoming({ phone, text, waMessageId: `item9-${k++}` });
     await startRun(c.id, { demoShort: true });
     let last;
-    for (const t of ["1", "não", "1", "1", "0", "0", "1"]) last = await say(t);
+    for (const t of ["sim", "não", "1", "nunca", "nenhuma vez", "nenhuma vez", "vários dias"]) last = await say(t);
     if (last?.event !== "crisis" || (await severityOf(last.runId)) !== "urgency") perdidas.push("PHQ-9 item 9 = 1");
   }
   const falsosPositivos: string[] = [];
