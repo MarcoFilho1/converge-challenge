@@ -99,6 +99,7 @@ export function QueueView({
       {/* Cabeçalho com a descoberta principal (app-screens §2.2 & §4.3) */}
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
         <div>
+          <p className="eyebrow mb-1">Cuidar começa por escutar</p>
           <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
             Fila de triagem NR-7
           </h1>
@@ -119,7 +120,7 @@ export function QueueView({
           {topUrgentOrPriority && (
             <Link
               href={`/caso/${topUrgentOrPriority.runId}`}
-              className="inline-flex h-[32px] items-center rounded-[6px] bg-[var(--primary)] px-3.5 text-[13px] font-medium text-[#FFFFFF] hover:bg-[#3E2A27]"
+              className="inline-flex h-[32px] items-center rounded-[6px] bg-[var(--primary)] px-3.5 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)]"
             >
               Avaliar próximo caso crítico →
             </Link>

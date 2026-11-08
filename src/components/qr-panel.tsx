@@ -88,6 +88,7 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
       {/* Cabeçalho da página (regra app-screens §4.3: substantivo 22px, pergunta respondida abaixo, 1 ação primária) */}
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
         <div>
+          <p className="eyebrow mb-1">Canal do consultório</p>
           <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
             Conexão do aparelho WhatsApp
           </h1>
@@ -120,7 +121,7 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
           </button>
           <Link
             href="/contatos"
-            className="inline-flex h-[32px] items-center rounded-[6px] bg-[var(--primary)] px-3.5 text-[13px] font-medium text-[#FFFFFF] hover:bg-[#3E2A27]"
+            className="inline-flex h-[32px] items-center rounded-[6px] bg-[var(--primary)] px-3.5 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)]"
           >
             Ir para contatos e disparo →
           </Link>
@@ -235,19 +236,19 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
                   role="img"
                   aria-label="Quadro de pareamento QR aguardando geração da instância"
                 >
-                  <rect x="14" y="14" width="42" height="42" fill="none" stroke="#2B1D1B" strokeWidth="6" />
-                  <rect x="26" y="26" width="18" height="18" fill="#2B1D1B" />
-                  <rect x="124" y="14" width="42" height="42" fill="none" stroke="#2B1D1B" strokeWidth="6" />
-                  <rect x="136" y="26" width="18" height="18" fill="#2B1D1B" />
-                  <rect x="14" y="124" width="42" height="42" fill="none" stroke="#2B1D1B" strokeWidth="6" />
-                  <rect x="26" y="136" width="18" height="18" fill="#2B1D1B" />
-                  <rect x="74" y="26" width="12" height="12" fill="#7A6361" />
-                  <rect x="94" y="42" width="12" height="12" fill="#2B1D1B" />
-                  <rect x="74" y="74" width="32" height="32" fill="none" stroke="#B3261E" strokeWidth="4" />
-                  <rect x="84" y="84" width="12" height="12" fill="#B3261E" />
-                  <rect x="124" y="86" width="14" height="14" fill="#7A6361" />
-                  <rect x="86" y="128" width="14" height="14" fill="#2B1D1B" />
-                  <rect x="124" y="124" width="28" height="28" fill="none" stroke="#7A6361" strokeWidth="4" />
+                  <rect x="14" y="14" width="42" height="42" fill="none" stroke="#24363B" strokeWidth="6" />
+                  <rect x="26" y="26" width="18" height="18" fill="#24363B" />
+                  <rect x="124" y="14" width="42" height="42" fill="none" stroke="#24363B" strokeWidth="6" />
+                  <rect x="136" y="26" width="18" height="18" fill="#24363B" />
+                  <rect x="14" y="124" width="42" height="42" fill="none" stroke="#24363B" strokeWidth="6" />
+                  <rect x="26" y="136" width="18" height="18" fill="#24363B" />
+                  <rect x="74" y="26" width="12" height="12" fill="#51646A" />
+                  <rect x="94" y="42" width="12" height="12" fill="#24363B" />
+                  <rect x="74" y="74" width="32" height="32" fill="none" stroke="#006EB8" strokeWidth="4" />
+                  <rect x="84" y="84" width="12" height="12" fill="#006EB8" />
+                  <rect x="124" y="86" width="14" height="14" fill="#51646A" />
+                  <rect x="86" y="128" width="14" height="14" fill="#24363B" />
+                  <rect x="124" y="124" width="28" height="28" fill="none" stroke="#51646A" strokeWidth="4" />
                 </svg>
                 <p className="mt-3 text-[13px] font-medium text-[var(--ink)]">
                   Aguardando QR Code da Evolution API

@@ -9,7 +9,7 @@ const SEVERITY_META: Record<
     bg: "var(--sev-urgency-bg)",
     ink: "var(--sev-urgency-ink)",
     border: "var(--sev-urgency-border)",
-    dot: "var(--brand)",
+    dot: "var(--alert)",
   },
   priority: {
     label: "Prioridade",
@@ -72,7 +72,7 @@ export function RunStatusText({ status }: { status: RunStatus }) {
     <span
       className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap text-[13px]"
       style={{
-        color: isCrisis ? "var(--brand)" : isRunning ? "var(--ink)" : "var(--muted)",
+        color: isCrisis ? "var(--alert)" : isRunning ? "var(--ink)" : "var(--muted)",
         fontWeight: isCrisis || isRunning ? 500 : 400,
       }}
     >
@@ -113,11 +113,11 @@ export function AvatarInitial({ name }: { name: string }) {
 
   // Paleta de tintas pálidas de identidade (nunca saturada, >= 60 graus de diferença)
   const PALETTE = [
-    { bg: "#F4E5DF", ink: "#4A251D" },
-    { bg: "#E4ECE8", ink: "#1E3F30" },
-    { bg: "#EDE6D8", ink: "#47371B" },
-    { bg: "#E3E8EE", ink: "#203347" },
-    { bg: "#EFE2E6", ink: "#4A202D" },
+    { bg: "#FEEBDF", ink: "#6E3A1C" },
+    { bg: "#DDEBF6", ink: "#0B4A78" },
+    { bg: "#E4EFE9", ink: "#1E4A34" },
+    { bg: "#E6ECEF", ink: "#24363B" },
+    { bg: "#EDE8F4", ink: "#3E2F5B" },
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {

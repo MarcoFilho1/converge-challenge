@@ -17,7 +17,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Consultório NR-7 · PCMSO & Triagem Ocupacional",
+  title: "Praevenius · Consultório NR-7",
   description:
     "Acompanhamento médico ocupacional (NR-7 / PCMSO) por questionários validados no WhatsApp e entrevista estruturada por voz, com rastreabilidade documental.",
 };

@@ -61,7 +61,7 @@ function InviteQrSvg({ value }: { value: string }) {
               y={r + 1}
               width={1}
               height={1}
-              fill="#2B1D1B"
+              fill="#24363B"
             />
           ) : null
         )
@@ -282,7 +282,7 @@ export function InterviewTab({
               type="button"
               disabled={isPending}
               onClick={handleCreateInvite}
-              className="h-[34px] cursor-pointer rounded-[6px] bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] hover:bg-[#3E2A27]"
+              className="h-[34px] cursor-pointer rounded-[6px] bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)]"
             >
               Convidar para entrevista
             </button>
@@ -344,7 +344,7 @@ export function InterviewTab({
             </button>
             <Link
               href={inviteUrl}
-              className="inline-flex h-[32px] items-center rounded-[6px] bg-[var(--primary)] px-3 text-[13px] font-medium text-[#FFFFFF] hover:bg-[#3E2A27]"
+              className="inline-flex h-[32px] items-center rounded-[6px] bg-[var(--primary)] px-3 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)]"
             >
               Abrir sala do colaborador →
             </Link>
