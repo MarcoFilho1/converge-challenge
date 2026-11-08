@@ -1,6 +1,7 @@
 import { getAi } from "@/lib/ai";
 import { CRISIS_REPLY } from "@/lib/crisis/messages";
 import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
+import { assessRisk, isClearNo } from "@/lib/crisis/judge";
 import { computeSeverity, getItems, inviteThreshold, nextItemIndex, scoreRun, shouldInviteToInterview, wellbeingIndex } from "@/lib/instruments";
 import type { QuestionnaireRun } from "@/db/schema";
 import { copy, formatItem } from "./copy";
@@ -25,7 +26,10 @@ export type EngineEvent =
   | "resumed"
   | "finished"
   | "no_active_run"
-  | "already_running";
+  | "already_running"
+  | "crisis_confirm"
+  | "crisis_denied"
+  | "media";
 
 export type EngineResult = {
   outbound: string[];
@@ -194,11 +198,39 @@ async function maybeInvite(runId: string, severity: Parameters<typeof shouldInvi
   }
 }
 
-export function handleIncoming(input: { phone: string; text: string; waMessageId: string }): Promise<EngineResult> {
+export function handleIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean }): Promise<EngineResult> {
   return serialize(input.phone, () => processIncoming(input));
 }
 
-async function processIncoming(input: { phone: string; text: string; waMessageId: string }): Promise<EngineResult> {
+/**
+ * Figurinha, foto, vídeo, arquivo ou áudio que não deu para transcrever: resposta padrão e, no meio do
+ * questionário, a pergunta atual de novo. Número desconhecido não recebe resposta.
+ */
+export function handleMedia(input: { phone: string; waMessageId: string; media: string }): Promise<EngineResult> {
+  return serialize(input.phone, async () => {
+    const none: EngineResult = { outbound: [], outboundIds: [], runId: null, event: "ignored_unknown" };
+    const contact = await repo.findContactByPhone(input.phone);
+    if (!contact) return none;
+    const active = await repo.getActiveRun(contact.id);
+    const inboundId = await repo.insertMessage({
+      contactId: contact.id,
+      runId: active?.id ?? null,
+      direction: "in",
+      text: `[${input.media}]`,
+      waMessageId: input.waMessageId || null,
+    });
+    if (!inboundId) return { ...none, event: "duplicate" };
+    const failedAudio = input.media === "áudio sem transcrição";
+    const outbound = [failedAudio ? copy.audioFailed : copy.mediaUnsupported];
+    if (active?.status === "in_progress") outbound.push(formatItem(getItems(active.demoShort)[active.currentItem]));
+    else if (active?.status === "consent") outbound.push(copy.consentRepeat);
+    recordEvent({ kind: failedAudio ? "transcrição do áudio" : "mídia", outcome: failedAudio ? "erro" : "descartado", runId: active?.id ?? null, detail: failedAudio ? "Não deu para transcrever o áudio; pediu para escrever" : `Recebeu ${input.media}; respondeu que só lê texto e áudio` });
+    const outboundIds = await recordOut(contact.id, active?.id ?? null, outbound);
+    return { outbound, outboundIds, runId: active?.id ?? null, event: "media" };
+  });
+}
+
+async function processIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean }): Promise<EngineResult> {
   const { phone, text, waMessageId } = input;
   const none = (event: EngineEvent, outbound: string[] = []): EngineResult => ({ outbound, outboundIds: [], runId: null, event });
 
@@ -222,14 +254,14 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   if (!inboundId) return none("duplicate");
 
   const reply = async (runId: string | null, event: EngineEvent, outbound: string[]): Promise<EngineResult> => {
+    // Resposta por áudio: o bot mostra primeiro o que entendeu, para a pessoa corrigir se ouviu errado.
+    if (input.viaAudio) outbound = [copy.heardAudio(text), ...outbound];
     const outboundIds = await recordOut(contact.id, runId, outbound);
     return { outbound, outboundIds, runId, event };
   };
 
-  // 1. Corte de crise: sempre primeiro, antes de qualquer IA.
-  const crisis = detectCrisis(text);
-  if (crisis.hit) {
-    const crisisDetail = `Frase de risco: “${text.slice(0, 120)}” (padrão ${readablePattern(crisis.pattern)}). CVV 188 e SAMU 192 enviados`;
+  // 1. Corte de crise: sempre primeiro. A regra decide; a IA só é chamada se houver negação antes do trecho de risco.
+  const cutCrisis = async (crisisDetail: string): Promise<EngineResult> => {
     if (active) {
       recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: active.id, detail: crisisDetail });
       await finishRun(active, "crisis", { crisisText: true });
@@ -246,6 +278,29 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
     await repo.setMessageRun(inboundId, run.id);
     recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: run.id, detail: crisisDetail });
     return reply(run.id, "crisis", [CRISIS_REPLY]);
+  };
+
+  // 1a. A última mensagem do bot foi a pergunta de confirmação: só um "não" claro deixa seguir.
+  if ((await repo.lastOutboundText(contact.id)) === copy.crisisConfirm) {
+    if (!isClearNo(text)) return cutCrisis(`Na confirmação de risco respondeu: “${text.slice(0, 120)}”. CVV 188 e SAMU 192 enviados`);
+    recordEvent({ kind: "crise", outcome: "descartado", model: "regra em código", runId: active?.id ?? null, detail: `Confirmou que não tem pensado em se machucar: “${text.slice(0, 80)}”` });
+    if (active?.status === "in_progress") {
+      return reply(active.id, "crisis_denied", [copy.crisisDenied, formatItem(getItems(active.demoShort)[active.currentItem])]);
+    }
+    return reply(active?.id ?? null, "crisis_denied", [copy.crisisDenied]);
+  }
+
+  const crisis = detectCrisis(text);
+  if (crisis.hit) {
+    const action = await withObsContext({ runId: active?.id ?? null }, () => assessRisk(text));
+    if (action === "cortar") {
+      return cutCrisis(`Frase de risco: “${text.slice(0, 120)}” (padrão ${readablePattern(crisis.pattern)}). CVV 188 e SAMU 192 enviados`);
+    }
+    if (action === "confirmar") {
+      recordEvent({ kind: "crise", outcome: "ok", model: "regra + IA", runId: active?.id ?? null, detail: `Frase de risco com negação, sem certeza: perguntou para confirmar (“${text.slice(0, 100)}”)` });
+      return reply(active?.id ?? null, "crisis_confirm", [copy.crisisConfirm]);
+    }
+    recordEvent({ kind: "crise", outcome: "descartado", model: "regra + IA", runId: active?.id ?? null, detail: `Frase de risco negada pela pessoa: “${text.slice(0, 100)}”` });
   }
 
   const command = normalizeText(text).replace(/[.!]+$/, "");

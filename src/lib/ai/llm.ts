@@ -142,9 +142,9 @@ export function chatCallOptions(purpose: ChatPurpose = "long", env: Env = proces
   return { maxRetries: 0, abortSignal: AbortSignal.timeout(timeoutMs), timeoutMs };
 }
 
-/** Teto da tarefa rápida: AI_FAST_BUDGET_MS (padrão 14 s), com tentativas do tamanho de AI_FAST_TIMEOUT_MS. */
+/** Teto da tarefa rápida: AI_FAST_BUDGET_MS (padrão 15 s, duas tentativas de 7 s), com tentativas do tamanho de AI_FAST_TIMEOUT_MS. */
 function fastBudget(env: Env = process.env): { attemptMs: number; budgetMs: number; clock?: () => number } {
-  return { attemptMs: chatCallOptions("fast", env).timeoutMs, budgetMs: Number(env.AI_FAST_BUDGET_MS ?? 14_000) };
+  return { attemptMs: chatCallOptions("fast", env).timeoutMs, budgetMs: Number(env.AI_FAST_BUDGET_MS ?? 15_000) };
 }
 
 /** Custo em dólar que a Featherless devolve em cada chamada (usage.raw.cost), somado por etapa. */

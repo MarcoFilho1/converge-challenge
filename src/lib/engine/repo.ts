@@ -58,6 +58,17 @@ export async function setMessageRun(messageId: string, runId: string) {
 }
 
 /** Depois do envio: guarda o id do WhatsApp ou marca que não foi entregue. */
+/** Texto da última mensagem que o bot mandou para a pessoa (para saber se esperava uma confirmação). */
+export async function lastOutboundText(contactId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ text: messages.text })
+    .from(messages)
+    .where(and(eq(messages.contactId, contactId), eq(messages.direction, "out")))
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  return row?.text ?? null;
+}
+
 export async function markDelivery(messageId: string, waMessageId: string | null) {
   await db
     .update(messages)

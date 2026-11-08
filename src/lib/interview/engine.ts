@@ -5,7 +5,8 @@
 import type { InterviewAi } from "@/lib/ai/interview";
 import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
 import { buildAgenda, type Agenda } from "./agenda";
-import { askedHelena, asksRepeat, cleanGenerated, extraCrisis } from "./filters";
+import { askedHelena, asksRepeat, cleanGenerated, EXTRA_CRISIS_PATTERNS, extraCrisis } from "./filters";
+import { assessRisk } from "@/lib/crisis/judge";
 import { ASKED_ACK, BLOCKS, CRISIS_SPEECH, REPEAT_ASK_PREFIX, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
 import { fechamentoIndex, selectNext } from "./select";
 import type { Aviso, BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
@@ -232,7 +233,11 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
   const blockId = currentBlockId(state);
   let s = pushTurn(state, { speaker: "person", text, blockId, probeId: state.currentProbeId, startedMs: nowMs - state.startedMs, durationMs: event.durationMs });
 
-  if (detectCrisis(text).hit || extraCrisis(text)) return crisis({ ...ctx, state: s });
+  // Risco: a regra decide; com negação antes do trecho, a IA julga. Só um "negado" claro deixa a conversa seguir.
+  if (detectCrisis(text).hit || extraCrisis(text)) {
+    const action = await assessRisk(text, { extraHit: extraCrisis(text), extraPatterns: EXTRA_CRISIS_PATTERNS });
+    if (action !== "seguir") return crisis({ ...ctx, state: s });
+  }
   if (blockId === "seguranca" && safetyClearlyYes(text)) return crisis({ ...ctx, state: s });
 
   const q = currentQuestion(state, blockId);
