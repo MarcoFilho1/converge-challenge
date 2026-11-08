@@ -57,6 +57,9 @@ export type ServiceDeps = {
 
 type AiAudio = { url: string | null; voice: TurnResponse["voice"]; path: string | null };
 
+/** Sons de escuta, variados para não soar repetido. */
+export const LISTENING_CUES = ["Uhum.", "Hum, hum.", "Certo.", "Aham."];
+
 export function createInterviewService(deps: ServiceDeps = {}) {
   const voice = deps.voice ?? getVoice();
   const ai = deps.ai ?? getInterviewAi();
@@ -334,6 +337,19 @@ export function createInterviewService(deps: ServiceDeps = {}) {
     async personAudioPath(id: string, idx: number): Promise<string | null> {
       const t = await repo.getTurn(id, idx);
       return t?.speaker === "person" && t.audioPath && existsSync(t.audioPath) ? t.audioPath : null;
+    },
+
+    /** Som curto de escuta ("Uhum.") que a tela toca assim que a pessoa termina de falar, enquanto a IA pensa. */
+    async listeningCuePath(token: string, i: number): Promise<string | null> {
+      const row = await repo.getInterviewByToken(token);
+      if (!row) return null;
+      const text = LISTENING_CUES[Math.abs(Math.trunc(i)) % LISTENING_CUES.length];
+      try {
+        return await getOrGenerate(voice, profile, `escuta:${text}`, text, cacheRoot);
+      } catch (err) {
+        if (err instanceof VoiceUnavailable) return null;
+        throw err;
+      }
     },
 
     async aiAudioPath(token: string, turnIdx: number): Promise<string | null> {

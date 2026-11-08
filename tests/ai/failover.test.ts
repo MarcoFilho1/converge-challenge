@@ -137,3 +137,18 @@ describe("teto de tempo das tarefas rápidas", () => {
     expect(seen).toEqual(["m1@k1", "m1@k2"]);
   });
 });
+
+describe("ordem das tarefas rápidas", () => {
+  it("alterna os modelos antes de trocar de chave: se o modelo está lento, a segunda tentativa já é outro modelo", () => {
+    const t = chatTargets(
+      { FEATHERLESS_API_KEY_1: "k1", FEATHERLESS_API_KEY_2: "k2", AI_CHAT_MODEL: "moonshotai/Kimi-K2-Instruct-0905", AI_FAST_MODEL: "moonshotai/Kimi-K2-Instruct-0905", AI_FAST_MODEL_FALLBACK: "Qwen/Qwen3-30B-A3B-Instruct-2507" },
+      "fast",
+    );
+    expect(t.map((x) => x.label)).toEqual([
+      "featherless:moonshotai/Kimi-K2-Instruct-0905#1",
+      "featherless:Qwen/Qwen3-30B-A3B-Instruct-2507#1",
+      "featherless:moonshotai/Kimi-K2-Instruct-0905#2",
+      "featherless:Qwen/Qwen3-30B-A3B-Instruct-2507#2",
+    ]);
+  });
+});
