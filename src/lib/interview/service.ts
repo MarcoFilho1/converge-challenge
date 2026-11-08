@@ -3,6 +3,8 @@
  * Cada turno é uma requisição; o estado inteiro vive em interviews.state (jsonb) com lock otimista.
  */
 import { withObsContext } from "@/lib/obs/context";
+import { clampInput } from "@/lib/ai/injection";
+import { recordEvent } from "@/lib/obs/events";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -168,6 +170,9 @@ export function createInterviewService(deps: ServiceDeps = {}) {
     const before = stateOf(row);
     const nowMs = now();
     const { state, say } = await step(before, event, ai, nowMs);
+    if ((state.injectionTurns ?? []).length > (before.injectionTurns ?? []).length) {
+      recordEvent({ kind: "proteção da IA", outcome: "descartado", model: "regra em código", detail: `Tentativa de mudar as regras da entrevista; a fala não foi para a IA${state.status === "stopped" ? " e a entrevista foi encerrada (3ª tentativa)" : ""}` });
+    }
     const newTurns = state.turns.slice(before.turns.length);
     const aiTurnIdx = state.turns.length - 1;
 
@@ -256,7 +261,7 @@ export function createInterviewService(deps: ServiceDeps = {}) {
 
     async turn(token: string, input: { audio?: { buffer: Buffer; mime: string }; text?: string; clientMs?: number | null }): Promise<TurnResponse> {
       const row = await running(token);
-      let text = input.text?.trim() ?? "";
+      let text = clampInput(input.text?.trim() ?? "");
       let audioPath: string | null = null;
       // áudio vazio (botão "Pronto" sem gravação): trata como "não ouvi"; só cabeçalho cai no detector de silêncio
       if (input.audio && input.audio.buffer.length === 0) input = { ...input, audio: undefined, text: "" };

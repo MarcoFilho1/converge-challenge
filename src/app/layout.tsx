@@ -18,6 +18,7 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Praevenius · Consultório NR-7",
+  icons: { icon: [{ url: "/brand/praevenius-mark.png", type: "image/png" }] },
   description:
     "Acompanhamento médico ocupacional (NR-7 / PCMSO) por questionários validados no WhatsApp e entrevista estruturada por voz, com rastreabilidade documental.",
 };
