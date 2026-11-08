@@ -50,3 +50,14 @@ cloudflared tunnel --url http://localhost:3100      # imprime https://xxxx.trycl
 pnpm test                 # inclui motor, voz, rotas
 pnpm evals:entrevista     # crise 100%, 0 termo proibido/conselho, 0 resumo sem origem
 ```
+
+## Voz da Bella (ElevenLabs) — a escolhida pelo Marco em 8/11
+Fala na ElevenLabs, escuta no Whisper do Voicebox (o Voicebox continua precisando estar aberto e aquecido).
+```
+VOICE_PROVIDER=elevenlabs
+ELEVENLABS_API_KEY=<chave>
+ELEVENLABS_VOICE_ID=hpp4J3VqNfWAUOO0d1Us      # Bella, voz padrão (o plano grátis não libera vozes da biblioteca nem criar voz pela API)
+ELEVENLABS_MODEL=eleven_flash_v2_5            # ~0,9 s por frase
+```
+`pnpm voz:pregerar --contar` mostra quantos caracteres faltam gerar; `pnpm voz:pregerar` gera (para se passar de `VOZ_MAX_CARACTERES`, padrão 8000).
+Reação e pergunta são áudios separados: a pergunta e as reações fixas vêm do cache; só reação nova (com modelo de texto ligado) gasta cota. Plano grátis: 10 mil caracteres/mês; as 49 falas fixas custaram ~3,1 mil.
