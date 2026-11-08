@@ -134,3 +134,42 @@ describe("serviço da entrevista", () => {
     expect(t2.audioUrl).toBe(`/api/entrevista/${tok2}/fala/${t2.turnIndex}`);
   });
 });
+
+describe("som de escuta enquanto a Helena pensa", () => {
+  beforeEach(async () => {
+    await truncateAll();
+  });
+
+  it("devolve um áudio curto de escuta, gerado uma vez e depois do cache; token inválido não tem som", async () => {
+    let calls = 0;
+    const voice: VoiceProvider = {
+      async tts() {
+        calls++;
+        return { audio: pcmToWav(Buffer.alloc(480), 24000), mime: "audio/wav" };
+      },
+      async stt() {
+        return { text: "", ms: 0 };
+      },
+      async health() {
+        return true;
+      },
+    };
+    const svc = await makeService(voice);
+    const run = await makeRun();
+    const token = (await svc.createInvite(run.id)).inviteUrl.split("/").pop()!;
+    const a = await svc.listeningCuePath(token, 0);
+    const b = await svc.listeningCuePath(token, 0);
+    expect(a).toBeTruthy();
+    expect(b).toBe(a);
+    expect(calls).toBe(1);
+    expect(await svc.listeningCuePath(token, 7)).toBeTruthy();
+    expect(await svc.listeningCuePath("nao-existe", 0)).toBeNull();
+  });
+
+  it("sem voz configurada, não há som de escuta", async () => {
+    const svc = await makeService();
+    const run = await makeRun();
+    const token = (await svc.createInvite(run.id)).inviteUrl.split("/").pop()!;
+    expect(await svc.listeningCuePath(token, 0)).toBeNull();
+  });
+});

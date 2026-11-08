@@ -48,6 +48,19 @@ export function chatTargets(env: Env = process.env, purpose: ChatPurpose = "long
   const models = ordered.filter(
     (m, i, all): m is string => !!m && all.indexOf(m) === i,
   );
+  const make = (modelId: string, key: string, i: number): ChatTarget => ({
+    label: `featherless:${modelId}#${i + 1}`,
+    key,
+    model: createOpenAICompatible({
+      name: "featherless",
+      baseURL: FEATHERLESS_URL,
+      apiKey: key,
+      includeUsage: true,
+      supportsStructuredOutputs: true,
+    }).chatModel(modelId),
+  });
+  // Tarefa rápida: alterna os modelos antes de trocar de chave (modelo lento na hora não melhora com outra chave).
+  if (purpose === "fast") return keys.flatMap((key, i) => models.map((modelId) => make(modelId, key, i)));
   return models.flatMap((modelId) =>
     keys.map((key, i) => ({
       label: `featherless:${modelId}#${i + 1}`,

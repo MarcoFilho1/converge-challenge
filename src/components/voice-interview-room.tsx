@@ -97,6 +97,14 @@ export function VoiceInterviewRoom({
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  /** Som curto de escuta ("Uhum.") tocado assim que a pessoa termina de falar, para a pausa não parecer silêncio. */
+  const cueIndexRef = useRef(0);
+  const playListeningCue = useCallback(() => {
+    const i = cueIndexRef.current++ % 4;
+    const cue = new Audio(`/api/entrevista/${encodeURIComponent(token)}/escuta?i=${i}`);
+    cue.volume = 0.9;
+    cue.play().catch(() => {});
+  }, [token]);
   /** Volume da voz da Helena (0 a 1), para a animação estilo Meet. Só funciona se o áudio passar por um AudioContext ativo. */
   const [helenaLevel, setHelenaLevel] = useState(0);
   const outCtxRef = useRef<AudioContext | null>(null);
@@ -513,6 +521,8 @@ export function VoiceInterviewRoom({
   const handleStart = async (consent: boolean) => {
     setConnectionError(false);
     setVoiceState("pensando");
+    // Deixa os sons de escuta prontos no servidor antes da primeira fala.
+    if (consent) for (let i = 0; i < 4; i++) fetch(`/api/entrevista/${encodeURIComponent(token)}/escuta?i=${i}`).catch(() => {});
     try {
       const res = await fetch(`/api/entrevista/${encodeURIComponent(token)}/start`, {
         method: "POST",
@@ -550,6 +560,7 @@ export function VoiceInterviewRoom({
     async (blob: Blob, durationMs: number) => {
       setConnectionError(false);
       setVoiceState("pensando");
+      playListeningCue();
       try {
         const form = new FormData();
         form.append("audio", blob, "turno.webm");
@@ -612,7 +623,7 @@ export function VoiceInterviewRoom({
         buildFallbackTurn(turnIndex + 1, simulatedHeard, "turno")
       );
     },
-    [applyTurnResponse, buildFallbackTurn, token, turnIndex, demoMode]
+    [applyTurnResponse, buildFallbackTurn, token, turnIndex, demoMode, playListeningCue]
   );
 
   useEffect(() => {
