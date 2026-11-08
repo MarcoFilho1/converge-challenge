@@ -5,6 +5,12 @@ import { computeSeverity, getItems, inviteThreshold, nextItemIndex, scoreRun, sh
 import type { QuestionnaireRun } from "@/db/schema";
 import { copy, formatItem } from "./copy";
 import * as repo from "./repo";
+import { withObsContext } from "@/lib/obs/context";
+import { recordEvent } from "@/lib/obs/events";
+
+const SEVERITY_LABEL = { urgency: "Urgência", priority: "Prioridade", attention: "Atenção", none: "Sem indício" } as const;
+/** "\\bme (machucar|ferir)\\b" → "me (machucar|ferir)" */
+const readablePattern = (p?: string) => (p ?? "").replace(/\\b/g, "").trim();
 
 export type EngineEvent =
   | "ignored_unknown"
@@ -64,7 +70,7 @@ export function restoreDefaultEngineHooks() {
  */
 const pending = new Map<string, Promise<void>[]>();
 function inBackground(runId: string, task: () => Promise<void>, after: Promise<unknown>[] = []): void {
-  const p = Promise.allSettled(after).then(() => runHook(task));
+  const p = Promise.allSettled(after).then(() => withObsContext({ runId }, () => runHook(task)));
   const list = pending.get(runId) ?? [];
   list.push(p);
   pending.set(runId, list);
@@ -141,9 +147,17 @@ export async function finishRun(
     crisisText: !!opts.crisisText || status === "crisis",
   });
   await repo.updateRun(run.id, { status, severity, clinicalOnly, partial, finishedAt: new Date(), retryCount: 0 });
+  const index = wellbeingIndex(answers, run.demoShort);
+  recordEvent({
+    kind: "gravidade",
+    outcome: "ok",
+    model: "regra em código",
+    runId: run.id,
+    detail: `${SEVERITY_LABEL[severity]}${index !== null ? ` · índice ${index}/100` : ""}${partial ? " · questionário incompleto" : ""}`,
+  });
   if (hooks.onRunFinished) inBackground(run.id, () => hooks.onRunFinished!(run.id), [...(pending.get(run.id) ?? [])]);
   if (status !== "done") return { invite: [] };
-  return { invite: await maybeInvite(run.id, severity, wellbeingIndex(answers, run.demoShort)) };
+  return { invite: await maybeInvite(run.id, severity, index) };
 }
 
 /**
@@ -152,11 +166,30 @@ export async function finishRun(
  */
 async function maybeInvite(runId: string, severity: Parameters<typeof shouldInviteToInterview>[0]["severity"], index: number | null): Promise<string[]> {
   if (process.env.INTERVIEW_AUTO_INVITE === "false" || !hooks.onInvite) return [];
-  if (!shouldInviteToInterview({ severity, index, threshold: inviteThreshold() })) return [];
+  const threshold = inviteThreshold();
+  if (!shouldInviteToInterview({ severity, index, threshold })) {
+    recordEvent({
+      kind: "convite",
+      outcome: "descartado",
+      model: "regra em código",
+      runId,
+      detail: severity === "urgency" ? "Não convidou: urgência pede contato humano" : `Não convidou: índice ${index ?? "—"} acima do limite de ${threshold} e sem critério da regra`,
+    });
+    return [];
+  }
   try {
-    return [copy.interviewInvite(await hooks.onInvite(runId))];
+    const url = await hooks.onInvite(runId);
+    recordEvent({
+      kind: "convite",
+      outcome: "ok",
+      model: "regra em código",
+      runId,
+      detail: `Convite da entrevista enviado pelo WhatsApp (${SEVERITY_LABEL[severity]}, índice ${index ?? "—"}, limite ${threshold})`,
+    });
+    return [copy.interviewInvite(url)];
   } catch (err) {
     console.error("[engine] não consegui criar o convite da entrevista", err);
+    recordEvent({ kind: "convite", outcome: "erro", runId, detail: err instanceof Error ? err.message : String(err) });
     return [];
   }
 }
@@ -194,8 +227,11 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   };
 
   // 1. Corte de crise: sempre primeiro, antes de qualquer IA.
-  if (detectCrisis(text).hit) {
+  const crisis = detectCrisis(text);
+  if (crisis.hit) {
+    const crisisDetail = `Frase de risco: “${text.slice(0, 120)}” (padrão ${readablePattern(crisis.pattern)}). CVV 188 e SAMU 192 enviados`;
     if (active) {
+      recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: active.id, detail: crisisDetail });
       await finishRun(active, "crisis", { crisisText: true });
       return reply(active.id, "crisis", [CRISIS_REPLY]);
     }
@@ -208,6 +244,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
       finishedAt: new Date(),
     });
     await repo.setMessageRun(inboundId, run.id);
+    recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: run.id, detail: crisisDetail });
     return reply(run.id, "crisis", [CRISIS_REPLY]);
   }
 
@@ -282,7 +319,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   let value: number | null = null;
   let rawText = text;
   if (item.scale) {
-    value = await getAi().interpretAnswer(item, text);
+    value = await withObsContext({ runId: active.id }, () => getAi().interpretAnswer(item, text));
     if (value === null && active.retryCount === 0) {
       await repo.updateRun(active.id, { retryCount: 1 });
       return reply(active.id, "repeat", [copy.repeat, formatItem(item)]);
@@ -299,6 +336,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
 
   // Item 9 do PHQ-9 positivo: mensagem de segurança e urgência (manual Pfizer p. 2).
   if (item.code === "PHQ9_9" && value !== null && value >= 1) {
+    recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: active.id, detail: `Item 9 do PHQ-9 = ${value}. CVV 188 e SAMU 192 enviados` });
     await repo.updateRun(active.id, { currentItem: next });
     await finishRun({ ...active, currentItem: next }, "crisis");
     return reply(active.id, "crisis", [CRISIS_REPLY]);

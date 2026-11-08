@@ -3,6 +3,7 @@ import { markDelivery } from "@/lib/engine/repo";
 import { sendText } from "@/lib/whatsapp/evolution";
 import { parseWebhook } from "@/lib/whatsapp/parse-webhook";
 import { saveConnectionState } from "@/lib/whatsapp/session";
+import { recordEvent } from "@/lib/obs/events";
 
 const ok = () => Response.json({ ok: true });
 
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       const result = await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId });
       for (let i = 0; i < result.outbound.length; i++) {
         const waId = await sendWithRetry(parsed.phone, result.outbound[i]);
+        if (!waId) recordEvent({ kind: "envio", outcome: "erro", runId: result.runId, detail: `Mensagem ${i + 1} não entregue no WhatsApp depois de ${SEND_ATTEMPTS} tentativas` });
         const messageId = result.outboundIds?.[i];
         if (!messageId) continue;
         try {

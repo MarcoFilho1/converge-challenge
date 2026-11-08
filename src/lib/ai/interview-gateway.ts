@@ -6,6 +6,9 @@ import { FindingDraftSchema, type InterviewAi } from "./interview";
 import { createInterviewMock } from "./interview-mock";
 import { ACK_SYSTEM, EXTRACT_SYSTEM, INTERVIEW_SUMMARY_SYSTEM } from "./interview-prompts";
 import { chatCallOptions, hasChatKey, withChat } from "./llm";
+import { recordEvent } from "@/lib/obs/events";
+
+const STAGE: Record<string, string> = { extractFindings: "extrair da fala", phraseAck: "reação da Helena", summarize: "resumo da entrevista" };
 
 async function withFallback<T>(label: string, real: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
   if (!hasChatKey()) {
@@ -16,6 +19,7 @@ async function withFallback<T>(label: string, real: () => Promise<T>, fallback: 
     return await real();
   } catch (err) {
     console.warn(`[entrevista] gateway falhou em ${label}, usando mock`, err instanceof Error ? err.message : err);
+    recordEvent({ kind: STAGE[label] ?? label, outcome: "modo_simples", detail: "nenhum modelo respondeu; usado o caminho simples" });
     return fallback();
   }
 }

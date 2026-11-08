@@ -18,7 +18,8 @@
     "voz:pregerar": "tsx scripts/voz-pregerar.ts",
     "voz:medir": "tsx scripts/voz-medir.ts",
     "voz:cota": "tsx scripts/voz-cota.ts",
-    "evals:entrevista": "tsx evals/entrevista.ts"
+    "evals:entrevista": "tsx evals/entrevista.ts",
+    "obs:db": "tsx scripts/obs-db.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.85",

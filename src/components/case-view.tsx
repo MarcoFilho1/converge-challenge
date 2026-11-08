@@ -7,6 +7,7 @@ import { ConversationPanel } from "@/components/conversation";
 import { EvidenceList } from "@/components/evidence-list";
 import { InterviewTab } from "@/components/interview-tab";
 import { PatientSummaryCard } from "@/components/patient-summary";
+import { AgentTrail } from "@/components/agent-trail";
 import { SummaryCard } from "@/components/summary-card";
 import type { CaseState, Severity } from "@/db/schema";
 import { describeCase, fmt, reasonsFor } from "@/lib/case/describe";
@@ -92,6 +93,7 @@ export function CaseView({
     fontes: false,
     conversa: false,
     entrevista: initialTab === "entrevista",
+    rastro: false,
   });
   const interviewRef = useRef<HTMLDetailsElement>(null);
 
@@ -292,6 +294,14 @@ export function CaseView({
             initialInterviews={interviews}
             initialDetail={interviewDetail}
           />
+        </Fold>
+        <Fold
+          title="O que o sistema fez"
+          hint={`${data.trail?.length ?? 0} passos`}
+          open={openFolds.rastro}
+          onToggle={(o) => setOpenFolds((f) => ({ ...f, rastro: o }))}
+        >
+          <AgentTrail trail={data.trail ?? []} />
         </Fold>
       </div>
     </article>

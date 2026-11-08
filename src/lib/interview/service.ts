@@ -2,6 +2,7 @@
  * Serviço da entrevista: liga motor (puro), banco (repo) e voz (VoiceProvider).
  * Cada turno é uma requisição; o estado inteiro vive em interviews.state (jsonb) com lock otimista.
  */
+import { withObsContext } from "@/lib/obs/context";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -140,7 +141,11 @@ export function createInterviewService(deps: ServiceDeps = {}) {
    * Aplica um evento. Ordem: motor → transação (lock otimista + turnos + urgência) → só então áudio da IA.
    * Quem perde a corrida não gera TTS nem deixa arquivo; o banco nunca fica com estado e turnos divergentes.
    */
-  async function apply(row: InterviewRow, event: InterviewEvent, personAudioPath: string | null, heard: string | null): Promise<TurnResponse> {
+  function apply(row: InterviewRow, event: InterviewEvent, personAudioPath: string | null, heard: string | null): Promise<TurnResponse> {
+    return withObsContext({ interviewId: row.id, runId: row.runId }, () => applyInContext(row, event, personAudioPath, heard));
+  }
+
+  async function applyInContext(row: InterviewRow, event: InterviewEvent, personAudioPath: string | null, heard: string | null): Promise<TurnResponse> {
     const before = stateOf(row);
     const nowMs = now();
     const { state, say } = await step(before, event, ai, nowMs);

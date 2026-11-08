@@ -8,6 +8,7 @@
  */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
+import { recordEvent, type EventOutcome } from "@/lib/obs/events";
 
 export type ChatTarget = { label: string; key: string; model: LanguageModel };
 
@@ -62,6 +63,12 @@ export function chatTargets(env: Env = process.env, purpose: ChatPurpose = "long
   );
 }
 
+function failureOutcome(err: unknown): EventOutcome {
+  if (isCreditError(err)) return "sem_credito";
+  const e = err as { name?: string; message?: string } | null;
+  return e?.name === "TimeoutError" || e?.name === "AbortError" || /timeout|aborted/i.test(e?.message ?? "") ? "tempo_esgotado" : "erro";
+}
+
 /** Chave sem crédito, cota esgotada ou recusada: não adianta tentar de novo com ela. */
 export function isCreditError(err: unknown): boolean {
   const e = err as { statusCode?: number; status?: number; message?: string; responseBody?: string } | null;
@@ -97,12 +104,24 @@ export async function withChat<T>(
   for (const target of targets) {
     if (exhausted.has(target.key)) continue;
     if (limit && clock() - started + limit.attemptMs > limit.budgetMs) break;
+    const t0 = Date.now();
     try {
       const result = await run(target.model, target);
       recordCost(stage, result);
+      const usage = (result as { usage?: { inputTokens?: number; outputTokens?: number; raw?: { cost?: unknown } } } | null)?.usage;
+      recordEvent({
+        kind: stage,
+        outcome: "ok",
+        model: target.label,
+        tokensIn: usage?.inputTokens ?? null,
+        tokensOut: usage?.outputTokens ?? null,
+        costUsd: typeof usage?.raw?.cost === "number" ? usage.raw.cost : null,
+        latencyMs: Date.now() - t0,
+      });
       return result;
     } catch (err) {
       last = err;
+      recordEvent({ kind: stage, outcome: failureOutcome(err), model: target.label, latencyMs: Date.now() - t0, detail: err instanceof Error ? err.message : String(err) });
       if (isCreditError(err)) {
         exhausted.add(target.key);
         console.warn(`[ia] ${target.label} sem crédito ou recusada; trocando de chave`);
