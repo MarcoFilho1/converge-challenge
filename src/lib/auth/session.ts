@@ -16,6 +16,8 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname === "/login") return true;
   if (pathname === "/brand/praevenius-mark.png" || pathname === "/brand/praevenius-logo.png") return true;
   if (pathname === "/api/auth/demo-session") return true;
+  // Roteiro da demonstração para quem avalia (passa por todos os papéis).
+  if (pathname === "/demo") return true;
   if (pathname.startsWith("/api/webhook/")) return true;
   // Entrada dos participantes (escolha do canal) e o estado dos canais que ela consulta.
   if (pathname === "/entrar" || pathname.startsWith("/entrar/")) return true;
