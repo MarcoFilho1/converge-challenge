@@ -1,21 +1,74 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { fetchCaseLive, setCaseState } from "@/app/(app)/caso/[runId]/actions";
 import { ConversationPanel } from "@/components/conversation";
 import { EvidenceList } from "@/components/evidence-list";
 import { InterviewTab } from "@/components/interview-tab";
 import { SummaryCard } from "@/components/summary-card";
-import { formatPhoneBr, RuleTraceStrip } from "@/components/ui/primitives";
-import {
-  CaseStateChip,
-  RunStatusText,
-  SeverityBadge,
-} from "@/components/ui/severity-badge";
-import type { CaseState } from "@/db/schema";
+import type { CaseState, Severity } from "@/db/schema";
+import { describeCase, fmt, reasonsFor } from "@/lib/case/describe";
+import { formatWhen } from "@/lib/case/when";
 import type { CaseDetailData } from "@/lib/demo/fixtures";
 
+const SEVERITY: Record<Severity, { label: string; dot: string; why: string }> = {
+  urgency: { label: "Urgência", dot: "var(--alert)", why: "Por que é urgência" },
+  priority: { label: "Prioridade", dot: "var(--sev-priority-dot)", why: "Por que é prioridade" },
+  attention: { label: "Atenção", dot: "var(--sev-attention-dot)", why: "Por que pede atenção" },
+  none: { label: "Sem indício", dot: "var(--sev-none-ink)", why: "Sem sinal acima do corte" },
+};
+
+const STATE_LABEL: Record<CaseState, string> = {
+  aberto: "Aberto",
+  encaminhado: "Encaminhado para consulta",
+  acompanhando: "Em acompanhamento",
+  encerrado: "Encerrado",
+};
+
+/** A resposta aberta da pessoa ("o que está mais difícil"), tirada da conversa. */
+function openAnswer(messages: CaseDetailData["messages"]): string | null {
+  const i = messages.findIndex((m) => m.direction === "out" && /mais difícil agora/i.test(m.text));
+  if (i < 0) return null;
+  const reply = messages.slice(i + 1).find((m) => m.direction === "in");
+  const text = reply?.text.trim();
+  return text && !/^pular$/i.test(text) ? text : null;
+}
+
+function Fold({
+  title,
+  hint,
+  open,
+  onToggle,
+  children,
+  foldRef,
+}: {
+  title: string;
+  hint: string;
+  open: boolean;
+  onToggle: (open: boolean) => void;
+  children: React.ReactNode;
+  foldRef?: React.Ref<HTMLDetailsElement>;
+}) {
+  return (
+    <details
+      ref={foldRef}
+      open={open}
+      onToggle={(e) => onToggle((e.currentTarget as HTMLDetailsElement).open)}
+      className="border-b border-[var(--rule)]"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between py-3.5 text-[14px] font-medium [&::-webkit-details-marker]:hidden">
+        <span>{title}</span>
+        <span className="text-[13px] font-normal text-[var(--muted)]">
+          {hint} <span aria-hidden="true" className={`inline-block transition-transform ${open ? "rotate-90" : ""}`}>›</span>
+        </span>
+      </summary>
+      {open && <div className="pb-5">{children}</div>}
+    </details>
+  );
+}
+
+/** Caso "Prontuário em ordem": uma página para ler de cima para baixo; o detalhe técnico fica dobrado. */
 export function CaseView({
   initialData,
   initialTab = "questionario",
@@ -24,214 +77,182 @@ export function CaseView({
   initialTab?: "questionario" | "entrevista";
 }) {
   const [data, setData] = useState<CaseDetailData>(initialData);
-  const [activeTab, setActiveTab] = useState<"questionario" | "entrevista">(
-    initialTab
-  );
   const [caseState, setLocalCaseState] = useState<CaseState>(initialData.run.caseState);
   const [isPending, startTransition] = useTransition();
+  const [openFolds, setOpenFolds] = useState({
+    resumo: false,
+    fontes: false,
+    conversa: false,
+    entrevista: initialTab === "entrevista",
+  });
+  const interviewRef = useRef<HTMLDetailsElement>(null);
 
-  // Polling de 3s enquanto o questionário estiver em andamento (in_progress)
+  // Atualiza a cada 3 s enquanto o questionário ainda está em andamento.
   useEffect(() => {
-    if (data.run.status !== "in_progress") return;
+    if (data.run.status !== "in_progress" && data.run.status !== "consent") return;
     const timer = setInterval(() => {
-      fetchCaseLive(data.run.runId)
-        .then((next) => setData(next))
-        .catch(() => {});
+      fetchCaseLive(data.run.runId).then(setData).catch(() => {});
     }, 3000);
     return () => clearInterval(timer);
   }, [data.run.runId, data.run.status]);
 
-  const handleStateChange = (nextState: "encaminhado" | "acompanhando" | "encerrado") => {
-    setLocalCaseState(nextState);
+  const changeState = (next: "encaminhado" | "acompanhando" | "encerrado") => {
+    setLocalCaseState(next);
     startTransition(async () => {
-      await setCaseState(data.run.runId, nextState);
+      await setCaseState(data.run.runId, next);
     });
   };
 
+  const openInterview = () => {
+    setOpenFolds((f) => ({ ...f, entrevista: true }));
+    requestAnimationFrame(() => interviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
   const { run, messages, evidence, summary, interviews, interviewDetail } = data;
+  const sev = SEVERITY[run.severity];
+  const quote = openAnswer(messages);
+  const reasons = reasonsFor(run);
+  const facts = run.scores.filter((s) => !(s.instrument === "COPSOQ" && s.dimension !== "ritmo"));
+  const running = run.status === "in_progress" || run.status === "consent";
+  const interviewHint =
+    interviews.length === 0
+      ? "ainda não convidada"
+      : interviews[0].hasSummary
+        ? "resumo pronto"
+        : "convite enviado";
 
   return (
-    <div className="space-y-5">
-      {/* Breadcrumb + Nome do colaborador (h1) + Condutas clínicas à direita (framed-sheet detail pattern) */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--muted)]">
-            <Link href="/fila" className="hover:text-[var(--ink)] hover:underline">
-              ← Fila de triagem
-            </Link>
-            <span>/</span>
-            <span>{run.sector}</span>
-            <span>·</span>
-            <span>{run.role}</span>
-            <span>·</span>
-            <span className="mono-code">{formatPhoneBr(run.phoneE164)}</span>
-          </div>
+    <article>
+      <div className="max-w-[760px]">
+      <Link href="/fila" className="text-[13px] text-[var(--muted)] no-underline hover:text-[var(--ink)]">
+        ← Fila
+      </Link>
+      <h1 className="mt-2.5 text-[28px] font-semibold leading-tight tracking-[-0.02em]">{run.contactName}</h1>
+      <p className="mt-1 text-[14px] text-[var(--muted)]">
+        <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: sev.dot }} aria-hidden="true" />
+        {sev.label} · {run.sector} · {run.role}
+        {run.finishedAt ? ` · respondeu ${formatWhen(run.finishedAt)}` : running ? " · questionário em andamento" : ""}
+      </p>
 
-          <p className="eyebrow mt-3">Prontuário ocupacional · sigilo médico</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2.5">
-            <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
-              {run.contactName}
-            </h1>
-            <SeverityBadge severity={run.severity} />
-            <CaseStateChip state={caseState} />
-            <RunStatusText status={run.status} />
-          </div>
-        </div>
+      <p className="mt-6 text-[18px] leading-[1.55]">
+        {describeCase(run)}
+        {quote && (
+          <>
+            {" "}O que mais pesa, nas próprias palavras: <q>{quote}</q>.
+          </>
+        )}
+      </p>
 
-        {/* Três botões de desfecho do médico (Task 15) */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => handleStateChange("encaminhado")}
-            className="h-[32px] cursor-pointer rounded-[6px] px-3 text-[13px] font-medium transition-colors"
-            style={{
-              backgroundColor: caseState === "encaminhado" ? "var(--primary)" : "var(--card)",
-              color: caseState === "encaminhado" ? "#FFFFFF" : "var(--ink)",
-              border: "1px solid var(--control)",
-            }}
-          >
-            Encaminhar consulta
-          </button>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => handleStateChange("acompanhando")}
-            className="h-[32px] cursor-pointer rounded-[6px] px-3 text-[13px] font-medium transition-colors"
-            style={{
-              backgroundColor: caseState === "acompanhando" ? "var(--primary)" : "var(--card)",
-              color: caseState === "acompanhando" ? "#FFFFFF" : "var(--ink)",
-              border: "1px solid var(--control)",
-            }}
-          >
-            Acompanhar no PCMSO
-          </button>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => handleStateChange("encerrado")}
-            className="h-[32px] cursor-pointer rounded-[6px] px-3 text-[13px] font-medium transition-colors"
-            style={{
-              backgroundColor: caseState === "encerrado" ? "var(--primary)" : "var(--card)",
-              color: caseState === "encerrado" ? "#FFFFFF" : "var(--muted)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            Encerrar caso
-          </button>
-        </div>
-      </div>
-
-      {/* Elemento assinatura: Matriz de Trilha de Gravidade (A · B · C + Crise) */}
-      <RuleTraceStrip
-        hasPresenteeismTrunk={run.ruleTrace.hasPresenteeismTrunk}
-        hasWorkImpairment={run.ruleTrace.hasWorkImpairment}
-        hasClinicalSignal={run.ruleTrace.hasClinicalSignal}
-        hasCrisis={run.ruleTrace.hasCrisis}
-        clinicalOnly={run.clinicalOnly}
-        partial={run.partial}
-        severity={run.severity}
-      />
-
-      {/* Faixa de Escores Validados dividida por fios de 1px */}
-      <div className="grid grid-cols-2 divide-y divide-[var(--border)] rounded-[8px] border border-[var(--border)] bg-[var(--card)] sm:grid-cols-4 sm:divide-x sm:divide-y-0">
-        {run.scores.map((s) => (
-          <div key={`${s.instrument}-${s.dimension}`} className="p-3.5">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[12px] font-medium text-[var(--muted)]">{s.label}</span>
-              <span
-                className="mono-code rounded-[3px] px-1.5 py-0.5 text-[11px] font-medium"
-                style={{
-                  backgroundColor: s.flagged ? "var(--sev-urgency-bg)" : "var(--bg)",
-                  color: s.flagged ? "var(--sev-urgency-ink)" : "var(--muted)",
-                }}
-              >
-                corte ≥ {s.cutoff}
-              </span>
-            </div>
-            <div className="mt-1.5 flex items-baseline justify-between">
-              <span
-                className="mono-code text-[24px] font-normal leading-none"
-                style={{ color: s.flagged ? "var(--alert)" : "var(--ink)" }}
-              >
-                {s.value}
-                <span className="ml-1 text-[13px] text-[var(--muted)]">{s.maxLabel}</span>
-              </span>
-              <span className="text-[11px] text-[var(--muted)]">
-                {s.complete ? (s.flagged ? "Acima do corte" : "Dentro da faixa") : "Parcial"}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Abas sublinhadas de 2px em linha de 1px (framed-sheet detail pattern) */}
-      <div className="border-b border-[var(--border)]">
-        <div className="flex items-center gap-6">
-          <button
-            type="button"
-            onClick={() => setActiveTab("questionario")}
-            className="relative cursor-pointer pb-2.5 text-[14px] transition-colors"
-            style={{
-              color: activeTab === "questionario" ? "var(--ink)" : "var(--muted)",
-              fontWeight: activeTab === "questionario" ? 600 : 400,
-            }}
-          >
-            Questionário WhatsApp & Evidências ({evidence.length})
-            {activeTab === "questionario" && (
-              <span
-                className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-[var(--brand)]"
-                aria-hidden="true"
-              />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("entrevista")}
-            className="relative cursor-pointer pb-2.5 text-[14px] transition-colors flex items-center gap-2"
-            style={{
-              color: activeTab === "entrevista" ? "var(--ink)" : "var(--muted)",
-              fontWeight: activeTab === "entrevista" ? 600 : 400,
-            }}
-          >
-            <span>Entrevista por Voz · Helena (MVP2)</span>
-            <span className="mono-code rounded-[4px] border border-[var(--border)] bg-[var(--raised)] px-1.5 py-0.2 text-[11px] font-medium text-[var(--ink)]">
-              {interviewDetail ? "Resumo pronto" : "Convidar"}
+      {facts.length > 0 && (
+        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-[var(--ink-2)]">
+          {facts.map((s) => (
+            <span key={`${s.instrument}-${s.dimension}`} className="whitespace-nowrap">
+              {s.label}{" "}
+              <b className="tabular-nums font-semibold" style={{ color: s.flagged ? "var(--alert)" : "var(--ink)" }}>
+                {fmt(s.value)}
+                {s.maxLabel}
+              </b>
             </span>
-            {activeTab === "entrevista" && (
-              <span
-                className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-[var(--brand)]"
-                aria-hidden="true"
-              />
-            )}
-          </button>
-        </div>
+          ))}
+        </p>
+      )}
+
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => changeState("encaminhado")}
+          aria-pressed={caseState === "encaminhado"}
+          className="h-[36px] cursor-pointer rounded-full bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)] disabled:opacity-60"
+        >
+          Encaminhar consulta
+        </button>
+        <button
+          type="button"
+          onClick={openInterview}
+          className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:bg-[var(--raised)]"
+        >
+          Convidar para entrevista
+        </button>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => changeState("acompanhando")}
+          aria-pressed={caseState === "acompanhando"}
+          className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:bg-[var(--raised)] disabled:opacity-60"
+        >
+          Acompanhar
+        </button>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => changeState("encerrado")}
+          className="h-[36px] cursor-pointer rounded-full px-3 text-[13px] text-[var(--muted)] hover:bg-[var(--raised)] hover:text-[var(--ink)] disabled:opacity-60"
+        >
+          Encerrar caso
+        </button>
+        {caseState !== "aberto" && (
+          <span className="text-[13px] text-[var(--muted)]" role="status">
+            {STATE_LABEL[caseState]}
+          </span>
+        )}
       </div>
 
-      {/* Conteúdo da aba ativa */}
-      {activeTab === "questionario" ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 items-start">
-          <div className="lg:col-span-5">
-            <ConversationPanel
-              messages={messages}
-              status={run.status}
-              contactName={run.contactName}
-            />
-          </div>
-          <div className="space-y-4 lg:col-span-7">
-            <EvidenceList evidence={evidence} />
-            <SummaryCard summary={summary} />
-          </div>
-        </div>
+      <h2 className="mt-9 text-[15px] font-semibold">{sev.why}</h2>
+      {reasons.length > 0 ? (
+        <ul className="mt-2.5 space-y-2 pl-5 text-[14px]">
+          {reasons.map((r) => (
+            <li key={r.text} className="list-disc">
+              {r.text} <span className="text-[12px] text-[var(--muted)]">{r.source}</span>
+            </li>
+          ))}
+        </ul>
       ) : (
-        <InterviewTab
-          runId={run.runId}
-          contactName={run.contactName}
-          initialInterviews={interviews}
-          initialDetail={interviewDetail}
-        />
+        <p className="mt-2 text-[14px] text-[var(--muted)]">Nenhum critério da regra foi atingido.</p>
       )}
-    </div>
+      <p className="mt-3 text-[12px] text-[var(--muted)]">A gravidade é calculada em código; a IA só organiza e cita.</p>
+      </div>
+
+      <div className="mt-8 border-t border-[var(--rule)]">
+        <Fold
+          title="Resumo do questionário"
+          hint={summary ? "pronto" : "ainda não gerado"}
+          open={openFolds.resumo}
+          onToggle={(o) => setOpenFolds((f) => ({ ...f, resumo: o }))}
+        >
+          <SummaryCard summary={summary} />
+        </Fold>
+        <Fold
+          title="Fontes citadas"
+          hint={`${evidence.length} ${evidence.length === 1 ? "trecho" : "trechos"}`}
+          open={openFolds.fontes}
+          onToggle={(o) => setOpenFolds((f) => ({ ...f, fontes: o }))}
+        >
+          <EvidenceList evidence={evidence} />
+        </Fold>
+        <Fold
+          title="Conversa no WhatsApp"
+          hint={`${messages.length} ${messages.length === 1 ? "mensagem" : "mensagens"}`}
+          open={openFolds.conversa}
+          onToggle={(o) => setOpenFolds((f) => ({ ...f, conversa: o }))}
+        >
+          <ConversationPanel messages={messages} status={run.status} contactName={run.contactName} />
+        </Fold>
+        <Fold
+          foldRef={interviewRef}
+          title="Entrevista com a Helena"
+          hint={interviewHint}
+          open={openFolds.entrevista}
+          onToggle={(o) => setOpenFolds((f) => ({ ...f, entrevista: o }))}
+        >
+          <InterviewTab
+            runId={run.runId}
+            contactName={run.contactName}
+            initialInterviews={interviews}
+            initialDetail={interviewDetail}
+          />
+        </Fold>
+      </div>
+    </article>
   );
 }

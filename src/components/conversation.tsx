@@ -13,24 +13,13 @@ export function ConversationPanel({
   contactName: string;
 }) {
   return (
-    <section className="flex flex-col rounded-[8px] border border-[var(--border)] bg-[var(--card)]">
-      <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-        <div>
-          <h2 className="text-[15px] font-medium text-[var(--ink)]">
-            Registro integral da conversa no WhatsApp
-          </h2>
-          <p className="text-[12px] text-[var(--muted)]">
-            Canal confidencial · {messages.length} mensagens trocadas com {contactName}
-          </p>
-        </div>
-        {status === "in_progress" && (
-          <span className="mono-code rounded-[4px] border border-[var(--sev-attention-border)] bg-[var(--sev-attention-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--sev-attention-ink)]">
-            Ao vivo · 3s
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-3 bg-[var(--bg)] p-4 max-h-[680px] overflow-y-auto">
+    <section className="flex flex-col overflow-hidden rounded-[12px]" aria-label={`Conversa com ${contactName}`}>
+      {status === "in_progress" && (
+        <p className="pb-2 text-[12px] text-[var(--sev-attention-ink)]" role="status">
+          Questionário em andamento: a conversa se atualiza sozinha.
+        </p>
+      )}
+      <div className="max-h-[560px] space-y-3 overflow-y-auto rounded-[12px] bg-[var(--bg)] p-4">
         {messages.map((msg) => {
           const isBot = msg.direction === "out";
           const isCrisisMsg = msg.text.includes("188") && msg.text.includes("192");

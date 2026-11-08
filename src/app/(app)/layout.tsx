@@ -9,7 +9,8 @@ async function AppShellWithCounts({
 }) {
   const { rows } = await listQueue();
   const urgentCount = rows.filter((r) => r.severity === "urgency").length;
-  const priorityCount = rows.filter((r) => r.severity === "priority").length;
+  // Conta todos os casos abertos (prioridade e atenção), como o título da Fila.
+  const priorityCount = rows.filter((r) => r.severity === "priority" || r.severity === "attention").length;
 
   return (
     <AppShell urgentCount={urgentCount} priorityCount={priorityCount}>

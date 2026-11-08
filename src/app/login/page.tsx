@@ -52,7 +52,6 @@ export default function LoginPage({
         {/* Coluna esquerda: contexto normativo e regra clínica */}
         <section className="flex flex-col justify-between border-b border-[var(--border)] bg-[var(--raised)] p-6 sm:p-8 lg:col-span-7 lg:border-b-0 lg:border-r">
           <div>
-            <p className="eyebrow mb-1.5">Cuidar começa por escutar</p>
             <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
               Triagem psicossocial NR-7
             </h1>

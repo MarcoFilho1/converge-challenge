@@ -53,6 +53,8 @@
   --sev-urgency-ink: #7D1612;
   --sev-urgency-border: #E5B4BC;
 
+  --sev-priority-dot: #C2521F;
+  --sev-attention-dot: #A86F0B;
   --sev-priority-bg: #FBE3D6;
   --sev-priority-ink: #7A2E1A;
   --sev-priority-border: #E8C0AA;
@@ -112,15 +114,6 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Chamada acolhedora acima dos títulos (estilo Praevenius) */
-.eyebrow {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--brand);
 }
 
 /* Entrada suave do conteúdo (opacidade + leve desfoque + subida), como no protótipo Praevenius */
