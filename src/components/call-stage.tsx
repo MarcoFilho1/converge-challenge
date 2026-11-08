@@ -173,10 +173,11 @@ export function CallStage(p: Props) {
           type="button"
           onClick={p.onSkip}
           disabled={thinking}
-          className="flex h-12 items-center gap-2 rounded-full bg-[#3a3635] px-5 text-[14px] font-medium text-white hover:bg-[#46413f] transition-colors disabled:opacity-40"
+          aria-label="Pular pergunta"
+          className="flex h-12 items-center gap-2 rounded-full bg-[#3a3635] px-4 sm:px-5 text-[14px] font-medium text-white hover:bg-[#46413f] transition-colors disabled:opacity-40"
         >
           <SkipIcon />
-          Pular pergunta
+          <span className="whitespace-nowrap"><span className="sm:hidden">Pular</span><span className="hidden sm:inline">Pular pergunta</span></span>
         </button>
         <button
           type="button"
@@ -196,11 +197,11 @@ export function CallStage(p: Props) {
             <p className="mt-2 text-[14px] leading-relaxed text-[#cfc7c4]">
               O que você contou até aqui vai só para a {p.doctorRef}. Depois de sair, esta conversa não pode ser retomada.
             </p>
-            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" autoFocus onClick={() => setConfirmOpen(false)} className="rounded-full px-5 py-2.5 text-[14px] font-medium text-[#f4efed] hover:bg-white/10">
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button type="button" autoFocus onClick={() => setConfirmOpen(false)} className="rounded-full bg-[#f4efed] px-5 py-2.5 text-[14px] font-medium text-[#1d1b1b] hover:bg-white sm:order-2">
                 Continuar conversa
               </button>
-              <button type="button" onClick={() => { setConfirmOpen(false); p.onHangUp(); }} className="rounded-full bg-[#e5534b] px-5 py-2.5 text-[14px] font-medium text-white hover:bg-[#d4423a]">
+              <button type="button" onClick={() => { setConfirmOpen(false); p.onHangUp(); }} className="rounded-full px-5 py-2.5 text-[14px] font-medium text-[#ff8a83] hover:bg-white/10 sm:order-1">
                 Sair
               </button>
             </div>
