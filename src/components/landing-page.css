@@ -18,6 +18,7 @@
 .lp em { font-style:normal; color:var(--lp-salmon); }
 .lp-heroBottom { display:flex; align-items:center; justify-content:space-between; gap:40px; margin-top:38px; }
 .lp-heroBottom p { color:#E6F0F8; font-size:16px; line-height:1.65; margin:0; }
+.lp-heroBottom p { max-width:590px; }
 .lp-button { display:inline-flex; justify-content:space-between; align-items:center; gap:38px; background:var(--lp-salmon); border:1px solid var(--lp-salmon); color:#24363B; padding:17px 24px; border-radius:100px; font-weight:500; font-size:14px; transition:background .2s,transform .2s; white-space:nowrap; }
 .lp-button:hover { background:#FFE5D7; transform:translateY(-2px); }
 .lp-button > span { font-size:21px; line-height:1; }
