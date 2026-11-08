@@ -1,0 +1,76 @@
+import { normalizeText } from "@/lib/crisis/detect";
+import { BLOCK_LABELS, type InterviewSummary } from "@/lib/interview/contract";
+import { formatOrigin } from "@/lib/interview/origin";
+import type { BlockId, Finding, FindingTheme, Turn } from "@/lib/interview/types";
+import type { FindingDraft, InterviewAi } from "./interview";
+
+const DURATION = /\b(ha|faz|desde|tem) (uns |umas |mais de |quase |cerca de )?(\d+|um|uma|dois|duas|tres|alguns|algumas|varios|varias|muito|pouco)?\s?(dia|dias|semana|semanas|mes|meses|ano|anos|tempo|[a-z]+)\b/;
+const STOP = /\b(quero parar|parar|encerrar|chega|nao quero mais falar|nao quero continuar)\b/;
+const THEMES: [FindingTheme, RegExp][] = [
+  ["chefia", /\b(chefe|chefia|gerente|supervisor|supervisora|coordenador|coordenadora|colegas?)\b/],
+  ["carga", /\b(hora extra|horas extras|ate tarde|meta|metas|prazo|prazos|fechamento|sobrecarga|muita coisa|demanda)\b/],
+  ["pausa", /\b(pausa|descansar|almoco|intervalo|parar um pouco)\b/],
+  ["procurou", /\b(procurei|fui ao|fui na|consultei|psicolog|medico|medica|terapia)\b/],
+  ["tratamento", /\b(remedio|medicacao|tratamento|acompanhamento)\b/],
+  ["barreira", /\b(nao tenho tempo|caro|dinheiro|nao sei onde|medo|vergonha|empresa saber|achei que passava)\b/],
+];
+const WORK = /\b(trabalho|servico|empresa|chefe|meta|prazo|turno|escala|fechamento|hora extra|horas extras|equipe|cliente)\b/;
+const DEFAULT_THEME: Partial<Record<BlockId, FindingTheme>> = { saude: "sintoma", trabalho: "carga", barreiras: "barreira" };
+
+function durationOf(normalized: string, original: string): string | null {
+  const m = DURATION.exec(normalized);
+  if (!m) return null;
+  // devolve o trecho original equivalente (mesma posição, texto normalizado tem o mesmo comprimento)
+  return original.slice(m.index, m.index + m[0].length).trim();
+}
+
+export function createInterviewMock(): InterviewAi {
+  return {
+    async extractFindings({ blockId, text }) {
+      const original = text.trim();
+      const n = normalizeText(original);
+      if (!n) return [];
+      const themed = THEMES.find(([, re]) => re.test(n))?.[0];
+      const tema: FindingTheme = themed ?? DEFAULT_THEME[blockId] ?? "outro";
+      return [
+        {
+          tema,
+          texto: original.slice(0, 160),
+          duracao: durationOf(n, original),
+          intensidade: /\b(muito|demais|forte|insuportavel)\b/.test(n) ? "forte" : null,
+          mencionaTrabalho: WORK.test(n),
+          pediuParar: STOP.test(n),
+        },
+      ];
+    },
+
+    async phraseAck({ findings }) {
+      return findings.length > 0 ? "Entendi." : "Certo.";
+    },
+
+    async summarize({ turns, findings, skipped }) {
+      const byIdx = new Map(turns.map((t) => [t.idx, t]));
+      const origem = (f: Finding) => {
+        const t = byIdx.get(f.turnIdx);
+        return t ? [{ turnIdx: f.turnIdx, label: formatOrigin(t) }] : [];
+      };
+      const cited = (f: Finding) => ({ texto: f.texto, origem: origem(f) });
+      const is = (...temas: FindingTheme[]) => findings.filter((f) => temas.includes(f.tema));
+
+      const personTurns = turns.filter((t) => t.speaker === "person");
+      const last = turns.at(-1);
+      const summary: InterviewSummary = {
+        dificuldades_relatadas: is("sintoma", "duracao", "frequencia", "gatilho", "alivio").map((f) => ({ ...cited(f), duracao: f.duracao })),
+        impacto_no_trabalho: findings.filter((f) => f.blockId === "saude" && f.mencionaTrabalho).map(cited),
+        fatores_do_trabalho: is("carga", "pausa", "chefia", "mudanca", "necessidade").map(cited),
+        barreiras_atendimento: is("barreira").map(cited),
+        sinais_de_alerta: { risco: false, origem: [] },
+        pontos_para_avaliacao: is("procurou", "tratamento").map(cited),
+        nao_respondido: skipped.map((b) => BLOCK_LABELS[b]),
+        duracao_min: last ? Math.round(((last.startedMs + (last.durationMs ?? 0)) / 60000) * 10) / 10 : 0,
+        turnos: personTurns.length,
+      };
+      return summary;
+    },
+  };
+}
