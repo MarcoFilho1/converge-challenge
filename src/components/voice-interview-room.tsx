@@ -505,6 +505,25 @@ export function VoiceInterviewRoom({
           applyTurnResponse(data);
           return;
         }
+        if (res.status === 503) {
+          let errCode = "";
+          try {
+            const payload = (await res.json()) as { error?: string };
+            errCode = payload.error ?? "";
+          } catch {
+            // ignore json parse error
+          }
+          if (errCode === "stt_indisponivel") {
+            setConnectionError(false);
+            setRetryAction(null);
+            setShowTextInput(true);
+            setMicError(
+              "Não consegui ouvir. Você pode responder digitando no modo texto abaixo ou tentar falar novamente."
+            );
+            setVoiceState("inativo");
+            return;
+          }
+        }
         if (res.status >= 500) {
           setConnectionError(true);
           setRetryAction(() => () => handleSendAudioTurn(blob, durationMs));

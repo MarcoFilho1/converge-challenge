@@ -2,7 +2,7 @@
  * CONTRATO da entrevista por voz (MVP2). Consumido pelas telas
  * /entrevista/[token] (colaborador) e /caso/[runId] aba "Entrevista" (médico).
  * Dono: motor/voz (feature/m7-entrevista-voz). Mudou → contract_publish no hackhub.
- * Versão 2 · 2026-11-07 23h (v1 + rota de áudio da IA e códigos de erro).
+ * Versão 3 · 2026-11-08 00h (v2 + 503 stt_indisponivel; segurança fail-safe; nao_respondido inclui "pergunta de segurança não respondida").
  */
 import { z } from "zod";
 
@@ -87,6 +87,8 @@ export type TurnResponse = z.infer<typeof TurnResponse>;
  *  POST /api/entrevista/[token]/stop             → TurnResponse (fechamento; status stopped; final true)
  *  GET  /api/entrevista/[token]/fala/[turnIdx]   → audio/wav da fala da IA (é o `audioUrl` do TurnResponse)      (404 {error:"sem_audio"})
  *  Erros: 404 token_invalido · 409 estado_invalido · 400 audio_invalido · 413 audio_grande (> 5 MB)
+ *         503 stt_indisponivel: a transcrição falhou; NENHUM turno foi gravado. A tela mostra "não consegui ouvir" e oferece
+ *         o modo texto (mesma rota, campo `text`). Não reenviar o áudio em loop.
  * Regras para a tela: microfone fechado enquanto o áudio toca; abre quando o áudio termina;
  * fecha o turno após 900 ms de silêncio depois de ter detectado voz, ou no botão "pronto"; máximo 60 s.
  * Durante o fetch do turno a tela mostra "pensando". Alvo de resposta: ≤ 4 s; timeout sugerido 25 s.
