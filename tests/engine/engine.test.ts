@@ -223,3 +223,136 @@ describe("convite automático para a entrevista", () => {
     }
   });
 });
+
+describe("indícios e resumo em segundo plano", () => {
+  it("a próxima pergunta não espera a busca de indícios; o resumo só sai depois dos indícios", async () => {
+    const { registerEngineHooks, settleBackground } = await import("@/lib/engine/engine");
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    registerEngineHooks({
+      onAnswer: async () => {
+        await gate;
+        order.push("indício");
+      },
+      onRunFinished: async () => {
+        order.push("resumo");
+      },
+    });
+    try {
+      const contact = await setup();
+      const { startRun } = await import("@/lib/engine/engine");
+      await startRun(contact.id, { demoShort: true });
+      await say("1");
+      const first = await say("2");
+      expect(first.event).toBe("answer");
+      expect(order).toEqual([]);
+      let last;
+      for (const t of ["7", "4", "2", "2", "0", "4", "metas"]) last = await say(t);
+      expect(last!.event).toBe("finished");
+      expect(order).toEqual([]);
+      release();
+      await settleBackground();
+      expect(order.at(-1)).toBe("resumo");
+      expect(order.filter((x) => x === "indício")).toHaveLength(8);
+    } finally {
+      const { restoreDefaultEngineHooks } = await import("@/lib/engine/engine");
+      restoreDefaultEngineHooks();
+    }
+  });
+});
+
+describe("frase de risco com negação", () => {
+  async function startDemo() {
+    const contact = await setup();
+    const { startRun } = await import("@/lib/engine/engine");
+    const { runId } = await startRun(contact.id, { demoShort: true });
+    await say("1");
+    return runId;
+  }
+
+  it("sem IA real (ambíguo): pergunta para confirmar; um 'não' claro segue com a pergunta atual", async () => {
+    const runId = await startDemo();
+    const ask = await say("não, nunca pensei em me machucar");
+    expect(ask.event).toBe("crisis_confirm");
+    expect(ask.outbound.join(" ")).toMatch(/SIM ou NÃO/);
+    expect((await getRun(runId)).status).toBe("in_progress");
+
+    const ok = await say("não");
+    expect(ok.event).toBe("crisis_denied");
+    expect(ok.outbound.join("\n")).toContain("NOS ÚLTIMOS 30 DIAS");
+    expect((await getRun(runId)).status).toBe("in_progress");
+  });
+
+  it("na confirmação, qualquer coisa que não seja um 'não' claro vira crise", async () => {
+    const runId = await startDemo();
+    await say("não, nunca pensei em me machucar");
+    const r = await say("às vezes sim");
+    expect(r.event).toBe("crisis");
+    const run = await getRun(runId);
+    expect(run.status).toBe("crisis");
+    expect(run.severity).toBe("urgency");
+  });
+
+  it("IA diz que negou: o questionário segue e a resposta ao item 9 vale 0", async () => {
+    const { setRiskJudge, resetRiskJudge } = await import("@/lib/crisis/judge");
+    setRiskJudge(async () => "negado");
+    try {
+      const runId = await startDemo();
+      let last;
+      for (const t of ["2", "7", "4", "2", "2", "não, nunca pensei em me ferir"]) last = await say(t);
+      expect(last!.event).toBe("answer");
+      const a = (await answersOf(runId)).find((x) => x.itemCode === "PHQ9_9");
+      expect(a?.valueNumeric).toBe(0);
+      expect((await getRun(runId)).status).toBe("in_progress");
+    } finally {
+      resetRiskJudge();
+    }
+  });
+
+  it("frase de risco sem negação continua cortando na hora", async () => {
+    await startDemo();
+    const r = await say("eu penso em me matar");
+    expect(r.event).toBe("crisis");
+  });
+});
+
+describe("áudio e mídia no WhatsApp", () => {
+  it("figurinha no meio do questionário: resposta padrão e a pergunta atual de novo", async () => {
+    const contact = await setup();
+    const { startRun, handleMedia } = await import("@/lib/engine/engine");
+    await startRun(contact.id, { demoShort: true });
+    await say("1");
+    const r = await handleMedia({ phone: PHONE, waMessageId: msgId(), media: "figurinha" });
+    expect(r.event).toBe("media");
+    expect(r.outbound[0]).toMatch(/texto e ouço áudios/);
+    expect(r.outbound.join("\n")).toContain("NOS ÚLTIMOS 30 DIAS");
+  });
+
+  it("mídia de número desconhecido não recebe resposta", async () => {
+    const { handleMedia } = await import("@/lib/engine/engine");
+    const r = await handleMedia({ phone: "5581900001234", waMessageId: msgId(), media: "foto" });
+    expect(r.outbound).toEqual([]);
+  });
+
+  it("áudio transcrito entra como resposta e o bot mostra o que ouviu antes da próxima pergunta", async () => {
+    const contact = await setup();
+    const { startRun, handleIncoming } = await import("@/lib/engine/engine");
+    const { runId } = await startRun(contact.id, { demoShort: true });
+    await say("1");
+    const r = await handleIncoming({ phone: PHONE, text: "sim", waMessageId: msgId(), viaAudio: true });
+    expect(r.event).toBe("answer");
+    expect(r.outbound[0]).toBe("Ouvi seu áudio: “sim”");
+    expect(r.outboundIds).toHaveLength(r.outbound.length);
+    expect((await answersOf(runId))[0].valueNumeric).toBe(2);
+  });
+
+  it("áudio que não deu para ouvir: pede para escrever", async () => {
+    const contact = await setup();
+    const { startRun, handleMedia } = await import("@/lib/engine/engine");
+    await startRun(contact.id, { demoShort: true });
+    await say("1");
+    const r = await handleMedia({ phone: PHONE, waMessageId: msgId(), media: "áudio sem transcrição" });
+    expect(r.outbound[0]).toMatch(/Não consegui ouvir/);
+  });
+});

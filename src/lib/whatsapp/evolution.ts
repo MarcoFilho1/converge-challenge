@@ -56,7 +56,8 @@ function webhookConfig() {
     url: `${appUrl}/api/webhook/whatsapp`,
     headers: { "x-webhook-secret": process.env.WEBHOOK_SECRET ?? "" },
     byEvents: false,
-    base64: false,
+    // Áudio chega com o arquivo junto, para transcrever sem outra chamada.
+    base64: true,
     events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
   };
 }
@@ -114,6 +115,16 @@ export async function sendText(phoneE164: string, text: string, delayMs = 1200):
     delay: delayMs,
   });
   return { waMessageId: out.key?.id ?? null };
+}
+
+/** Arquivo de uma mídia recebida (quando não veio no corpo do webhook). */
+export async function getMediaBase64(waMessageId: string): Promise<{ base64: string; mime: string }> {
+  const out = await call<{ base64?: string; mimetype?: string }>("POST", `/chat/getBase64FromMediaMessage/${cfg().instance}`, {
+    message: { key: { id: waMessageId } },
+    convertToMp4: false,
+  });
+  if (!out.base64) throw new EvolutionError("Evolution não devolveu o arquivo da mídia.", 0);
+  return { base64: out.base64, mime: out.mimetype ?? "audio/ogg" };
 }
 
 export async function logoutInstance(): Promise<void> {

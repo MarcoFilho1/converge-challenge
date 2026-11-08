@@ -4,9 +4,12 @@ import { CLASSIFY_SYSTEM, INTERPRET_SYSTEM, SUMMARY_SYSTEM } from "./prompts";
 import { ClassificationSchema, RunSummarySchema, type AiProvider } from "./types";
 import { createMockProvider } from "./mock";
 import { chatCallOptions, withChat } from "./llm";
+import { recordEvent } from "@/lib/obs/events";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 
 const embeddingModel = () => process.env.AI_EMBEDDING_MODEL ?? "openai/text-embedding-3-small";
+
+const STAGE: Record<string, string> = { interpretAnswer: "interpretar", classifyAnswer: "classificar", summarizeRun: "resumo do questionário" };
 
 /** Falha do modelo nunca derruba a conversa: registra e usa o caminho simulado. */
 async function orFallback<T>(label: string, real: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
@@ -14,6 +17,7 @@ async function orFallback<T>(label: string, real: () => Promise<T>, fallback: ()
     return await real();
   } catch (err) {
     console.error(`[ai:gateway] ${label} falhou; usando modo simulado`, err);
+    recordEvent({ kind: STAGE[label] ?? label, outcome: "modo_simples", detail: "nenhum modelo respondeu; usado o caminho simples" });
     return fallback();
   }
 }
@@ -44,14 +48,16 @@ export function createGatewayProvider(): AiProvider {
         async () => {
           const { output } = await withChat((model) => generateText({
             model,
-            ...chatCallOptions(),
+            ...chatCallOptions("fast"),
             system: INTERPRET_SYSTEM,
             temperature: 0,
             output: Output.object({ schema: z.object({ value: z.number().nullable() }) }),
             prompt: JSON.stringify({ item: item.text, scale, resposta: text }),
-          }));
+          }), "fast", "interpretar");
           const v = output.value;
-          return v !== null && v >= scale.min && v <= scale.max ? v : null;
+          const value = v !== null && v >= scale.min && v <= scale.max ? v : null;
+          recordEvent({ kind: "valor da resposta", outcome: value === null ? "descartado" : "ok", model: "IA", detail: `“${text}” → ${value ?? "sem valor"} (IA)` });
+          return value;
         },
         async () => null,
       );
@@ -64,12 +70,12 @@ export function createGatewayProvider(): AiProvider {
         async () => {
           const { output } = await withChat((model) => generateText({
             model,
-            ...chatCallOptions(),
+            ...chatCallOptions("long"),
             system: CLASSIFY_SYSTEM,
             temperature: 0,
             output: Output.object({ schema: ClassificationSchema }),
             prompt: JSON.stringify(input),
-          }));
+          }), "long", "classificar");
           const allowed = new Set(input.chunks.map((c) => c.id));
           const trechos = output.trechos.filter((t) => allowed.has(t.chunkId));
           return { ...output, trechos, relevante: output.relevante && trechos.length > 0 };
@@ -84,12 +90,12 @@ export function createGatewayProvider(): AiProvider {
         async () => {
           const { output } = await withChat((model) => generateText({
             model,
-            ...chatCallOptions(),
+            ...chatCallOptions("long"),
             system: SUMMARY_SYSTEM,
             temperature: 0,
             output: Output.object({ schema: RunSummarySchema }),
             prompt: JSON.stringify(input),
-          }));
+          }), "long", "resumo do questionário");
           return output;
         },
         () => local.summarizeRun(input),

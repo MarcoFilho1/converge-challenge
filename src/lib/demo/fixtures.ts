@@ -1,4 +1,18 @@
 import type { PatientSummary } from "@/lib/case/patient-summary";
+
+export interface TrailItem {
+  id: string;
+  at: string;
+  kind: string;
+  outcome: string;
+  model: string | null;
+  latencyMs: number | null;
+  costUsd: number | null;
+  tokensIn: number | null;
+  tokensOut: number | null;
+  detail: string | null;
+  inInterview: boolean;
+}
 import type { CaseState, RunStatus, Severity } from "@/db/schema";
 import type { RunSummary } from "@/lib/ai/types";
 import type { InterviewDetail, InterviewListItem, InterviewView } from "@/lib/interview/contract";
@@ -71,6 +85,8 @@ export interface CaseDetailData {
   interviewDetail: InterviewDetail | null;
   /** Resumo da pessoa para o topo do caso (src/lib/case/patient-summary.ts). */
   patient?: PatientSummary;
+  /** Rastro do agente neste caso e nas entrevistas dele, em ordem de tempo. */
+  trail?: TrailItem[];
 }
 
 export const SYNTHETIC_QUEUE_ROWS: QueueRow[] = [

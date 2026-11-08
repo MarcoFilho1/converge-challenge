@@ -2,12 +2,13 @@
  * Motor da entrevista: puro, sem I/O. A pauta e a escolha da pergunta são código;
  * o LLM (InterviewAi) só extrai o que foi dito e redige uma frase curta de acolhimento.
  */
-import type { InterviewAi } from "@/lib/ai/interview";
+import type { InterviewAi, PlanInput, TurnPlan } from "@/lib/ai/interview";
 import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
 import { buildAgenda, type Agenda } from "./agenda";
-import { askedHelena, asksRepeat, cleanGenerated, extraCrisis } from "./filters";
+import { askedHelena, asksRepeat, cleanGenerated, EXTRA_CRISIS_PATTERNS, extraCrisis } from "./filters";
+import { assessRisk } from "@/lib/crisis/judge";
 import { ASKED_ACK, BLOCKS, CRISIS_SPEECH, REPEAT_ASK_PREFIX, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
-import { fechamentoIndex, selectNext } from "./select";
+import { candidateProbes, fechamentoIndex, selectNext } from "./select";
 import type { Aviso, BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
 
 export const MAX_PERSON_TURNS = 12;
@@ -24,8 +25,11 @@ export const SAFETY_UNANSWERED = "pergunta de segurança não respondida";
 
 const strip = (t: string) => normalizeText(t).replace(/[.,!?;:…"“”()\-]+/g, " ").replace(/\s+/g, " ").trim();
 
+/** "não tive", "não tenho", "nunca tive", "não penso nisso": a negação vale para o verbo, não é dúvida. */
+const NEGATED_VERB = /\b(nao|nunca|jamais)( (nao|mais|isso|disso|nisso|nada))* (tive|tenho|tenho tido|penso|pensei|tenho pensado|pensando)( (nao|isso|disso|nisso|nada))*\b/g;
+
 function safetyClearlyNo(text: string): boolean {
-  const n = strip(text);
+  const n = strip(text).replace(NEGATED_VERB, "nao");
   return SAFETY_NO.test(n) && !SAFETY_DOUBT.test(n);
 }
 
@@ -61,6 +65,12 @@ export type InterviewState = {
   avisos: Aviso[];
   vars: { medico: string; prazo: string };
   input: InterviewInput;
+  /** Blocos em que a Helena já fez a pergunta de aprofundamento (no máximo uma por bloco). */
+  followUps?: BlockId[];
+  /** Texto do aprofundamento atual (currentProbeId = "aprofundar:<bloco>"). */
+  followUpText?: string | null;
+  /** Reações já ditas, para não repetir abertura nem frase. */
+  reactions?: string[];
 };
 
 export type InterviewEvent =
@@ -129,7 +139,17 @@ function currentBlockId(state: InterviewState): BlockId {
   return state.agenda.blocks[state.blockIndex].id;
 }
 
+const FOLLOW_UP = "aprofundar:";
+const isFollowUp = (probeId: string | null | undefined) => !!probeId && probeId.startsWith(FOLLOW_UP);
+
+/** Chave do áudio da pergunta atual. Aprofundamento é texto novo: a chave é o próprio texto. */
+function questionKey(state: InterviewState, blockId: BlockId): string {
+  if (isFollowUp(state.currentProbeId)) return `aprofundar:${state.followUpText ?? ""}`;
+  return `${blockId}:${state.currentProbeId ?? "base"}`;
+}
+
 function currentQuestion(state: InterviewState, blockId: BlockId): { text: string; rephrase: string | null } {
+  if (isFollowUp(state.currentProbeId)) return { text: state.followUpText ?? "", rephrase: null };
   const probe = BLOCKS[blockId].probes.find((p) => p.id === state.currentProbeId);
   if (probe) return { text: probe.text, rephrase: probe.rephrase };
   return { text: renderText(BLOCKS[blockId].base, state.vars), rephrase: BLOCKS[blockId].rephrase ?? null };
@@ -167,7 +187,83 @@ function leaveBlock(state: InterviewState, blockId: BlockId): InterviewState {
   return hasFindings || state.skipped.includes(blockId) ? state : { ...state, skipped: [...state.skipped, blockId] };
 }
 
-async function advance(ctx: Ctx, lastText: string, newFindings: Finding[]) {
+const OPENER = /^(hmm+|hum+|humm+|sei|entendi|certo|ok|ah|uhum|aham|t[aá] bom|claro)\s*[,.!…]?\s*/i;
+const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/**
+ * Reação limpa: sem termo proibido, sem conselho, sem pergunta, curta, sem repetir frase já dita.
+ * Se a reação anterior já começou com "Hmm"/"Entendi"/"Sei", esta perde a abertura e vai direto ao conteúdo.
+ */
+const FILLER_END = /[,\s]*\b(ent[aã]o|n[eé]|entendi|viu|mesmo)\s*[.!…]*$/i;
+const fillerOf = (t: string) => normalizeText(FILLER_END.exec(t)?.[1] ?? "");
+
+export function cleanReaction(text: string, previous: string[]): string {
+  let t = cleanGenerated(text ?? "");
+  if (!t || t.endsWith("?") || t.split(/\s+/).length > 20) return "";
+  // Mesmo final da reação anterior ("…, então."): corta o final repetido.
+  const lastFiller = previous.length ? fillerOf(previous[previous.length - 1]) : "";
+  if (lastFiller && fillerOf(t) === lastFiller) t = `${t.replace(FILLER_END, "").trim()}.`;
+  if (previous.slice(-2).some((r) => OPENER.test(r))) {
+    while (OPENER.test(t)) t = t.replace(OPENER, "");
+    t = capitalize(t.trim());
+  }
+  if (!t || previous.map((r) => normalizeText(r)).includes(normalizeText(t))) return "";
+  return t;
+}
+
+const SELF_HARM = /\b(se machuc|se ferir|se feriu|suicid|morrer|se matar|tirar a (sua |propria )?vida|nao estar mais aqui)/;
+
+const STOP = new Set(["voce", "isso", "esse", "essa", "como", "quando", "onde", "qual", "quais", "para", "mais", "menos", "agora", "hoje", "algum", "alguma", "anda", "esta", "estao", "sobre", "porque", "tambem", "muito", "pouco", "coisa", "voces", "dessa", "desse", "disso", "nessa", "nesse"]);
+const contentWords = (t: string) => new Set(normalizeText(t).split(/[^a-z]+/).filter((w) => w.length >= 4 && !STOP.has(w)));
+
+/** Duas perguntas tratam do mesmo assunto quando dividem duas ou mais palavras de conteúdo. */
+function sameTopic(a: string, b: string): boolean {
+  const wb = contentWords(b);
+  return [...contentWords(a)].filter((w) => wb.has(w)).length >= 2;
+}
+
+/** Pergunta de aprofundamento escrita pela IA: só passa se for curta, aberta, limpa, longe do tema de risco e de assuntos que ainda vêm. */
+export function validFollowUp(text: string | null, state: InterviewState, upcoming: string[] = []): string | null {
+  const t = (text ?? "").trim();
+  if (!t.endsWith("?")) return null;
+  const words = t.split(/\s+/).length;
+  if (words < 3 || words > 22) return null;
+  if (cleanGenerated(t) !== t) return null;
+  const n = normalizeText(t);
+  if (detectCrisis(t).hit || extraCrisis(t) || SELF_HARM.test(n)) return null;
+  if (state.turns.some((x) => x.speaker === "ai" && normalizeText(x.text).includes(n))) return null;
+  if (upcoming.some((q) => sameTopic(t, q))) return null;
+  return t;
+}
+
+function recentTurns(state: InterviewState): PlanInput["recent"] {
+  return state.turns.slice(-6).map((t) => ({ speaker: t.speaker as "ai" | "person", text: t.text }));
+}
+
+function planInput(state: InterviewState, blockId: BlockId, lastText: string): PlanInput {
+  const block = state.agenda.blocks[state.blockIndex];
+  const next = state.agenda.blocks[Math.min(state.blockIndex + 1, state.agenda.blocks.length - 1)];
+  return {
+    blockId,
+    blockLabel: BLOCKS[blockId].label,
+    lastQuestion: currentQuestion(state, blockId).text,
+    lastText,
+    recent: recentTurns(state),
+    recentReactions: (state.reactions ?? []).slice(-3),
+    candidates: candidateProbes(block, state.probesAsked, state.turns, state.findings).map((p) => ({ id: p.id, text: p.text })),
+    allowFollowUp: BLOCKS[blockId].probes.length > 0 && !(state.followUps ?? []).includes(blockId),
+    nextBlockQuestion: next && next.id !== "fechamento" && next.id !== blockId ? renderText(BLOCKS[next.id].base, state.vars) : null,
+    alreadySaid: state.findings.map((f) => f.texto).filter(Boolean),
+    upcomingQuestions: state.agenda.blocks
+      .slice(state.blockIndex + 1)
+      .filter((b) => b.id !== "fechamento" && b.id !== "seguranca")
+      .map((b) => renderText(BLOCKS[b.id].base, state.vars)),
+  };
+}
+
+type Choice = { kind: "followup"; text: string } | { kind: "probe"; id: string } | { kind: "leave" };
+
+async function advance(ctx: Ctx, lastText: string, newFindings: Finding[], override?: { ack: string; choice: Choice | null }) {
   let { state } = ctx;
   const fromBlock = currentBlockId(state);
   const personTurns = state.turns.filter((t) => t.speaker === "person").length;
@@ -176,10 +272,46 @@ async function advance(ctx: Ctx, lastText: string, newFindings: Finding[]) {
   const budgetLeft = MAX_PERSON_TURNS - personTurns - (segurancaPending ? 1 : 0);
   const outOfTime = ctx.nowMs - state.startedMs >= MAX_DURATION_MS;
   let sel = selectNext(state.agenda, state.blockIndex, state.probesAsked, state.turns, state.findings);
-  if (budgetLeft <= 0 || outOfTime) {
+  const exhausted = budgetLeft <= 0 || outOfTime;
+  if (exhausted) {
     // teto: segurança nunca cai; o resto vai para o fechamento
     if (segurancaPending) sel = { kind: "block", blockId: "seguranca", blockIndex: segIndex };
     else return closing({ ...ctx, state: leaveBlock(state, fromBlock) }, "done");
+  } else if (override?.choice) {
+    const choice = override.choice;
+    if (choice.kind === "followup") {
+      const ack = override.ack;
+      const followed: InterviewState = {
+        ...state,
+        followUps: [...(state.followUps ?? []), fromBlock],
+        followUpText: choice.text,
+        reactions: ack ? [...(state.reactions ?? []), ack] : state.reactions,
+      };
+      const qKey = `aprofundar:${choice.text}`;
+      const parts = ack ? [{ text: ack, cacheKey: `ack:${ack}` }, { text: choice.text, cacheKey: qKey }] : undefined;
+      return aiTurn(
+        { ...ctx, state: followed },
+        { text: [ack, choice.text].filter(Boolean).join(" "), probeId: `${FOLLOW_UP}${fromBlock}`, blockId: fromBlock, cacheKey: ack ? null : qKey, final: false, crisis: false, parts },
+        "running",
+      );
+    }
+    if (choice.kind === "probe") {
+      const probe = candidateProbes(state.agenda.blocks[state.blockIndex], state.probesAsked, state.turns, state.findings).find((p) => p.id === choice.id);
+      if (probe) sel = { kind: "probe", blockId: fromBlock, probe };
+    }
+    if (choice.kind === "leave") {
+      const nextIndex = Math.min(state.blockIndex + 1, state.agenda.blocks.length - 1);
+      sel = { kind: "block", blockId: state.agenda.blocks[nextIndex].id, blockIndex: nextIndex };
+    }
+  }
+  // Conversa guiada pela IA com escolha inválida: a primeira opção que ainda cabe (sem assunto já dito), ou o próximo bloco.
+  if (override && !exhausted && !(override.choice?.kind === "leave") && !(sel.kind === "probe" && override.choice?.kind === "probe" && sel.probe.id === override.choice.id)) {
+    const first = candidateProbes(state.agenda.blocks[state.blockIndex], state.probesAsked, state.turns, state.findings)[0];
+    if (first) sel = { kind: "probe", blockId: fromBlock, probe: first };
+    else {
+      const nextIndex = Math.min(state.blockIndex + 1, state.agenda.blocks.length - 1);
+      sel = { kind: "block", blockId: state.agenda.blocks[nextIndex].id, blockIndex: nextIndex };
+    }
   }
   let probeText: string;
   let probeId: string | null;
@@ -199,7 +331,14 @@ async function advance(ctx: Ctx, lastText: string, newFindings: Finding[]) {
   }
 
   const wantsAck = state.mode === "live" && fromBlock !== "abertura" && blockId !== "seguranca";
-  const ack = !wantsAck ? "" : askedHelena(lastText) ? ASKED_ACK : cleanGenerated(await ctx.ai.phraseAck({ lastText, findings: newFindings, probeText }));
+  const ack = !wantsAck
+    ? ""
+    : askedHelena(lastText)
+      ? ASKED_ACK
+      : override
+        ? override.ack
+        : cleanReaction(await ctx.ai.phraseAck({ lastText, findings: newFindings, probeText, recentReactions: (state.reactions ?? []).slice(-3), recent: recentTurns(state) }), state.reactions ?? []);
+  if (ack) state = { ...state, reactions: [...(state.reactions ?? []), ack] };
   const text = [ack, probeText].filter(Boolean).join(" ");
   const probeKey = `${blockId}:${probeId ?? "base"}`;
   const cacheKey = ack ? null : probeKey;
@@ -232,7 +371,11 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
   const blockId = currentBlockId(state);
   let s = pushTurn(state, { speaker: "person", text, blockId, probeId: state.currentProbeId, startedMs: nowMs - state.startedMs, durationMs: event.durationMs });
 
-  if (detectCrisis(text).hit || extraCrisis(text)) return crisis({ ...ctx, state: s });
+  // Risco: a regra decide; com negação antes do trecho, a IA julga. Só um "negado" claro deixa a conversa seguir.
+  if (detectCrisis(text).hit || extraCrisis(text)) {
+    const action = await assessRisk(text, { extraHit: extraCrisis(text), extraPatterns: EXTRA_CRISIS_PATTERNS });
+    if (action !== "seguir") return crisis({ ...ctx, state: s });
+  }
   if (blockId === "seguranca" && safetyClearlyYes(text)) return crisis({ ...ctx, state: s });
 
   const q = currentQuestion(state, blockId);
@@ -242,8 +385,8 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
     if (s.repeatCount === 0) {
       // a fonte da verdade é a pergunta atual, nunca o texto falado (que pode ter acolhimento gerado)
       s = { ...s, repeatCount: 1 };
-      const probeKey = `${blockId}:${state.currentProbeId ?? "base"}`;
-      return aiTurn({ ...ctx, state: s }, { text: REPEAT_PREFIX + q.text, probeId: state.currentProbeId, blockId, cacheKey: `${blockId}:repeat:${state.currentProbeId ?? "base"}`, final: false, crisis: false, parts: [{ text: REPEAT_PREFIX.trim(), cacheKey: "prefixo:repetir" }, { text: q.text, cacheKey: probeKey }] }, "running");
+      const probeKey = questionKey(state, blockId);
+      return aiTurn({ ...ctx, state: s }, { text: REPEAT_PREFIX + q.text, probeId: state.currentProbeId, blockId, cacheKey: isFollowUp(state.currentProbeId) ? null : `${blockId}:repeat:${state.currentProbeId ?? "base"}`, final: false, crisis: false, parts: [{ text: REPEAT_PREFIX.trim(), cacheKey: "prefixo:repetir" }, { text: q.text, cacheKey: probeKey }] }, "running");
     }
     s = addAviso({ ...s, repeatCount: 0, rephraseCount: 0 }, `Sem resposta: “${q.text}”`, []);
     return moveOn(ctx, s);
@@ -255,8 +398,8 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
     s = { ...s, rephraseCount: 1 };
     const say = firstTime ? q.rephrase! : REPEAT_ASK_PREFIX + q.text;
     const key = firstTime ? `${blockId}:${state.currentProbeId ?? "base"}:rephrase` : `${blockId}:${state.currentProbeId ?? "base"}:claro`;
-    const parts = firstTime ? undefined : [{ text: REPEAT_ASK_PREFIX.trim(), cacheKey: "prefixo:claro" }, { text: q.text, cacheKey: `${blockId}:${state.currentProbeId ?? "base"}` }];
-    return aiTurn({ ...ctx, state: s }, { text: say, probeId: state.currentProbeId, blockId, cacheKey: key, final: false, crisis: false, parts }, "running");
+    const parts = firstTime ? undefined : [{ text: REPEAT_ASK_PREFIX.trim(), cacheKey: "prefixo:claro" }, { text: q.text, cacheKey: questionKey(state, blockId) }];
+    return aiTurn({ ...ctx, state: s }, { text: say, probeId: state.currentProbeId, blockId, cacheKey: isFollowUp(state.currentProbeId) ? null : key, final: false, crisis: false, parts }, "running");
   }
 
   const evasive = blockId === "seguranca" ? !safetyClearlyNo(text) : blockId !== "abertura" && isEvasive(text);
@@ -275,6 +418,33 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
     return moveOn(ctx, s);
   }
   s = { ...s, rephraseCount: 0 };
+
+  // Conversa guiada pela IA, numa chamada só: extrai, reage e escolhe o que vem depois (validado em código).
+  if (ai.planTurn && s.mode === "live" && blockId !== "abertura" && blockId !== "seguranca") {
+    const input = planInput(s, blockId, text);
+    let p: TurnPlan | null = null;
+    try {
+      p = await ai.planTurn(input);
+    } catch {
+      p = null;
+    }
+    if (p) {
+      const turnIdx = s.turns.length - 1;
+      const planned = p.achados.map((d) => ({ ...d, turnIdx, blockId }));
+      s = { ...s, findings: [...s.findings, ...planned] };
+      if (planned.some((f) => f.pediuParar)) return closing({ ...ctx, state: s }, "stopped");
+      const ack = askedHelena(text) ? ASKED_ACK : cleanReaction(p.reacao, s.reactions ?? []);
+      const follow = p.proxima === "aprofundar" && input.allowFollowUp ? validFollowUp(p.pergunta, s, input.upcomingQuestions) : null;
+      const choice: Choice | null = follow
+        ? { kind: "followup", text: follow }
+        : p.proxima === "sonda" && p.sondaId
+          ? { kind: "probe", id: p.sondaId }
+          : p.proxima === "seguir"
+            ? { kind: "leave" }
+            : null;
+      return advance({ ...ctx, state: s }, text, planned, { ack, choice });
+    }
+  }
 
   let newFindings: Finding[] = [];
   if (blockId !== "abertura" && blockId !== "seguranca") {

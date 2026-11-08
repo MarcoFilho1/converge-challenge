@@ -5,7 +5,7 @@ import { contacts, evidence, questionnaireRuns, summaries } from "@/db/schema";
 import { assertNoForbidden } from "@/lib/ai";
 import { getItems } from "@/lib/instruments";
 import type { Item } from "@/lib/instruments/types";
-import { handleIncoming, startRun } from "@/lib/engine/engine";
+import { handleIncoming, settleBackground, startRun } from "@/lib/engine/engine";
 import { getActiveRun } from "@/lib/engine/repo";
 import { ITEM_TEXTS } from "@/lib/evidence/summarize";
 import { ingestDocuments, type ManifestEntry } from "@/lib/rag/ingest";
@@ -59,6 +59,7 @@ async function drive(contactId: string, phone: string, demoShort: boolean, inten
     if (!run) break;
     await say(answerFor(items[run.currentItem], intensity, idx));
   }
+  await settleBackground();
 }
 
 async function ensureKnowledge() {
