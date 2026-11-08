@@ -1,7 +1,10 @@
-import { asc, eq } from "drizzle-orm";
+import { inviteThreshold, wellbeingIndex } from "@/lib/instruments";
+import { patientSummary } from "@/lib/case/patient-summary";
+import { asc, eq, inArray, or } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db/client";
 import {
+  agentEvents,
   answers,
   contacts,
   documentChunks,
@@ -22,9 +25,19 @@ import {
   type CaseDetailData,
   type CaseEvidenceItem,
   type QueueScoreChip,
+  type TrailItem,
 } from "@/lib/demo/fixtures";
 
 export async function getCase(runId: string): Promise<CaseDetailData> {
+  const data = await loadCase(runId);
+  return {
+    ...data,
+    trail: SYNTHETIC_QUEUE_ROWS.some((r) => r.runId === runId) ? [] : await loadTrail(runId, data.interviews.map((i) => i.id)),
+    patient: patientSummary({ run: data.run, interviews: data.interviews, interviewDetail: data.interviewDetail, summary: data.summary, threshold: inviteThreshold() }),
+  };
+}
+
+async function loadCase(runId: string): Promise<CaseDetailData> {
   // Se for um ID sintético de demonstração, retorna a fixture completa correspondente
   if (SYNTHETIC_QUEUE_ROWS.some((r) => r.runId === runId)) {
     return getSyntheticCaseDetail(runId);
@@ -111,6 +124,7 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
           hasCrisis: run.status === "crisis" || (phq9Item9?.valueNumeric ?? 0) >= 1,
         },
         scores: chips,
+        wellbeingIndex: wellbeingIndex(Object.fromEntries(runAnswers.map((a) => [a.itemCode, a.valueNumeric])), run.demoShort),
         hasVoiceInterview: interviews.length > 0,
         voiceInterviewToken: interviews[0]?.inviteUrl?.split("/").pop() ?? "",
       },
@@ -128,6 +142,32 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
   } catch (err) {
     // Sem fallback sintético para caso real: erro de verdade vira página de erro.
     throw err;
+  }
+}
+
+/** Rastro do agente: eventos do questionário e das entrevistas ligadas a ele. Sem a tabela: vazio. */
+async function loadTrail(runId: string, interviewIds: string[]): Promise<TrailItem[]> {
+  try {
+    const where = interviewIds.length
+      ? or(eq(agentEvents.runId, runId), inArray(agentEvents.interviewId, interviewIds))
+      : eq(agentEvents.runId, runId);
+    const rows = await db.select().from(agentEvents).where(where).orderBy(asc(agentEvents.createdAt)).limit(400);
+    return rows.map((e) => ({
+      id: e.id,
+      at: e.createdAt.toISOString(),
+      kind: e.kind,
+      outcome: e.outcome,
+      model: e.model,
+      latencyMs: e.latencyMs,
+      costUsd: e.costUsd,
+      tokensIn: e.tokensIn,
+      tokensOut: e.tokensOut,
+      detail: e.detail,
+      inInterview: !!e.interviewId,
+    }));
+  } catch (err) {
+    console.warn("[caso] rastro indisponível", err instanceof Error ? err.message : err);
+    return [];
   }
 }
 

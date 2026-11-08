@@ -4,8 +4,12 @@ import { InterviewSummary } from "@/lib/interview/contract";
 import { cleanGenerated } from "@/lib/interview/filters";
 import { FindingDraftSchema, type InterviewAi } from "./interview";
 import { createInterviewMock } from "./interview-mock";
-import { ACK_SYSTEM, EXTRACT_SYSTEM, INTERVIEW_SUMMARY_SYSTEM } from "./interview-prompts";
+import { ACK_SYSTEM, EXTRACT_SYSTEM, INTERVIEW_SUMMARY_SYSTEM, PLAN_SYSTEM } from "./interview-prompts";
+import { TurnPlanSchema, type TurnPlan } from "./interview";
 import { chatCallOptions, hasChatKey, withChat } from "./llm";
+import { recordEvent } from "@/lib/obs/events";
+
+const STAGE: Record<string, string> = { extractFindings: "extrair da fala", phraseAck: "reação da Helena", summarize: "resumo da entrevista", planTurn: "conversa da Helena" };
 
 async function withFallback<T>(label: string, real: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
   if (!hasChatKey()) {
@@ -16,6 +20,7 @@ async function withFallback<T>(label: string, real: () => Promise<T>, fallback: 
     return await real();
   } catch (err) {
     console.warn(`[entrevista] gateway falhou em ${label}, usando mock`, err instanceof Error ? err.message : err);
+    recordEvent({ kind: STAGE[label] ?? label, outcome: "modo_simples", detail: "nenhum modelo respondeu; usado o caminho simples" });
     return fallback();
   }
 }
@@ -26,10 +31,10 @@ export function createInterviewGateway(): InterviewAi {
     extractFindings(input) {
       return withFallback("extractFindings", async () => {
         const { output } = await withChat((model) => generateText({
-          model, ...chatCallOptions(), system: EXTRACT_SYSTEM, temperature: 0,
+          model, ...chatCallOptions("fast"), system: EXTRACT_SYSTEM, temperature: 0,
           output: Output.object({ schema: z.object({ achados: z.array(FindingDraftSchema) }) }),
           prompt: JSON.stringify({ bloco: input.blockId, pergunta: input.probeText, fala: input.text }),
-        }));
+        }), "fast", "extrair da fala");
         return output.achados;
       }, () => mock.extractFindings(input));
     },
@@ -37,21 +42,52 @@ export function createInterviewGateway(): InterviewAi {
     phraseAck(input) {
       return withFallback("phraseAck", async () => {
         const { output } = await withChat((model) => generateText({
-          model, ...chatCallOptions(), system: ACK_SYSTEM, temperature: 0,
+          model, ...chatCallOptions("fast"), system: ACK_SYSTEM, temperature: 0.6,
           output: Output.object({ schema: z.object({ ack: z.string().max(140) }) }),
-          prompt: JSON.stringify({ fala: input.lastText, achados: input.findings, proximaPergunta: input.probeText }),
-        }));
+          prompt: JSON.stringify({ conversaRecente: input.recent ?? [], fala: input.lastText, achados: input.findings, proximaPergunta: input.probeText, reacoesJaUsadas: input.recentReactions ?? [] }),
+        }), "fast", "reação da Helena");
         return cleanGenerated(output.ack);
       }, () => mock.phraseAck(input));
+    },
+
+    planTurn(input) {
+      return withFallback(
+        "planTurn",
+        async () => {
+          const { output } = await withChat((model) => generateText({
+            model, ...chatCallOptions("fast"), system: PLAN_SYSTEM, temperature: 0.5,
+            output: Output.object({ schema: TurnPlanSchema }),
+            prompt: JSON.stringify({
+              bloco: input.blockLabel,
+              perguntaFeita: input.lastQuestion,
+              fala: input.lastText,
+              conversaRecente: input.recent,
+              reacoesJaUsadas: input.recentReactions,
+              opcoes: input.candidates.map((c) => ({ id: c.id, pergunta: c.text })),
+              podeAprofundar: input.allowFollowUp,
+              proximoBloco: input.nextBlockQuestion,
+              assuntosQueAindaVem: input.upcomingQuestions,
+              jaDito: input.alreadySaid,
+            }),
+          }), "fast", "conversa da Helena");
+          return output as TurnPlan;
+        },
+        async (): Promise<TurnPlan> => {
+          // Caminho simples: o motor escolhe a próxima pela lista.
+          const achados = await mock.extractFindings({ blockId: input.blockId, probeText: input.lastQuestion, text: input.lastText });
+          const reacao = await mock.phraseAck({ lastText: input.lastText, findings: achados, probeText: input.candidates[0]?.text ?? "" });
+          return { achados, reacao, proxima: "sonda", sondaId: null, pergunta: null };
+        },
+      );
     },
 
     summarize(input) {
       return withFallback("summarize", async () => {
         const { output } = await withChat((model) => generateText({
-          model, ...chatCallOptions(), system: INTERVIEW_SUMMARY_SYSTEM, temperature: 0,
+          model, ...chatCallOptions("long"), system: INTERVIEW_SUMMARY_SYSTEM, temperature: 0,
           output: Output.object({ schema: InterviewSummary }),
           prompt: JSON.stringify({ turnos: input.turns, achados: input.findings, naoRespondido: input.skipped }),
-        }));
+        }), "long", "resumo da entrevista");
         return output;
       }, () => mock.summarize(input));
     },

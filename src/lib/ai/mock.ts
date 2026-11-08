@@ -1,3 +1,4 @@
+import { recordEvent } from "@/lib/obs/events";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 import { normalizeText } from "@/lib/crisis/detect";
 import type { Item } from "@/lib/instruments/types";
@@ -78,7 +79,9 @@ export function createMockProvider(): AiProvider {
     },
 
     async interpretAnswer(item, text) {
-      return interpretLocal(item, text);
+      const value = interpretLocal(item, text);
+      if (value !== null) recordEvent({ kind: "valor da resposta", outcome: "ok", model: "regra local", detail: `“${text}” → ${value} (regra local)` });
+      return value;
     },
 
     async classifyAnswer({ item, value, chunks }: ClassifyInput): Promise<Classification> {

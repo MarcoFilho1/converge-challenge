@@ -17,6 +17,15 @@ describe("limpeza da transcrição (Whisper em loop)", () => {
   it("fala normal fica igual, mesmo com uma palavra repetida duas vezes", () => {
     expect(cleanTranscript("É muito, muito cansativo, há uns três meses.")).toBe("É muito, muito cansativo, há uns três meses.");
   });
+  it("resposta curta repetida pela pessoa ('Não. Não. Não.') vira a resposta, não vazio", () => {
+    expect(cleanTranscript("Não. Não. Não.")).toBe("Não.");
+    expect(cleanTranscript("não não não não")).toBe("não");
+    expect(cleanTranscript("Sim. Sim. Sim.")).toBe("Sim.");
+    expect(cleanTranscript("Nunca, nunca, nunca.")).toBe("Nunca,");
+  });
+  it("loop longo de resposta curta continua sendo alucinação", () => {
+    expect(cleanTranscript("não ".repeat(30))).toBe("");
+  });
   it("legendas inventadas comuns do Whisper viram vazio", () => {
     expect(cleanTranscript("Legendas pela comunidade Amara.org")).toBe("");
     expect(cleanTranscript("Obrigado por assistir!")).toBe("");
