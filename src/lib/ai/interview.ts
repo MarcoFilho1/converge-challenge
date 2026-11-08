@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Agenda } from "@/lib/interview/agenda";
 import type { InterviewSummary } from "@/lib/interview/contract";
 import { FINDING_THEMES, type BlockId, type Finding, type Turn } from "@/lib/interview/types";
+import { createInterviewGateway } from "./interview-gateway";
 import { createInterviewMock } from "./interview-mock";
 
 export const FindingDraftSchema = z.object({
@@ -30,8 +31,7 @@ let cached: { mode: string; ai: InterviewAi } | null = null;
 export function getInterviewAi(): InterviewAi {
   const mode = process.env.AI_PROVIDER === "gateway" ? "gateway" : "mock";
   if (cached?.mode !== mode) {
-    // Task 6 troca esta linha por createInterviewGateway() quando mode === "gateway".
-    cached = { mode, ai: createInterviewMock() };
+    cached = { mode, ai: mode === "gateway" ? createInterviewGateway() : createInterviewMock() };
   }
   return cached.ai;
 }
