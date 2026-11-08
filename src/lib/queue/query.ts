@@ -1,5 +1,6 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
+import { listContactSeverities } from "@/lib/severity/contact";
 import { answers, contacts, questionnaireRuns, scores, type Severity } from "@/db/schema";
 import { SYNTHETIC_QUEUE_ROWS, type QueueRow, type QueueScoreChip } from "@/lib/demo/fixtures";
 import { TRUNK_YES } from "@/lib/instruments";
@@ -135,6 +136,13 @@ export async function listQueue(): Promise<{ rows: QueueRow[]; isSyntheticFallba
         voiceInterviewToken: `entrevista-${run.id.slice(0, 8)}`,
       };
     });
+
+    // Uma linha por pessoa: o caso que define a gravidade dela (maior entre os não encerrados).
+    // Assim uma urgência por crise não some quando a pessoa escreve CONTINUAR e abre outro questionário.
+    const keep = new Set((await listContactSeverities()).map((c) => c.runId));
+    const perPerson = rows.filter((r) => keep.has(r.runId));
+    rows.length = 0;
+    rows.push(...perPerson);
 
     rows.sort((a, b) => {
       const sevDiff = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
