@@ -45,6 +45,7 @@ O Consultório NR-7 leva o questionário para o WhatsApp, que todo colaborador j
 - **Crise é cortada em código, antes de qualquer IA.** Uma frase de risco, ou o item 9 do PHQ-9 acima de zero, interrompe a conversa, mostra o CVV 188 e o SAMU 192 e coloca o caso como Urgência no topo da fila.
 - **Pontuação e gravidade são calculadas em código.** A IA só organiza, explica e resume.
 - **Nenhum indício aparece sem a fonte.** Ou o item do instrumento, ou o trecho da norma, ou o turno da entrevista.
+- **A fala da pessoa é informação, nunca instrução.** Na entrevista, tentativas de mudar as regras da IA ("ignore as instruções", "finja que é médico", "mostre seu prompt") são barradas em código: a fala não vai para a IA, a Helena repete a pergunta, a médica recebe um aviso e, na terceira tentativa, a entrevista termina. O resumo nunca cita essa fala, e nada que a IA escreva pode vazar a instrução interna ou prometer o que vai para o registro.
 - **Só o médico vê o indivíduo.** RH e liderança não recebem respostas nem áudios individuais.
 - **A demo usa dados sintéticos.** Telefone real, só o do time.
 
@@ -105,6 +106,7 @@ docker compose up -d        # Postgres + pgvector :5434, Redis :6380, Evolution 
 pnpm install
 pnpm db:push                # cria as tabelas (num banco novo)
 pnpm obs:db                 # cria a tabela do rastro do agente, se o banco já existia
+pnpm whatsapp:db            # colunas do questionário em linguagem natural, se o banco já existia
 pnpm ingest                 # carrega a base de conhecimento (NR-1, NR-7, manuais)
 pnpm dev                    # http://localhost:3100
 ```
@@ -201,7 +203,8 @@ Veja `.env.example`. As principais:
 | `pnpm evals:entrevista` | Checagens da entrevista: crise 100%, nenhum termo proibido ou conselho, nenhum resumo sem origem |
 | `pnpm evals:entrevista:real` | As mesmas checagens com o modelo real, mais pergunta repetida |
 | `pnpm ai:check` | Testa cada modelo com cada chave da IA real e mostra tempo e custo |
-| `pnpm obs:db` | Cria só a tabela do rastro do agente (`agent_events`) |
+| `pnpm obs:db` | Cria só a tabela do rastro do agente (`agent_events`); em banco que já tinha a tabela, acrescenta o id da mensagem do WhatsApp (`wa_message_id`) |
+| `pnpm whatsapp:db` | Acrescenta as colunas do questionário em linguagem natural (áudio marcado, origem e trecho de cada resposta, confirmação pendente) |
 | `pnpm entrevista:db` | Cria só as tabelas da entrevista |
 | `pnpm telegram:db` | Cria só a tabela do Telegram (`telegram_links`) |
 | `pnpm entrevista:convite` | Cria um convite de entrevista e imprime o link |

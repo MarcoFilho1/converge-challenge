@@ -36,7 +36,7 @@ describe("Caso real nunca mostra dado sintético", () => {
     const [contact] = await db.insert(contacts).values({ name: "Pessoa Demo C", phoneE164: PHONE }).returning();
     const { startRun } = await import("@/lib/engine/engine");
     const { runId } = await startRun(contact.id, { demoShort: true });
-    for (const t of ["1", "sim", "6", "4", "2", "2", "0", "4", "metas"]) await say(t);
+    for (const t of ["sim", "sim", "6", "com frequência", "mais da metade dos dias", "mais da metade dos dias", "nunca", "sempre", "metas"]) await say(t);
     const { getCase } = await import("@/lib/case/query");
     const c = await getCase(runId);
     expect(c.run.severity).toBe("priority");
@@ -44,6 +44,40 @@ describe("Caso real nunca mostra dado sintético", () => {
     expect(c.run.scores.find((x) => x.label === "PHQ-9 item 9")?.maxLabel).toBe("/3");
     expect(c.run.wellbeingIndex).toBe(20);
     expect(c.patient?.interview.state).toBe("convidada");
+  });
+
+  it("conversa marca o que veio de áudio e mostra como cada resposta foi entendida", async () => {
+    const { db } = await import("@/db/client");
+    const { contacts } = await import("@/db/schema");
+    const [contact] = await db.insert(contacts).values({ name: "Pessoa Áudio", phoneE164: PHONE }).returning();
+    const { startRun, handleIncoming } = await import("@/lib/engine/engine");
+    const { runId } = await startRun(contact.id, { demoShort: true });
+    await say("sim");
+    await handleIncoming({ phone: PHONE, text: "sim, fui trabalhar gripado", waMessageId: `case-audio-${n++}`, viaAudio: true });
+    await say("6");
+    await say("acho que com frequência");
+    const { getCase } = await import("@/lib/case/query");
+    const c = await getCase(runId);
+    const audio = c.messages.find((m) => m.text === "sim, fui trabalhar gripado");
+    expect(audio).toMatchObject({ viaAudio: true, reading: { label: "sim", how: "regra" } });
+    expect(c.messages.find((m) => m.text === "acho que com frequência")).toMatchObject({ viaAudio: false, reading: { label: "com frequência" } });
+    expect(c.messages.find((m) => m.text === "6")?.reading).toMatchObject({ label: "6 de 10" });
+  });
+
+  it("rastro do Caso traz o id e o texto da mensagem que disparou cada passo", async () => {
+    const { db } = await import("@/db/client");
+    const { contacts } = await import("@/db/schema");
+    const [contact] = await db.insert(contacts).values({ name: "Pessoa Rastro", phoneE164: PHONE }).returning();
+    const { startRun, handleIncoming } = await import("@/lib/engine/engine");
+    const { runId } = await startRun(contact.id, { demoShort: true });
+    await say("sim");
+    await handleIncoming({ phone: PHONE, text: "sim, fui gripada", waMessageId: "trail-1", viaAudio: true });
+    const { settleEvents } = await import("@/lib/obs/events");
+    await settleEvents();
+    const { getCase } = await import("@/lib/case/query");
+    const c = await getCase(runId);
+    const step = c.trail?.find((e) => e.waMessageId === "trail-1" && e.kind === "valor da resposta");
+    expect(step?.message).toMatchObject({ text: "sim, fui gripada", viaAudio: true });
   });
 
   it("id que não existe não vira caso sintético", async () => {

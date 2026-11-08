@@ -48,6 +48,8 @@ export const questionnaireRuns = pgTable(
     status: runStatus("status").notNull().default("pending"),
     currentItem: integer("current_item").notNull().default(0),
     retryCount: integer("retry_count").notNull().default(0),
+    /** Valor que a IA propôs e espera o "sim" da pessoa (null = nada pendente). */
+    pendingValue: real("pending_value"),
     severity: severity("severity").notNull().default("none"),
     partial: boolean("partial").notNull().default(false),
     clinicalOnly: boolean("clinical_only").notNull().default(false),
@@ -74,6 +76,8 @@ export const messages = pgTable(
     text: text("text").notNull(),
     waMessageId: text("wa_message_id"),
     deliveryFailed: boolean("delivery_failed").notNull().default(false),
+    /** Mensagem recebida que veio de áudio: o texto é a transcrição do Whisper e pode conter erros. */
+    viaAudio: boolean("via_audio").notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("messages_wa_id_idx").on(t.waMessageId), index("messages_run_idx").on(t.runId)],
@@ -90,6 +94,12 @@ export const answers = pgTable(
     itemCode: text("item_code").notNull(),
     rawText: text("raw_text").notNull(),
     valueNumeric: real("value_numeric"),
+    /** Como a resposta foi entendida: "ia" | "ia_confirmada" | "regra" | "aberta". */
+    source: text("source"),
+    /** Trecho literal da fala que sustenta o valor. */
+    quote: text("quote"),
+    /** Mensagem do WhatsApp que gerou (ou corrigiu por último) esta resposta. */
+    messageId: uuid("message_id"),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("answers_run_item_idx").on(t.runId, t.itemCode)],
@@ -185,6 +195,8 @@ export const agentEvents = pgTable(
     runId: uuid("run_id"),
     interviewId: uuid("interview_id"),
     answerId: uuid("answer_id"),
+    /** Id da mensagem do WhatsApp que disparou este passo (liga tudo o que uma mensagem causou). */
+    waMessageId: text("wa_message_id"),
     kind: text("kind").notNull(),
     outcome: text("outcome").notNull(),
     model: text("model"),
@@ -194,7 +206,7 @@ export const agentEvents = pgTable(
     latencyMs: integer("latency_ms"),
     detail: text("detail"),
   },
-  (t) => [index("agent_events_run_idx").on(t.runId), index("agent_events_interview_idx").on(t.interviewId), index("agent_events_created_idx").on(t.createdAt)],
+  (t) => [index("agent_events_run_idx").on(t.runId), index("agent_events_interview_idx").on(t.interviewId), index("agent_events_created_idx").on(t.createdAt), index("agent_events_wa_idx").on(t.waMessageId)],
 );
 export type AgentEvent = typeof agentEvents.$inferSelect;
 

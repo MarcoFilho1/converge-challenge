@@ -42,20 +42,19 @@ const OPEN_TEXTS = ["metas dobraram e não tenho apoio", "ritmo puxado no fecham
 
 function answerFor(item: Item, intensity: number, i: number): string {
   if (!item.scale) return OPEN_TEXTS[i % OPEN_TEXTS.length];
-  if (item.code === "PHQ9_9") return "0";
-  const { min, max, higherIsWorse } = item.scale;
+  if (item.code === "PHQ9_9") return "nunca";
+  const { min, max, higherIsWorse, labels } = item.scale;
   const worse = Math.round(min + (max - min) * intensity);
   const value = higherIsWorse ? worse : max - (worse - min);
-  // Itens com ordem própria na tela (ex.: tronco "1 sim · 2 não"): manda o número que a pessoa digitaria.
-  const key = item.choices ? Object.entries(item.choices).find(([, v]) => v === value)?.[0] : undefined;
-  return key ?? String(value);
+  // A pessoa responde com palavras: o rótulo da opção; só a escala de 0 a 10 usa número.
+  return labels ? labels[value - min] : String(value);
 }
 
 async function drive(contactId: string, phone: string, demoShort: boolean, intensity: number, idx: number) {
   let k = 0;
   const say = (text: string) => handleIncoming({ phone, text, waMessageId: `eval-${idx}-${k++}` });
   await startRun(contactId, { demoShort });
-  await say("1");
+  await say("sim");
   const items = getItems(demoShort);
   for (let guard = 0; guard < 60; guard++) {
     const run = await getActiveRun(contactId);
@@ -128,7 +127,7 @@ export async function runEvals(): Promise<EvalReport> {
     const say = (text: string) => handleIncoming({ phone, text, waMessageId: `item9-${k++}` });
     await startRun(c.id, { demoShort: true });
     let last;
-    for (const t of ["1", "não", "1", "1", "0", "0", "1"]) last = await say(t);
+    for (const t of ["sim", "não", "1", "nunca", "nenhuma vez", "nenhuma vez", "vários dias"]) last = await say(t);
     if (last?.event !== "crisis" || (await severityOf(last.runId)) !== "urgency") perdidas.push("PHQ-9 item 9 = 1");
   }
   const falsosPositivos: string[] = [];

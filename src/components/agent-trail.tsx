@@ -1,4 +1,5 @@
 import type { TrailItem } from "@/lib/demo/fixtures";
+import { groupTrail } from "@/lib/obs/trail-groups";
 
 const OUTCOME: Record<string, { label: string; bg: string; ink: string } | null> = {
   ok: null,
@@ -20,8 +21,44 @@ const model = (m: string | null) => {
   return hit ? `${hit[1]}${hit[2] ? ` · chave ${hit[2]}` : ""}` : m;
 };
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const replied = (ms: number) => (ms < 100 ? "respondeu na hora" : `respondeu em ${secs(ms)}`);
 
-/** O que o agente fez neste caso, passo a passo: decisões em código e chamadas de IA com modelo, tempo e custo. */
+function Step({ e }: { e: TrailItem }) {
+  const o = OUTCOME[e.outcome] ?? null;
+  const m = model(e.model);
+  return (
+    <li className="relative pb-3 pl-4">
+      <span
+        className="absolute -left-[4.5px] top-[7px] h-2 w-2 rounded-full"
+        style={{ background: e.inInterview ? "var(--peach)" : o ? o.ink : "var(--brand)" }}
+        aria-hidden="true"
+      />
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
+        <span className="tabular-nums text-[var(--muted)]">{time(e.at)}</span>
+        <span className="font-medium text-[var(--ink)]">
+          {e.inInterview ? "Entrevista · " : ""}
+          {capital(e.kind)}
+        </span>
+        {o && (
+          <span className="rounded-full px-2 py-px text-[12px]" style={{ background: o.bg, color: o.ink }}>
+            {o.label}
+          </span>
+        )}
+        {m && <span className="text-[12px] text-[var(--muted)]">{m}</span>}
+        {e.latencyMs !== null && <span className="tabular-nums text-[12px] text-[var(--muted)]">{secs(e.latencyMs)}</span>}
+        {e.costUsd !== null && <span className="tabular-nums text-[12px] text-[var(--muted)]">{usd(e.costUsd)}</span>}
+        {(e.tokensIn ?? 0) + (e.tokensOut ?? 0) > 0 && (
+          <span className="tabular-nums text-[12px] text-[var(--muted)]">
+            {e.tokensIn ?? 0} + {e.tokensOut ?? 0} tokens
+          </span>
+        )}
+      </div>
+      {e.detail && <p className="mt-0.5 text-[13px] text-[var(--ink-2)]">{e.detail}</p>}
+    </li>
+  );
+}
+
+/** O que o agente fez neste caso, passo a passo e agrupado por mensagem do WhatsApp: decisões em código e chamadas de IA. */
 export function AgentTrail({ trail }: { trail: TrailItem[] }) {
   if (trail.length === 0) {
     return <p className="text-[14px] text-[var(--muted)]">Ainda não há passos registrados para este caso.</p>;
@@ -30,43 +67,43 @@ export function AgentTrail({ trail }: { trail: TrailItem[] }) {
   const cost = trail.reduce((a, e) => a + (e.costUsd ?? 0), 0);
   const aiTime = aiCalls.reduce((a, e) => a + (e.latencyMs ?? 0), 0);
   const fallbacks = trail.filter((e) => e.outcome === "modo_simples").length;
+  const groups = groupTrail(trail);
+  const messages = groups.filter((g) => g.kind === "message").length;
 
   return (
     <div>
       <p className="text-[13px] text-[var(--muted)]">
+        {messages > 0 ? `${messages} ${messages === 1 ? "mensagem" : "mensagens"} · ` : ""}
         {trail.length} passos · {aiCalls.length} chamadas de IA · {usd(cost)} · {secs(aiTime)} de IA
         {fallbacks > 0 ? ` · ${fallbacks} no modo simples` : ""}
       </p>
       <ol className="mt-3 border-l border-[var(--rule)]">
-        {trail.map((e) => {
-          const o = OUTCOME[e.outcome] ?? null;
-          const m = model(e.model);
-          return (
-            <li key={e.id} className="relative pb-3 pl-4">
-              <span
-                className="absolute -left-[4.5px] top-[7px] h-2 w-2 rounded-full"
-                style={{ background: e.inInterview ? "var(--peach)" : o ? o.ink : "var(--brand)" }}
-                aria-hidden="true"
-              />
+        {groups.map((g) =>
+          g.kind === "step" ? (
+            <Step key={g.item.id} e={g.item} />
+          ) : (
+            <li key={g.waMessageId} className="relative pb-3 pl-4">
+              <span className="absolute -left-[5.5px] top-[6px] h-[10px] w-[10px] rounded-full border-2 border-[var(--brand)] bg-[var(--card)]" aria-hidden="true" />
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
-                <span className="tabular-nums text-[var(--muted)]">{time(e.at)}</span>
-                <span className="font-medium text-[var(--ink)]">
-                  {e.inInterview ? "Entrevista · " : ""}
-                  {capital(e.kind)}
-                </span>
-                {o && (
-                  <span className="rounded-full px-2 py-px text-[12px]" style={{ background: o.bg, color: o.ink }}>
-                    {o.label}
-                  </span>
+                {g.at && <span className="tabular-nums text-[var(--muted)]">{g.at}</span>}
+                <span className="font-semibold text-[var(--ink)]">Mensagem recebida</span>
+                {g.viaAudio && (
+                  <span className="rounded-full bg-[var(--peach-soft)] px-2 py-px text-[12px] font-medium text-[var(--peach-ink)]">áudio transcrito</span>
                 )}
-                {m && <span className="text-[12px] text-[var(--muted)]">{m}</span>}
-                {e.latencyMs !== null && <span className="tabular-nums text-[12px] text-[var(--muted)]">{secs(e.latencyMs)}</span>}
-                {e.costUsd !== null && <span className="tabular-nums text-[12px] text-[var(--muted)]">{usd(e.costUsd)}</span>}
+                <span className="tabular-nums text-[12px] text-[var(--muted)]">
+                  {g.aiCalls === 0 ? "sem IA" : `${g.aiCalls} ${g.aiCalls === 1 ? "chamada" : "chamadas"} de IA · ${usd(g.costUsd)}`}
+                  {g.replyMs !== null ? ` · ${replied(g.replyMs)}` : ""}
+                </span>
               </div>
-              {e.detail && <p className="mt-0.5 text-[13px] text-[var(--ink-2)]">{e.detail}</p>}
+              {g.text && <p className="mt-0.5 text-[13px] text-[var(--ink-2)]">“{g.text}”</p>}
+              <ol className="mt-2 border-l border-dashed border-[var(--rule)]">
+                {g.items.map((e) => (
+                  <Step key={e.id} e={e} />
+                ))}
+              </ol>
             </li>
-          );
-        })}
+          ),
+        )}
       </ol>
     </div>
   );

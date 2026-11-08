@@ -1,5 +1,6 @@
 /**
  * Cria SÓ a tabela do rastro do agente (agent_events) no banco de DATABASE_URL, sem tocar nas outras.
+ * Idempotente: em banco que já tinha a tabela, só acrescenta o que faltar (wa_message_id).
  * Uso: pnpm obs:db
  */
 import "./_env";
@@ -24,6 +25,8 @@ CREATE TABLE IF NOT EXISTS agent_events (
 CREATE INDEX IF NOT EXISTS agent_events_run_idx ON agent_events(run_id);
 CREATE INDEX IF NOT EXISTS agent_events_interview_idx ON agent_events(interview_id);
 CREATE INDEX IF NOT EXISTS agent_events_created_idx ON agent_events(created_at);
+ALTER TABLE agent_events ADD COLUMN IF NOT EXISTS wa_message_id text;
+CREATE INDEX IF NOT EXISTS agent_events_wa_idx ON agent_events(wa_message_id);
 `;
 
 (async () => {
