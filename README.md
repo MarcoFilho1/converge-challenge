@@ -1,6 +1,6 @@
 <h1 align="center">
   <img alt="" src="public/brand/praevenius-mark.png" width="80"><br>
-  Pravenios
+  Praevenios
 </h1>
 
 <p align="center">
