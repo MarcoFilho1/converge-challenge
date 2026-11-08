@@ -16,7 +16,8 @@ import {
   summaries,
 } from "@/db/schema";
 import { RunSummarySchema, type RunSummary } from "@/lib/ai/types";
-import { TRUNK_YES } from "@/lib/instruments";
+import { TRUNK_YES, getItems } from "@/lib/instruments";
+import { valueLabel } from "@/lib/engine/copy";
 import { clinicalSignal, toScoreChip } from "@/lib/case/score-chips";
 import type { InterviewDetail, InterviewListItem } from "@/lib/interview/contract";
 import {
@@ -79,6 +80,9 @@ async function loadCase(runId: string): Promise<CaseDetailData> {
       .map(toScoreChip)
       .filter((c): c is QueueScoreChip => c !== null);
 
+    // "entendido como …": cada resposta aponta para a mensagem de onde saiu
+    const readingByMessage = new Map(runAnswers.filter((a) => a.messageId).map((a) => [a.messageId!, a]));
+    const itemsByCode = new Map(getItems(run.demoShort).map((i) => [i.code, i]));
     const trunkAns = runAnswers.find((a) => a.itemCode === "TRUNK" || a.itemCode === "SPS6_TRUNK");
     const phq9Item9 = runAnswers.find((a) => a.itemCode === "PHQ9_9");
 
@@ -128,12 +132,21 @@ async function loadCase(runId: string): Promise<CaseDetailData> {
         hasVoiceInterview: interviews.length > 0,
         voiceInterviewToken: interviews[0]?.inviteUrl?.split("/").pop() ?? "",
       },
-      messages: runMessages.map((m) => ({
-        id: m.id,
-        direction: m.direction,
-        text: m.text,
-        createdAt: m.createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      })),
+      messages: runMessages.map((m) => {
+        const a = readingByMessage.get(m.id);
+        const item = a ? itemsByCode.get(a.itemCode) : undefined;
+        return {
+          id: m.id,
+          direction: m.direction,
+          text: m.text,
+          createdAt: m.createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          viaAudio: m.viaAudio,
+          reading:
+            a && item?.scale && a.valueNumeric !== null && (a.source === "regra" || a.source === "ia" || a.source === "ia_confirmada")
+              ? { label: valueLabel(item, a.valueNumeric), how: a.source }
+              : undefined,
+        };
+      }),
       evidence: mappedEvidence,
       summary: validSummary,
       interviews,

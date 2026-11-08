@@ -3,6 +3,7 @@ import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 import { normalizeText } from "@/lib/crisis/detect";
 import type { Item } from "@/lib/instruments/types";
 import type { AiProvider, Classification, ClassifyInput, RunContext, RunSummary } from "./types";
+import { readReplyLocal } from "./read-local";
 
 function fnv1a(text: string): number {
   let hash = 0x811c9dc5;
@@ -83,6 +84,10 @@ export function createMockProvider(): AiProvider {
       const value = interpretLocal(item, text);
       if (value !== null) recordEvent({ kind: "valor da resposta", outcome: "ok", model: "regra local", detail: `“${text}” → ${value} (regra local)` });
       return value;
+    },
+
+    async readReply(input) {
+      return readReplyLocal(input);
     },
 
     async classifyAnswer({ item, value, chunks }: ClassifyInput): Promise<Classification> {

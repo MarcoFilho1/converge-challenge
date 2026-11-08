@@ -1,15 +1,40 @@
 import { embedMany, gateway, generateText, Output } from "ai";
 import { z } from "zod";
-import { CLASSIFY_SYSTEM, INTERPRET_SYSTEM, SUMMARY_SYSTEM } from "./prompts";
+import { CLASSIFY_SYSTEM, INTERPRET_SYSTEM, READ_REPLY_SYSTEM, SUMMARY_SYSTEM } from "./prompts";
+import { readReplyLocal } from "./read-local";
+import { normalizeText } from "@/lib/crisis/detect";
+import type { Item } from "@/lib/instruments/types";
 import { ClassificationSchema, RunSummarySchema, type AiProvider } from "./types";
 import { createMockProvider } from "./mock";
 import { chatCallOptions, featherlessEmbed, featherlessKeys, withChat } from "./llm";
 import { recordEvent } from "@/lib/obs/events";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 
+const ReadReplySchema = z.object({
+  intent: z.enum(["answer", "yes", "no", "doubt", "stop", "skip", "correction", "other"]),
+  value: z.number().nullable(),
+  quote: z.string().nullable(),
+  confidence: z.enum(["alta", "baixa"]),
+  mentions: z.array(z.string()),
+});
+
+/** Item para o prompt: texto e escala como valor → rótulo (ou faixa de 0 a 10). */
+function describeItem(item: Item | null) {
+  if (!item) return null;
+  const s = item.scale;
+  const escala = !s ? "resposta aberta" : s.labels ? s.labels.map((l, i) => `${s.min + i} = ${l}`).join("; ") : `número de ${s.min} a ${s.max}${item.scaleLine ? ` (${item.scaleLine})` : ""}`;
+  return { codigo: item.code, texto: item.text, escala };
+}
+
+/** Mensagem que já é exatamente um rótulo, um sim ou um não: a regra local basta, sem gastar IA. */
+function isTrivial(text: string): boolean {
+  const n = normalizeText(text).replace(/[!.]+$/g, "").trim();
+  return n.split(/\s+/).length <= 4 && /^(sim|nao|nunca|sempre|raramente|frequentemente|com frequencia|algumas vezes|as vezes|nenhuma vez|varios dias|mais da metade dos dias|quase todos os dias|parar)$/.test(n);
+}
+
 const embeddingModel = () => process.env.AI_EMBEDDING_MODEL ?? "openai/text-embedding-3-small";
 
-const STAGE: Record<string, string> = { interpretAnswer: "interpretar", classifyAnswer: "classificar", summarizeRun: "resumo do questionário" };
+const STAGE: Record<string, string> = { readReply: "ler resposta", interpretAnswer: "interpretar", classifyAnswer: "classificar", summarizeRun: "resumo do questionário" };
 
 /** Falha do modelo nunca derruba a conversa: registra e usa o caminho simulado. */
 async function orFallback<T>(label: string, real: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
@@ -64,6 +89,35 @@ export function createGatewayProvider(): AiProvider {
           return value;
         },
         async () => null,
+      );
+    },
+
+    async readReply(input) {
+      const local = readReplyLocal(input);
+      // atalho só quando a regra local entendeu de fato (palavra curta de outra escala ainda vai para a IA)
+      if (isTrivial(input.text) && local.intent !== "other" && local.confidence === "alta") return local;
+      return orFallback(
+        "readReply",
+        async () => {
+          const { output } = await withChat((model) => generateText({
+            model,
+            ...chatCallOptions("fast"),
+            system: READ_REPLY_SYSTEM,
+            temperature: 0,
+            output: Output.object({ schema: ReadReplySchema }),
+            prompt: JSON.stringify({
+              stage: input.stage,
+              item: describeItem(input.item),
+              anterior: describeItem(input.previous),
+              proximos: input.upcoming,
+              mensagem: input.text,
+            }),
+          }), "fast", "ler resposta");
+          const allowed = new Set(input.upcoming.map((u) => u.code));
+          const reading = { ...output, value: Number.isFinite(output.value) ? output.value : null, mentions: output.mentions.filter((c) => allowed.has(c)), source: "ia" as const };
+          return reading;
+        },
+        async () => local,
       );
     },
 

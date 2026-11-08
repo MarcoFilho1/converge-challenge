@@ -72,7 +72,7 @@ describe("linhas de apoio: explicação simples abaixo da pergunta validada", ()
     const msg = formatItem(trunk);
     expect(msg).toContain("NOS ÚLTIMOS 30 DIAS, você esteve presente no trabalho apesar de apresentar algum problema de saúde ou algum sinal ou sintoma de adoecimento?");
     expect(msg).toContain("(Por exemplo: dor, gripe, dor de cabeça, cansaço forte, ansiedade, tristeza ou insônia.)");
-    expect(msg.indexOf("(Por exemplo")).toBeLessThan(msg.indexOf("1 sim · 2 não"));
+    expect(msg.indexOf("(Por exemplo")).toBeLessThan(msg.indexOf("sim · não"));
   });
 
   it("prejuízo, exaustão e humor ganham uma linha curta; a pergunta sobre se ferir não", async () => {
