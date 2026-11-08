@@ -2,6 +2,7 @@
  * Serviço da entrevista: liga motor (puro), banco (repo) e voz (VoiceProvider).
  * Cada turno é uma requisição; o estado inteiro vive em interviews.state (jsonb) com lock otimista.
  */
+import { withObsContext } from "@/lib/obs/context";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -55,6 +56,9 @@ export type ServiceDeps = {
 };
 
 type AiAudio = { url: string | null; voice: TurnResponse["voice"]; path: string | null };
+
+/** Sons de escuta, variados para não soar repetido. */
+export const LISTENING_CUES = ["Uhum.", "Hum, hum.", "Certo.", "Aham."];
 
 export function createInterviewService(deps: ServiceDeps = {}) {
   const voice = deps.voice ?? getVoice();
@@ -140,7 +144,11 @@ export function createInterviewService(deps: ServiceDeps = {}) {
    * Aplica um evento. Ordem: motor → transação (lock otimista + turnos + urgência) → só então áudio da IA.
    * Quem perde a corrida não gera TTS nem deixa arquivo; o banco nunca fica com estado e turnos divergentes.
    */
-  async function apply(row: InterviewRow, event: InterviewEvent, personAudioPath: string | null, heard: string | null): Promise<TurnResponse> {
+  function apply(row: InterviewRow, event: InterviewEvent, personAudioPath: string | null, heard: string | null): Promise<TurnResponse> {
+    return withObsContext({ interviewId: row.id, runId: row.runId }, () => applyInContext(row, event, personAudioPath, heard));
+  }
+
+  async function applyInContext(row: InterviewRow, event: InterviewEvent, personAudioPath: string | null, heard: string | null): Promise<TurnResponse> {
     const before = stateOf(row);
     const nowMs = now();
     const { state, say } = await step(before, event, ai, nowMs);
@@ -329,6 +337,19 @@ export function createInterviewService(deps: ServiceDeps = {}) {
     async personAudioPath(id: string, idx: number): Promise<string | null> {
       const t = await repo.getTurn(id, idx);
       return t?.speaker === "person" && t.audioPath && existsSync(t.audioPath) ? t.audioPath : null;
+    },
+
+    /** Som curto de escuta ("Uhum.") que a tela toca assim que a pessoa termina de falar, enquanto a IA pensa. */
+    async listeningCuePath(token: string, i: number): Promise<string | null> {
+      const row = await repo.getInterviewByToken(token);
+      if (!row) return null;
+      const text = LISTENING_CUES[Math.abs(Math.trunc(i)) % LISTENING_CUES.length];
+      try {
+        return await getOrGenerate(voice, profile, `escuta:${text}`, text, cacheRoot);
+      } catch (err) {
+        if (err instanceof VoiceUnavailable) return null;
+        throw err;
+      }
     },
 
     async aiAudioPath(token: string, turnIdx: number): Promise<string | null> {

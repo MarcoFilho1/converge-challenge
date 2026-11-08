@@ -10,6 +10,16 @@ export { audioCachePath, getOrGenerate, DEFAULT_VOICE_CACHE_ROOT } from "./cache
 
 let cached: { key: string; provider: VoiceProvider } | null = null;
 
+/** Chaves da ElevenLabs em ordem: ELEVENLABS_API_KEY, depois ELEVENLABS_API_KEY_2, _3, … */
+export function elevenLabsKeys(env: Record<string, string | undefined> = process.env): string[] {
+  const extra = Object.keys(env)
+    .map((k) => /^ELEVENLABS_API_KEY_(\d+)$/.exec(k))
+    .filter((m): m is RegExpExecArray => !!m)
+    .sort((a, b) => Number(a[1]) - Number(b[1]))
+    .map((m) => env[m[0]]);
+  return [env.ELEVENLABS_API_KEY, ...extra].filter((k): k is string => !!k && k.trim() !== "");
+}
+
 /**
  * VOICE_PROVIDER=voicebox → fala e escuta no Voicebox local.
  * VOICE_PROVIDER=elevenlabs → fala na ElevenLabs (ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID), escuta no Whisper do Voicebox.
@@ -17,7 +27,7 @@ let cached: { key: string; provider: VoiceProvider } | null = null;
  */
 export function getVoice(): VoiceProvider {
   const mode = process.env.VOICE_PROVIDER ?? "none";
-  const key = `${mode}|${process.env.VOICEBOX_URL}|${process.env.VOICEBOX_PROFILE_ID}|${process.env.ELEVENLABS_VOICE_ID}|${process.env.ELEVENLABS_MODEL}`;
+  const key = `${mode}|${process.env.VOICEBOX_URL}|${process.env.VOICEBOX_PROFILE_ID}|${process.env.ELEVENLABS_VOICE_ID}|${process.env.ELEVENLABS_MODEL}|${elevenLabsKeys().length}`;
   if (cached?.key !== key) {
     const voicebox = () => createVoicebox({ url: process.env.VOICEBOX_URL ?? "http://127.0.0.1:17493", profileId: process.env.VOICEBOX_PROFILE_ID ?? "", language: process.env.VOICEBOX_LANGUAGE ?? "pt" });
     cached = {
@@ -25,7 +35,7 @@ export function getVoice(): VoiceProvider {
       provider: mode === "voicebox"
         ? voicebox()
         : mode === "elevenlabs"
-          ? createElevenLabs({ apiKey: process.env.ELEVENLABS_API_KEY ?? "", voiceId: process.env.ELEVENLABS_VOICE_ID ?? "", model: process.env.ELEVENLABS_MODEL, stt: voicebox() })
+          ? createElevenLabs({ apiKeys: elevenLabsKeys(), voiceId: process.env.ELEVENLABS_VOICE_ID ?? "", model: process.env.ELEVENLABS_MODEL, stt: voicebox() })
           : createNoVoice(),
     };
   }
