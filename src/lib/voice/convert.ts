@@ -1,0 +1,63 @@
+import { spawn } from "node:child_process";
+
+function isWav16kMono(buf: Buffer): boolean {
+  return buf.length > 44 && buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WAVE" && buf.readUInt16LE(22) === 1 && buf.readUInt32LE(24) === 16000;
+}
+
+/** Converte qualquer áudio do navegador (webm/opus, mp4/aac, wav) para wav 16 kHz mono com ffmpeg. */
+export function toWav16k(input: Buffer, mime: string, timeoutMs = 10_000): Promise<Buffer> {
+  if (mime.includes("wav") && isWav16kMono(input)) return Promise.resolve(input);
+  return new Promise((resolve, reject) => {
+    const ff = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-ac", "1", "-ar", "16000", "-f", "wav", "pipe:1"]);
+    const out: Buffer[] = [];
+    let err = "";
+    const timer = setTimeout(() => { ff.kill("SIGKILL"); reject(new Error("ffmpeg: tempo esgotado")); }, timeoutMs);
+    ff.stdout.on("data", (d: Buffer) => out.push(d));
+    ff.stderr.on("data", (d: Buffer) => { err += d.toString(); });
+    ff.on("error", (e) => { clearTimeout(timer); reject(new Error(`ffmpeg indisponível: ${e.message}`)); });
+    ff.on("close", (code) => {
+      clearTimeout(timer);
+      const buf = Buffer.concat(out);
+      if (code !== 0 || buf.length < 44) return reject(new Error(`ffmpeg falhou (${code}): ${err.slice(0, 300)}`));
+      resolve(buf);
+    });
+    ff.stdin.on("error", () => {});
+    ff.stdin.end(input);
+  });
+}
+
+/** Junta wavs PCM 16-bit do mesmo formato num só (usa o formato do primeiro). */
+export function concatWav(wavs: Buffer[]): Buffer {
+  const pcm = (w: Buffer) => {
+    const at = w.indexOf("data", 12);
+    return at >= 0 ? w.subarray(at + 8, at + 8 + w.readUInt32LE(at + 4)) : w.subarray(44);
+  };
+  const first = wavs[0];
+  const body = Buffer.concat(wavs.map(pcm));
+  const h = Buffer.from(first.subarray(0, 44));
+  h.write("data", 36);
+  h.writeUInt32LE(36 + body.length, 4);
+  h.writeUInt32LE(body.length, 40);
+  return Buffer.concat([h, body]);
+}
+
+/** Remove silêncios longos (> 0,4 s abaixo de -40 dB) de um wav 16 kHz antes de transcrever; o Whisper alucina no silêncio. */
+export function trimSilence(wav: Buffer, timeoutMs = 10_000): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const ff = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", "pipe:0",
+      "-af", "silenceremove=start_periods=1:start_threshold=-40dB:stop_periods=-1:stop_duration=0.4:stop_threshold=-40dB",
+      "-ac", "1", "-ar", "16000", "-f", "wav", "pipe:1"]);
+    const out: Buffer[] = [];
+    const timer = setTimeout(() => { ff.kill("SIGKILL"); reject(new Error("ffmpeg: tempo esgotado")); }, timeoutMs);
+    ff.stdout.on("data", (d: Buffer) => out.push(d));
+    ff.on("error", (e) => { clearTimeout(timer); reject(e); });
+    ff.on("close", (code) => {
+      clearTimeout(timer);
+      const b = Buffer.concat(out);
+      if (code === 0 && b.length >= 44) resolve(b);
+      else reject(new Error(`ffmpeg falhou (${code})`));
+    });
+    ff.stdin.on("error", () => {});
+    ff.stdin.end(wav);
+  });
+}

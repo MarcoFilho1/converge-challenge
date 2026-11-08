@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+:root {
+  /* Identidade Praevenius (decisão do Guilherme, hackhub "identidade-visual-frontend"):
+     azul #006EB8 (ações, links, navegação, marca) · pêssego #FDD4BD (destaques acolhedores)
+     branco suave #F8FAF9 (fundo) · branco #FFFFFF (cartões) · grafite azulado #24363B (texto).
+     O vermelho fica reservado à urgência clínica (CVV 188 / SAMU 192). */
+  --bg: #F8FAF9;
+  --ground: #F8FAF9;
+  --card: #FFFFFF;
+  --surface: #FFFFFF;
+  --raised: #EEF3F5;
+  --surface-subtle: #EEF3F5;
+  --active: #E1ECF4;
+
+  --border: #DCE5E9;
+  --line: #DCE5E9;
+  --rule: #E8EEF1;
+  --line-subtle: #E8EEF1;
+  --control: #B3C3CA;
+
+  --ink: #24363B;
+  --ink-2: #3B5056;
+  --text: #24363B;
+  --muted: #51646A;
+  --faint: #5C6F75;
+  --primary: #006EB8;
+  --primary-hover: #005A97;
+
+  --brand: #006EB8;
+  --brand-hover: #005A97;
+  --accent: #006EB8;
+  --brand-soft: #DDEBF6;
+  --brand-tint: #F1F6FB;
+  --brand-deep: #0A4F80;
+  /* Moldura azulada que abraça a folha de trabalho (identidade Praevenius) */
+  --frame: #E8F0F6;
+  --frame-line: #D5E2EB;
+  --sheet-shadow: 0 1px 2px rgba(10, 60, 100, 0.05), 0 8px 24px -12px rgba(10, 60, 100, 0.12);
+  --accent-soft: #FDD4BD;
+  --peach: #FDD4BD;
+  --peach-soft: #FEEBDF;
+  --peach-ink: #6E3A1C;
+
+  --ok-bg: #DDEFE3;
+  --ok-fg: #144929;
+  --warn-bg: #FBF0D9;
+  --warn-fg: #6B4509;
+  --danger-bg: #F8DEE3;
+  --danger-fg: #7D1612;
+
+  --pastel-peach: #FEEBDF;
+  --pastel-rose: #F8DEE3;
+  --pastel-amber: #FBF0D9;
+  --pastel-green: #DDEFE3;
+
+  /* Semânticos de gravidade (pares pálidos com texto de alto contraste >= 4.5:1) */
+  --sev-urgency-bg: #F8DEE3;
+  --sev-urgency-ink: #7D1612;
+  --sev-urgency-border: #E5B4BC;
+
+  --sev-priority-dot: #C2521F;
+  --sev-attention-dot: #A86F0B;
+  --sev-priority-bg: #FBE3D6;
+  --sev-priority-ink: #7A2E1A;
+  --sev-priority-border: #E8C0AA;
+
+  --sev-attention-bg: #FBF0D9;
+  --sev-attention-ink: #6B4509;
+  --sev-attention-border: #E6D0A3;
+
+  --sev-none-bg: #DDEFE3;
+  --sev-none-ink: #144929;
+  --sev-none-border: #B8DBC4;
+
+  --positive: #1F6B3D;
+  --negative: #B3261E;
+  /* Alerta clínico: urgência, crise e escores acima do corte. Nunca usar a cor da marca para isso. */
+  --alert: #B3261E;
+  --alert-ink: #7D1612;
+
+  /* Geometria framed-sheet */
+  --radius-sheet: 16px;
+  --radius-card: 8px;
+  --radius-control: 6px;
+  --radius-chip: 4px;
+  --gap: 16px;
+  --card-pad: 20px;
+  --pad: 24px;
+  --nav-row: 34px;
+  --control-height: 32px;
+  --row-height: 48px;
+
+  /* Escala tipográfica fixa (Operate mode: 12 / 14 / 16 / 22 / 28) */
+  --fs-title: 1.375rem;   /* 22px */
+  --fs-section: 1rem;     /* 16px */
+  --fs-kpi: 1.75rem;      /* 28px */
+  --fs-body: 0.875rem;    /* 14px */
+  --fs-small: 0.75rem;    /* 12px */
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace; /* taste-skill-ignore */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Entrada suave do conteúdo (opacidade + leve desfoque + subida), como no protótipo Praevenius */
+@keyframes praevenius-enter {
+  from { opacity: 0; filter: blur(3px); transform: translateY(8px); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+.enter {
+  animation: praevenius-enter 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .enter { animation: none; }
+}
+
+/* Browser surfaces (impeccable craft-floor) */
+::selection {
+  background-color: var(--brand-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--control);
+  border-radius: 4px;
+}
+
+.num,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono-code {
+  font-family: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

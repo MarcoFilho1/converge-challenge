@@ -1,0 +1,5 @@
+CREATE DATABASE evolution;
+CREATE DATABASE consultorio_test;
+CREATE EXTENSION IF NOT EXISTS vector;
+\c consultorio_test
+CREATE EXTENSION IF NOT EXISTS vector;
