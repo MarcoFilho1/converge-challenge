@@ -1,3 +1,4 @@
+import { afterEach } from "vitest";
 import { config } from "dotenv";
 config({ path: ".env" });
 if (!process.env.TEST_DATABASE_URL?.includes("_test")) {
@@ -10,3 +11,13 @@ for (const k of Object.keys(process.env)) {
   if (/^(FEATHERLESS_API_KEY|ELEVENLABS_API_KEY|AI_GATEWAY_API_KEY)/.test(k)) delete process.env[k];
 }
 process.env.WHATSAPP_DRY_RUN = "true";
+
+// Indícios e resumo rodam em segundo plano: cada teste espera terminar antes do próximo limpar o banco.
+afterEach(async () => {
+  // Alguns testes trocam o motor por um falso, sem settleBackground: nesse caso não há nada a esperar.
+  try {
+    await (await import("@/lib/engine/engine")).settleBackground();
+  } catch {
+    /* motor falso */
+  }
+});

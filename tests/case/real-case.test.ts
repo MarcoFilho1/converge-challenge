@@ -26,6 +26,7 @@ describe("Caso real nunca mostra dado sintético", () => {
     expect(c.evidence).toEqual([]);
     expect(c.interviews).toEqual([]);
     expect(c.interviewDetail).toBeNull();
+    expect(c.patient?.interview.state).toBe("nao_indicada");
     expect(JSON.stringify(c)).not.toMatch(/Mariana|fila de chamados/);
   });
 
@@ -42,6 +43,7 @@ describe("Caso real nunca mostra dado sintético", () => {
     expect(c.run.ruleTrace.hasClinicalSignal).toBe(true);
     expect(c.run.scores.find((x) => x.label === "PHQ-9 item 9")?.maxLabel).toBe("/3");
     expect(c.run.wellbeingIndex).toBe(20);
+    expect(c.patient?.interview.state).toBe("convidada");
   });
 
   it("id que não existe não vira caso sintético", async () => {

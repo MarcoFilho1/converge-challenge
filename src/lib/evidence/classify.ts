@@ -5,6 +5,7 @@ import { assertNoForbidden, getAi, type Chunk } from "@/lib/ai";
 import { getItems } from "@/lib/instruments";
 import type { InstrumentCode } from "@/lib/instruments/types";
 import { searchChunks } from "@/lib/rag/search";
+import { recordEvent } from "@/lib/obs/events";
 
 /** Que tipo de documento contextualiza cada instrumento, além da ficha do próprio instrumento. */
 const CONTEXT_KINDS: Record<InstrumentCode, DocKind[]> = {
@@ -41,7 +42,11 @@ export async function recordEvidence(
   if (!item || !item.scale) return { stored: false, reason: "no_item" };
 
   const chunks = await retrieve(item.instrument, `${item.text} ${row.answer.rawText}`);
-  if (chunks.length === 0) return { stored: false, reason: "no_chunks" };
+  const skip = (reason: "not_relevant" | "no_chunks" | "forbidden", detail: string) => {
+    recordEvent({ kind: "indício", outcome: "descartado", answerId, runId: row.answer.runId, detail: `${item.code}: ${detail}` });
+    return { stored: false as const, reason };
+  };
+  if (chunks.length === 0) return skip("no_chunks", "a busca não trouxe trecho");
 
   const out = await getAi().classifyAnswer({
     item,
@@ -49,13 +54,13 @@ export async function recordEvidence(
     value: row.answer.valueNumeric,
     chunks,
   });
-  if (!out.relevante) return { stored: false, reason: "not_relevant" };
+  if (!out.relevante) return skip("not_relevant", `${chunks.length} trechos buscados, nenhum relevante para a resposta`);
   const allowed = new Set(chunks.map((c) => c.id));
   const trechos = out.trechos.filter((t) => allowed.has(t.chunkId));
-  if (trechos.length === 0) return { stored: false, reason: "no_chunks" };
+  if (trechos.length === 0) return skip("no_chunks", "a IA citou trecho que não veio da busca; descartado");
   if (assertNoForbidden(`${out.tema} ${out.explicacao}`).length > 0) {
     console.warn("[evidence] explicação descartada por termo proibido", answerId);
-    return { stored: false, reason: "forbidden" };
+    return skip("forbidden", "explicação com termo clínico proibido; descartada");
   }
 
   await db.delete(evidence).where(eq(evidence.answerId, answerId));
@@ -69,5 +74,7 @@ export async function recordEvidence(
       source: "rag" as const,
     })),
   );
+  const titles = [...new Set(trechos.map((t) => chunks.find((c) => c.id === t.chunkId)?.documentTitle).filter(Boolean))];
+  recordEvent({ kind: "indício", outcome: "ok", answerId, runId: row.answer.runId, detail: `${item.code}: ${trechos.length} de ${chunks.length} trechos citados (${titles.join("; ")})` });
   return { stored: true };
 }

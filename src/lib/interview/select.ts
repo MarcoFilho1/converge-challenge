@@ -15,6 +15,18 @@ export function conditionActive(when: ProbeCondition, blockFindings: Finding[]):
   }
 }
 
+/** Todas as sondas que ainda cabem no bloco agora (vazio quando o bloco saturou). */
+export function candidateProbes(block: AgendaBlock, probesAsked: string[], turns: Turn[], findings: Finding[]): Probe[] {
+  const def = BLOCKS[block.id];
+  const askedHere = def.probes.filter((p) => probesAsked.includes(p.id)).length;
+  const personTurnsHere = turns.filter((t) => t.speaker === "person" && t.blockId === block.id).length;
+  if (askedHere >= block.maxProbes || personTurnsHere >= def.maxTurns) return [];
+  const blockFindings = findings.filter((f) => f.blockId === block.id);
+  // Assunto que a pessoa já trouxe neste bloco sai das opções (barreiras e necessidades têm várias perguntas no mesmo tema).
+  const said = new Set<string>(blockFindings.map((f) => f.tema).filter((t) => t !== "barreira" && t !== "necessidade" && t !== "outro"));
+  return def.probes.filter((p) => !probesAsked.includes(p.id) && conditionActive(p.when, blockFindings) && !said.has(p.covers));
+}
+
 /** Próxima sonda dentro do bloco atual, ou null quando o bloco saturou. */
 export function nextProbe(block: AgendaBlock, probesAsked: string[], turns: Turn[], findings: Finding[]): Probe | null {
   const def = BLOCKS[block.id];

@@ -18,6 +18,7 @@ async function demoRunUpTo(answers: string[]) {
   const { runId } = await startRun(c.id, { demoShort: true });
   await say("1");
   for (const a of answers) await say(a);
+  await (await import("@/lib/engine/engine")).settleBackground();
   return runId;
 }
 
@@ -87,6 +88,7 @@ describe("resumo estruturado", () => {
   it("resumo lista o que ficou sem resposta quando a pessoa para", async () => {
     const runId = await demoRunUpTo(["sim", "6"]);
     await say("parar");
+    await (await import("@/lib/engine/engine")).settleBackground();
     const { db } = await import("@/db/client");
     const { summaries } = await import("@/db/schema");
     const [row] = await db.select().from(summaries).where(eq(summaries.runId, runId));
