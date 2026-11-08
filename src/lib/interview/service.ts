@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { cleanTranscript, concatWav, looksHallucinated, getOrGenerate, getVoice, toWav16k, trimSilence, voiceProfileName, VoiceUnavailable, type VoiceProvider } from "@/lib/voice";
 import { fromQuestionnaireRun } from "./adapters/questionnaire";
 import { BLOCK_LABELS, type InterviewDetail, type InterviewListItem, type InterviewView, type TurnResponse } from "./contract";
-import { createState, isFinal, step, type InterviewEvent, type InterviewMode, type InterviewState, type Utterance } from "./engine";
+import { abandon, createState, isFinal, lastActivityMs, step, type InterviewEvent, type InterviewMode, type InterviewState, type Utterance } from "./engine";
 import { FIXTURES, type FixtureName } from "./fixtures";
 import { ACK_PHRASES, BLOCKS } from "./protocol";
 
@@ -24,6 +24,7 @@ const FALLBACK_ACK = ACK_PHRASES[0];
 import { formatOrigin } from "./origin";
 import * as repo from "./repo";
 import { buildSummary } from "./summary";
+import { notifyDoctor, type NotifyInput } from "./notify";
 import type { BlockId } from "./types";
 
 export class InterviewNotFound extends Error { name = "InterviewNotFound"; }
@@ -53,6 +54,10 @@ export type ServiceDeps = {
   publicUrl?: () => string;
   mode?: () => InterviewMode;
   interviewerName?: () => string;
+  /** Sem fala nova por este tempo, a entrevista em andamento é encerrada como abandonada. Padrão: INTERVIEW_IDLE_MIN (10 min). */
+  idleMs?: number;
+  /** Aviso ao médico quando a entrevista termina (padrão: WhatsApp do consultório). */
+  notify?: (n: NotifyInput) => Promise<unknown>;
 };
 
 type AiAudio = { url: string | null; voice: TurnResponse["voice"]; path: string | null };
@@ -70,6 +75,17 @@ export function createInterviewService(deps: ServiceDeps = {}) {
   const mode = deps.mode ?? (() => (process.env.INTERVIEW_MODE === "cache_only" ? "cache_only" : "live"));
   const interviewerName = deps.interviewerName ?? (() => process.env.INTERVIEWER_NAME ?? "Helena");
   const cacheRoot = join(dataRoot, "voz");
+  const idleMs = deps.idleMs ?? Math.max(1, Number(process.env.INTERVIEW_IDLE_MIN) || 10) * 60_000;
+  const notify = deps.notify ?? ((n: NotifyInput) => notifyDoctor(n));
+
+  /** Resumo + aviso ao médico: roda uma vez por entrevista, quando ela chega a um estado final. */
+  async function finish(row: InterviewRow, state: InterviewState) {
+    await repo.saveSummary(row.id, await buildSummary(state, ai));
+    // não segura a resposta para a pessoa; falha no WhatsApp nunca derruba o fim da entrevista
+    void Promise.resolve()
+      .then(() => notify({ runId: row.runId, interviewId: row.id, state }))
+      .catch((err) => console.warn("[entrevista] aviso ao médico falhou", err instanceof Error ? err.message : err));
+  }
 
   const stateOf = (row: InterviewRow) => row.state as InterviewState;
   const inviteUrl = (token: string) => `${publicUrl().replace(/\/$/, "")}/entrevista/${token}`;
@@ -169,7 +185,7 @@ export function createInterviewService(deps: ServiceDeps = {}) {
 
     const audio = await aiAudio(row, say, aiTurnIdx);
     if (audio.path) await repo.setTurnAudio(row.id, aiTurnIdx, audio.path);
-    if (isFinal(state.status)) await repo.saveSummary(row.id, await buildSummary(state, ai));
+    if (isFinal(state.status)) await finish(row, state);
 
     const resp: TurnResponse = {
       status: state.status,
@@ -279,6 +295,24 @@ export function createInterviewService(deps: ServiceDeps = {}) {
       return apply(row, { kind: "speech", text, durationMs: input.clientMs ?? null }, audioPath, text);
     },
 
+    /**
+     * Encerra as entrevistas paradas há mais de `idleMs` (página fechada, conexão perdida): sem fala nova da Helena,
+     * com aviso no resumo. Devolve quantas fechou. Roda num intervalo (instrumentation.ts) e antes de o médico listar.
+     */
+    async closeIdle(): Promise<number> {
+      let closed = 0;
+      for (const row of await repo.listRunning()) {
+        const before = stateOf(row);
+        if (now() - lastActivityMs(before) < idleMs) continue;
+        const state = abandon(before);
+        // lock otimista: se a pessoa falou nesse meio tempo, a entrevista segue
+        if (!(await repo.saveState(row.id, state, before.turns.length))) continue;
+        await withObsContext({ interviewId: row.id, runId: row.runId }, () => finish(row, state));
+        closed++;
+      }
+      return closed;
+    },
+
     async skip(token: string): Promise<TurnResponse> {
       return apply(await running(token), { kind: "skip" }, null, null);
     },
@@ -330,6 +364,7 @@ export function createInterviewService(deps: ServiceDeps = {}) {
     },
 
     async listForRun(runId: string): Promise<InterviewListItem[]> {
+      await this.closeIdle().catch((err) => console.warn("[entrevista] closeIdle falhou", err instanceof Error ? err.message : err));
       const rows = await repo.listByRun(runId);
       return Promise.all(rows.map(async (r) => listItem(r, (await repo.getSummary(r.id)) !== null)));
     },
