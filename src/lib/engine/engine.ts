@@ -172,7 +172,10 @@ export async function finishRun(
 async function maybeInvite(runId: string, severity: Parameters<typeof shouldInviteToInterview>[0]["severity"], index: number | null): Promise<string[]> {
   if (process.env.INTERVIEW_AUTO_INVITE === "false" || !hooks.onInvite) return [];
   const threshold = inviteThreshold();
-  if (!shouldInviteToInterview({ severity, index, threshold })) {
+  const needed = shouldInviteToInterview({ severity, index, threshold });
+  // Só na demonstração (INTERVIEW_INVITE_ALL=true): todo mundo é convidado, menos urgência, com uma nota explicando o uso real.
+  const demoOnly = !needed && severity !== "urgency" && process.env.INTERVIEW_INVITE_ALL === "true";
+  if (!needed && !demoOnly) {
     recordEvent({
       kind: "convite",
       outcome: "descartado",
@@ -189,9 +192,11 @@ async function maybeInvite(runId: string, severity: Parameters<typeof shouldInvi
       outcome: "ok",
       model: "regra em código",
       runId,
-      detail: `Convite da entrevista enviado pelo WhatsApp (${SEVERITY_LABEL[severity]}, índice ${index ?? "—"}, limite ${threshold})`,
+      detail: demoOnly
+        ? `Convite de demonstração: em uso real não convidaria (índice ${index ?? "—"}, acima do limite de ${threshold}, sem critério da regra)`
+        : `Convite da entrevista enviado pelo WhatsApp (${SEVERITY_LABEL[severity]}, índice ${index ?? "—"}, limite ${threshold})`,
     });
-    return [copy.interviewInvite(url)];
+    return [copy.interviewInvite(url, demoOnly ? threshold : undefined)];
   } catch (err) {
     console.error("[engine] não consegui criar o convite da entrevista", err);
     recordEvent({ kind: "convite", outcome: "erro", runId, detail: err instanceof Error ? err.message : String(err) });

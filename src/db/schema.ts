@@ -198,6 +198,23 @@ export const agentEvents = pgTable(
 );
 export type AgentEvent = typeof agentEvents.$inferSelect;
 
+/** Avisos para a médica no painel (ex.: entrevista terminou). Em uso real, o mesmo aviso vai também no WhatsApp dela. */
+export const doctorNotices = pgTable(
+  "doctor_notices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: createdAt(),
+    runId: uuid("run_id"),
+    interviewId: uuid("interview_id"),
+    kind: text("kind").notNull(),
+    contactName: text("contact_name").notNull(),
+    text: text("text").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (t) => [index("doctor_notices_created_idx").on(t.createdAt)],
+);
+export type DoctorNotice = typeof doctorNotices.$inferSelect;
+
 export type Contact = typeof contacts.$inferSelect;
 export type QuestionnaireRun = typeof questionnaireRuns.$inferSelect;
 export type Message = typeof messages.$inferSelect;

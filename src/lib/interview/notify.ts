@@ -31,6 +31,8 @@ export function doctorNotice(i: { kind: NoticeKind; contactName: string; caseUrl
 export type NotifyInput = { runId: string | null; interviewId: string; state: InterviewState };
 export type NotifyDeps = {
   send?: (phoneE164: string, text: string) => Promise<unknown>;
+  /** Aviso no painel da médica (padrão: tabela doctor_notices). Sempre gravado, com ou sem WhatsApp. */
+  saveNotice?: (n: { kind: NoticeKind; contactName: string; runId: string | null; interviewId: string | null; text: string }) => Promise<unknown>;
   lookupName?: (runId: string) => Promise<string | null>;
   doctorPhone?: string;
   baseUrl?: string;
@@ -54,11 +56,31 @@ async function defaultSend(phoneE164: string, text: string) {
   return sendText(phoneE164, text);
 }
 
+async function defaultSaveNotice(n: Parameters<NonNullable<NotifyDeps["saveNotice"]>>[0]) {
+  const { saveNotice } = await import("@/lib/notices/store");
+  await saveNotice(n);
+}
+
+/** Frase do aviso no painel: a mesma do WhatsApp, sem o cabeçalho e sem o link (o painel já leva ao caso). */
+export function panelNotice(kind: NoticeKind, contactName: string): string {
+  return doctorNotice({ kind, contactName, caseUrl: "" }).split("\n").slice(1).join(" ").replace(/:\s*$/, ".").trim();
+}
+
 /** Nunca lança: o fim da entrevista não pode cair porque o WhatsApp está fora. */
 export async function notifyDoctor(n: NotifyInput, deps: NotifyDeps = {}): Promise<NotifyResult> {
   const phone = toE164(deps.doctorPhone ?? process.env.DOCTOR_WHATSAPP ?? "");
   const event = (outcome: "ok" | "descartado" | "erro", detail: string) =>
     recordEvent({ kind: "aviso ao médico", outcome, detail, interviewId: n.interviewId, runId: n.runId });
+  // Aviso no painel: sempre, com ou sem o WhatsApp da médica configurado.
+  if (n.runId) {
+    try {
+      const contactName = (await (deps.lookupName ?? defaultLookupName)(n.runId)) ?? "Um colaborador";
+      const kind = noticeKind(n.state);
+      await (deps.saveNotice ?? defaultSaveNotice)({ kind, contactName, runId: n.runId, interviewId: n.interviewId, text: panelNotice(kind, contactName) });
+    } catch (err) {
+      console.warn("[entrevista] aviso no painel falhou", err instanceof Error ? err.message : err);
+    }
+  }
   if (!phone) { event("descartado", "DOCTOR_WHATSAPP vazio"); return "sem_numero"; }
   // entrevista de demonstração (sem questionário ligado) não tem Caso para abrir
   if (!n.runId) { event("descartado", "entrevista sem caso"); return "sem_caso"; }

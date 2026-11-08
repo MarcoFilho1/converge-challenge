@@ -20,7 +20,8 @@
     "voz:cota": "tsx scripts/voz-cota.ts",
     "evals:entrevista": "tsx evals/entrevista.ts",
     "obs:db": "tsx scripts/obs-db.ts",
-    "evals:entrevista:real": "EVAL_REAL=true tsx evals/entrevista.ts"
+    "evals:entrevista:real": "EVAL_REAL=true tsx evals/entrevista.ts",
+    "avisos:db": "tsx scripts/avisos-db.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.85",

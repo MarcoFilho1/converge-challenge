@@ -404,3 +404,53 @@ describe("entrada aberta (OPEN_ENTRY=true)", () => {
     }
   });
 });
+
+describe("demonstração: entrevista para todos (INTERVIEW_INVITE_ALL=true)", () => {
+  async function runDemo(answers: string[]) {
+    const contact = await setup();
+    const { startRun } = await import("@/lib/engine/engine");
+    const start = await startRun(contact.id, { demoShort: true });
+    await say("1");
+    let last;
+    for (const text of answers) last = await say(text);
+    return { runId: start.runId, last: last! };
+  }
+
+  it("sem indício também recebe o convite, com a nota de que em uso real só abaixo do limite", async () => {
+    process.env.INTERVIEW_INVITE_ALL = "true";
+    try {
+      const { runId, last } = await runDemo(["2", "0", "1", "0", "0", "0", "1", "tudo tranquilo"]);
+      expect(last.outbound).toHaveLength(2);
+      expect(last.outbound[1]).toMatch(/Helena/);
+      expect(last.outbound[1]).toMatch(/demonstração/i);
+      expect(last.outbound[1]).toMatch(/70/);
+      const { db } = await import("@/db/client");
+      const { interviews } = await import("@/db/schema-interview");
+      expect(await db.select().from(interviews).where(eq(interviews.runId, runId))).toHaveLength(1);
+    } finally {
+      delete process.env.INTERVIEW_INVITE_ALL;
+    }
+  });
+
+  it("quem precisa da entrevista recebe o convite normal, sem a nota", async () => {
+    process.env.INTERVIEW_INVITE_ALL = "true";
+    try {
+      const { last } = await runDemo(["1", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
+      expect(last.outbound[1]).toMatch(/Helena/);
+      expect(last.outbound[1]).not.toMatch(/demonstração/i);
+    } finally {
+      delete process.env.INTERVIEW_INVITE_ALL;
+    }
+  });
+
+  it("urgência continua sem convite, mesmo na demonstração", async () => {
+    process.env.INTERVIEW_INVITE_ALL = "true";
+    try {
+      const { last } = await runDemo(["1", "4", "3", "1", "1", "1"]);
+      expect(last.event).toBe("crisis");
+      expect(last.outbound.join(" ")).not.toMatch(/Helena/);
+    } finally {
+      delete process.env.INTERVIEW_INVITE_ALL;
+    }
+  });
+});
