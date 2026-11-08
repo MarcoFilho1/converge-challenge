@@ -9,13 +9,15 @@ interface AppShellProps {
   children: React.ReactNode;
   urgentCount: number;
   priorityCount: number;
+  /** Avisos ainda não lidos (ex.: entrevista terminou). */
+  noticeCount?: number;
 }
 
 /**
  * Moldura "Prontuário em ordem": sem cor no chrome, barra lateral com marca, três itens e a médica.
  * A única cor da moldura é a contagem de casos urgentes.
  */
-export function AppShell({ children, urgentCount, priorityCount }: AppShellProps) {
+export function AppShell({ children, urgentCount, priorityCount, noticeCount = 0 }: AppShellProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const waiting = urgentCount + priorityCount;
@@ -23,6 +25,7 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
   const nav = [
     { href: "/fila", label: "Fila", count: waiting > 0 ? String(waiting) : null, hot: urgentCount > 0 },
     { href: "/contatos", label: "Colaboradores", count: null, hot: false },
+    { href: "/avisos", label: "Avisos", count: noticeCount > 0 ? String(noticeCount) : null, hot: false },
     { href: "/conexao", label: "WhatsApp", count: null, hot: false },
     { href: "/medicao", label: "Medição", count: null, hot: false },
   ];
@@ -52,7 +55,7 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
               }`}
             >
               {item.count}
-              <span className="sr-only"> casos aguardando avaliação</span>
+              <span className="sr-only">{item.href === "/avisos" ? " avisos não lidos" : " casos aguardando avaliação"}</span>
             </span>
           )}
         </Link>

@@ -114,4 +114,17 @@ describe("resumo da pessoa no caso", () => {
     const s = patientSummary({ ...base, run: { ...base.run, partial: true }, interviews: [item("consent")] });
     expect(s.attention.join(" ")).toMatch(/incompleto/i);
   });
+
+  it("entrevista feita só por ser demonstração: diz que em uso real não seria necessária", () => {
+    const s = patientSummary({ ...base, run: { severity: "none", status: "done", wellbeingIndex: 95, partial: false }, interviews: [item("consent")] });
+    expect(s.interview.state).toBe("convidada");
+    expect(s.interview.detail).toMatch(/demonstração/i);
+    expect(s.interview.detail).toMatch(/95/);
+    expect(s.interview.detail).toMatch(/70/);
+  });
+
+  it("entrevista necessária não leva a nota de demonstração", () => {
+    const s = patientSummary({ ...base, interviews: [item("consent")] });
+    expect(s.interview.detail ?? "").not.toMatch(/demonstração/i);
+  });
 });

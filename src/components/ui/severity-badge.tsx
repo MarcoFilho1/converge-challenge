@@ -104,12 +104,20 @@ export function CaseStateChip({ state }: { state: CaseState }) {
   );
 }
 
+/** Iniciais só com letras: o nome do perfil do WhatsApp pode trazer emoji, parênteses e números. */
+export function initialsOf(name: string): string {
+  const words = name
+    .replace(/\([^)]*\)/g, " ")
+    .split(/\s+/)
+    .map((w) => [...w].filter((ch) => /\p{L}/u.test(ch)).join(""))
+    .filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
+
 export function AvatarInitial({ name, size = "sm" }: { name: string; size?: "sm" | "md" | "lg" }) {
-  const parts = name.trim().split(/\s+/);
-  const initials =
-    parts.length >= 2
-      ? `${parts[0]?.[0] ?? ""}${parts[parts.length - 1]?.[0] ?? ""}`.toUpperCase()
-      : (parts[0]?.slice(0, 2) ?? "CL").toUpperCase();
+  const initials = initialsOf(name);
 
   // Paleta de tintas pálidas de identidade (nunca saturada, >= 60 graus de diferença)
   const PALETTE = [

@@ -40,8 +40,11 @@ export const copy = {
   mediaUnsupported: "Por enquanto eu leio mensagens de texto e ouço áudios. Figurinhas, fotos, vídeos e arquivos eu não consigo entender.",
   audioFailed: "Não consegui ouvir seu áudio agora. Pode escrever a resposta?",
   heardAudio: (text: string) => `Ouvi seu áudio: “${text}”`,
-  interviewInvite: (url: string) =>
+  interviewInvite: (url: string, demoThreshold?: number) =>
     [
+      ...(demoThreshold !== undefined
+        ? [`_Demonstração: aqui todo mundo é convidado. Em uso real, o questionário dá uma nota de 0 a 100 e só quem fica abaixo de ${demoThreshold} recebe este convite._`, ""]
+        : []),
       `Para entender melhor como você está, a Helena, assistente de ${doctor()}, pode conversar com você por uns 10 minutos, por voz ou por texto.`,
       "É sigiloso, só vai para o(a) médico(a), e você pode pular perguntas ou parar quando quiser.",
       `Quando puder, abra este link: ${url}`,

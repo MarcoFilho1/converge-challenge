@@ -59,6 +59,15 @@ function interviewLine(input: PatientSummaryInput): PatientSummary["interview"] 
   }
 
   const min = minutes(latest.durationMs);
+  const needed = run.severity === "urgency" || shouldInviteToInterview({ severity: run.severity, index, threshold });
+  const demoNote = needed
+    ? undefined
+    : `Entrevista oferecida só porque é demonstração. Em uso real não seria necessária: índice ${index ?? "—"}, acima do limite de ${threshold}, e nenhum critério da regra.`;
+  const withNote = (line: PatientSummary["interview"]): PatientSummary["interview"] =>
+    demoNote ? { ...line, detail: line.detail ? `${line.detail} ${demoNote}` : demoNote } : line;
+  return withNote(statusLine());
+
+  function statusLine(): PatientSummary["interview"] {
   switch (latest.status) {
     case "consent":
       return { state: "convidada", headline: "Convidada para a entrevista; ainda não começou." };
@@ -74,6 +83,7 @@ function interviewLine(input: PatientSummaryInput): PatientSummary["interview"] 
       const dur = s?.duracao_min ?? min;
       return { state: "concluida", headline: `Entrevista concluída${dur ? ` em ${dur} min` : ""}${s ? `, ${s.turnos} falas` : ""}.` };
     }
+  }
   }
 }
 

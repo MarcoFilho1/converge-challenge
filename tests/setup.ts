@@ -14,6 +14,7 @@ process.env.WHATSAPP_DRY_RUN = "true";
 // Entrada aberta só nos testes que ligam de propósito.
 delete process.env.OPEN_ENTRY;
 delete process.env.AI_EMBEDDINGS;
+delete process.env.INTERVIEW_INVITE_ALL;
 
 // Indícios e resumo rodam em segundo plano: cada teste espera terminar antes do próximo limpar o banco.
 afterEach(async () => {
