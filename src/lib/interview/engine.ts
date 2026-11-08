@@ -242,7 +242,8 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
     if (s.repeatCount === 0) {
       // a fonte da verdade é a pergunta atual, nunca o texto falado (que pode ter acolhimento gerado)
       s = { ...s, repeatCount: 1 };
-      return aiTurn({ ...ctx, state: s }, { text: REPEAT_PREFIX + q.text, probeId: state.currentProbeId, blockId, cacheKey: `${blockId}:repeat:${state.currentProbeId ?? "base"}`, final: false, crisis: false }, "running");
+      const probeKey = `${blockId}:${state.currentProbeId ?? "base"}`;
+      return aiTurn({ ...ctx, state: s }, { text: REPEAT_PREFIX + q.text, probeId: state.currentProbeId, blockId, cacheKey: `${blockId}:repeat:${state.currentProbeId ?? "base"}`, final: false, crisis: false, parts: [{ text: REPEAT_PREFIX.trim(), cacheKey: "prefixo:repetir" }, { text: q.text, cacheKey: probeKey }] }, "running");
     }
     s = addAviso({ ...s, repeatCount: 0, rephraseCount: 0 }, `Sem resposta: “${q.text}”`, []);
     return moveOn(ctx, s);
@@ -254,7 +255,8 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
     s = { ...s, rephraseCount: 1 };
     const say = firstTime ? q.rephrase! : REPEAT_ASK_PREFIX + q.text;
     const key = firstTime ? `${blockId}:${state.currentProbeId ?? "base"}:rephrase` : `${blockId}:${state.currentProbeId ?? "base"}:claro`;
-    return aiTurn({ ...ctx, state: s }, { text: say, probeId: state.currentProbeId, blockId, cacheKey: key, final: false, crisis: false }, "running");
+    const parts = firstTime ? undefined : [{ text: REPEAT_ASK_PREFIX.trim(), cacheKey: "prefixo:claro" }, { text: q.text, cacheKey: `${blockId}:${state.currentProbeId ?? "base"}` }];
+    return aiTurn({ ...ctx, state: s }, { text: say, probeId: state.currentProbeId, blockId, cacheKey: key, final: false, crisis: false, parts }, "running");
   }
 
   const evasive = blockId === "seguranca" ? !safetyClearlyNo(text) : blockId !== "abertura" && isEvasive(text);
