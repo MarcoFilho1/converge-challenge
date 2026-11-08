@@ -1,26 +1,146 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Paleta do Consultório NR-7 + tokens do estilo framed-sheet (seed 935023105) */
+  --bg: #FBF5F2;
+  --ground: #FBF5F2;
+  --card: #FFFFFF;
+  --surface: #FFFFFF;
+  --raised: #F3F1EE;
+  --surface-subtle: #F3F1EE;
+  --active: #EAE6E1;
+
+  --border: #EAE2DE;
+  --line: #EAE2DE;
+  --rule: #F2EAE6;
+  --line-subtle: #F2EAE6;
+  --control: #CFC0B9;
+
+  --ink: #2B1D1B;
+  --ink-2: #4A3734;
+  --text: #2B1D1B;
+  --muted: #68524F;
+  --faint: #6E5855;
+  --primary: #2B1D1B;
+
+  --brand: #B3261E;
+  --brand-hover: #961E17;
+  --accent: #B3261E;
+  --brand-soft: #F6D5D2;
+  --accent-soft: #F6D5D2;
+
+  --ok-bg: #DDEFE3;
+  --ok-fg: #144929;
+  --warn-bg: #FBF0D9;
+  --warn-fg: #6B4509;
+  --danger-bg: #F8DEE3;
+  --danger-fg: #7D1612;
+
+  --pastel-peach: #FBE3D6;
+  --pastel-rose: #F8DEE3;
+  --pastel-amber: #FBF0D9;
+  --pastel-green: #DDEFE3;
+
+  /* Semânticos de gravidade (pares pálidos com texto de alto contraste >= 4.5:1) */
+  --sev-urgency-bg: #F8DEE3;
+  --sev-urgency-ink: #7D1612;
+  --sev-urgency-border: #E5B4BC;
+
+  --sev-priority-bg: #FBE3D6;
+  --sev-priority-ink: #7A2E1A;
+  --sev-priority-border: #E8C0AA;
+
+  --sev-attention-bg: #FBF0D9;
+  --sev-attention-ink: #6B4509;
+  --sev-attention-border: #E6D0A3;
+
+  --sev-none-bg: #DDEFE3;
+  --sev-none-ink: #144929;
+  --sev-none-border: #B8DBC4;
+
+  --positive: #1F6B3D;
+  --negative: #B3261E;
+
+  /* Geometria framed-sheet */
+  --radius-sheet: 16px;
+  --radius-card: 8px;
+  --radius-control: 6px;
+  --radius-chip: 4px;
+  --gap: 16px;
+  --card-pad: 20px;
+  --pad: 24px;
+  --nav-row: 34px;
+  --control-height: 32px;
+  --row-height: 48px;
+
+  /* Escala tipográfica fixa (Operate mode: 12 / 14 / 16 / 22 / 28) */
+  --fs-title: 1.375rem;   /* 22px */
+  --fs-section: 1rem;     /* 16px */
+  --fs-kpi: 1.75rem;      /* 28px */
+  --fs-body: 0.875rem;    /* 14px */
+  --fs-small: 0.75rem;    /* 12px */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace; /* taste-skill-ignore */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Browser surfaces (impeccable craft-floor) */
+::selection {
+  background-color: var(--brand-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--control);
+  border-radius: 4px;
+}
+
+.num,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono-code {
+  font-family: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
