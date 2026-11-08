@@ -2,7 +2,8 @@ import { getAi } from "@/lib/ai";
 import { CRISIS_REPLY } from "@/lib/crisis/messages";
 import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
 import { assessRisk, isClearNo } from "@/lib/crisis/judge";
-import { computeSeverity, getItems, inviteThreshold, nextItemIndex, scoreRun, shouldInviteToInterview, wellbeingIndex } from "@/lib/instruments";
+import { computeSeverity, getItems, nextItemIndex, scoreRun, shouldInviteToInterview, wellbeingIndex } from "@/lib/instruments";
+import { getSettings } from "@/lib/settings";
 import type { QuestionnaireRun } from "@/db/schema";
 import { copy, formatItem } from "./copy";
 import * as repo from "./repo";
@@ -170,11 +171,12 @@ export async function finishRun(
  * ou indício pela regra. Falha ao criar o convite nunca derruba o encerramento.
  */
 async function maybeInvite(runId: string, severity: Parameters<typeof shouldInviteToInterview>[0]["severity"], index: number | null): Promise<string[]> {
-  if (process.env.INTERVIEW_AUTO_INVITE === "false" || !hooks.onInvite) return [];
-  const threshold = inviteThreshold();
+  const settings = await getSettings();
+  if (!settings.autoInvite || !hooks.onInvite) return [];
+  const threshold = settings.inviteThreshold;
   const needed = shouldInviteToInterview({ severity, index, threshold });
   // Só na demonstração (INTERVIEW_INVITE_ALL=true): todo mundo é convidado, menos urgência, com uma nota explicando o uso real.
-  const demoOnly = !needed && severity !== "urgency" && process.env.INTERVIEW_INVITE_ALL === "true";
+  const demoOnly = !needed && severity !== "urgency" && settings.inviteAll;
   if (!needed && !demoOnly) {
     recordEvent({
       kind: "convite",
@@ -243,7 +245,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   let contact = await repo.findContactByPhone(phone);
   // Entrada aberta (OPEN_ENTRY=true, demo): quem mandar mensagem vira colaborador na hora, com o nome do perfil.
   let joined = false;
-  if (!contact && process.env.OPEN_ENTRY === "true") {
+  if (!contact && (await getSettings()).openEntry) {
     contact = await repo.createContact({ name: input.name || `Colaborador ${phone.slice(-4)}`, phoneE164: phone, sector: "Demo" });
     joined = !!contact;
     if (joined) recordEvent({ kind: "entrada", outcome: "ok", model: "regra em código", detail: `Número novo entrou pela entrada aberta (${input.name ? "nome do perfil" : "sem nome no perfil"})` });

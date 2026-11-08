@@ -1,4 +1,5 @@
-import { inviteThreshold, wellbeingIndex } from "@/lib/instruments";
+import { wellbeingIndex } from "@/lib/instruments";
+import { getSettings } from "@/lib/settings";
 import { patientSummary } from "@/lib/case/patient-summary";
 import { asc, eq, inArray, or } from "drizzle-orm";
 import { notFound } from "next/navigation";
@@ -33,7 +34,7 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
   return {
     ...data,
     trail: SYNTHETIC_QUEUE_ROWS.some((r) => r.runId === runId) ? [] : await loadTrail(runId, data.interviews.map((i) => i.id)),
-    patient: patientSummary({ run: data.run, interviews: data.interviews, interviewDetail: data.interviewDetail, summary: data.summary, threshold: inviteThreshold() }),
+    patient: patientSummary({ run: data.run, interviews: data.interviews, interviewDetail: data.interviewDetail, summary: data.summary, threshold: (await getSettings()).inviteThreshold }),
   };
 }
 

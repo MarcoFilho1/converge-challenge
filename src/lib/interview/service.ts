@@ -77,7 +77,8 @@ export function createInterviewService(deps: ServiceDeps = {}) {
   const mode = deps.mode ?? (() => (process.env.INTERVIEW_MODE === "cache_only" ? "cache_only" : "live"));
   const interviewerName = deps.interviewerName ?? (() => process.env.INTERVIEWER_NAME ?? "Helena");
   const cacheRoot = join(dataRoot, "voz");
-  const idleMs = deps.idleMs ?? Math.max(1, Number(process.env.INTERVIEW_IDLE_MIN) || 10) * 60_000;
+  /** Minutos sem fala até encerrar: das configurações da médica, lidas a cada varredura. */
+  const idleMsNow = async () => deps.idleMs ?? (await (await import("@/lib/settings")).getSettings()).idleMinutes * 60_000;
   const notify = deps.notify ?? ((n: NotifyInput) => notifyDoctor(n));
 
   /** Resumo + aviso ao médico: roda uma vez por entrevista, quando ela chega a um estado final. */
@@ -306,6 +307,7 @@ export function createInterviewService(deps: ServiceDeps = {}) {
      */
     async closeIdle(): Promise<number> {
       let closed = 0;
+      const idleMs = await idleMsNow();
       for (const row of await repo.listRunning()) {
         const before = stateOf(row);
         if (now() - lastActivityMs(before) < idleMs) continue;

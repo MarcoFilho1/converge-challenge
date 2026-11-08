@@ -215,6 +215,13 @@ export const doctorNotices = pgTable(
 );
 export type DoctorNotice = typeof doctorNotices.$inferSelect;
 
+/** Configurações que a médica muda no painel (vencem o .env). Uma linha por chave. */
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Contact = typeof contacts.$inferSelect;
 export type QuestionnaireRun = typeof questionnaireRuns.$inferSelect;
 export type Message = typeof messages.$inferSelect;
