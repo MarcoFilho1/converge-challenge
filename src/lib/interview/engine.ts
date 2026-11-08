@@ -7,7 +7,7 @@ import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
 import { buildAgenda, type Agenda } from "./agenda";
 import { askedHelena, asksRepeat, cleanGenerated, EXTRA_CRISIS_PATTERNS, extraCrisis } from "./filters";
 import { assessRisk } from "@/lib/crisis/judge";
-import { ASKED_ACK, BLOCKS, CRISIS_SPEECH, REPEAT_ASK_PREFIX, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
+import { ABANDON_AVISO_PREFIX, ASKED_ACK, BLOCKS, CRISIS_SPEECH, REPEAT_ASK_PREFIX, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
 import { candidateProbes, fechamentoIndex, selectNext } from "./select";
 import type { Aviso, BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
 
@@ -63,6 +63,8 @@ export type InterviewState = {
   rephraseCount: number;
   skipped: BlockId[];
   avisos: Aviso[];
+  /** "abandonada": encerrada pelo servidor porque a pessoa sumiu (página fechada ou conexão perdida). */
+  endReason?: "abandonada";
   vars: { medico: string; prazo: string };
   input: InterviewInput;
   /** Blocos em que a Helena já fez a pergunta de aprofundamento (no máximo uma por bloco). */
@@ -157,6 +159,25 @@ function currentQuestion(state: InterviewState, blockId: BlockId): { text: strin
 
 function addAviso(state: InterviewState, texto: string, turnIdxs: number[]): InterviewState {
   return { ...state, avisos: [...(state.avisos ?? []), { texto, turnIdxs }] };
+}
+
+export { ABANDON_AVISO_PREFIX };
+
+/** Hora absoluta (ms) da última coisa que aconteceu na entrevista: fim do último turno. */
+export function lastActivityMs(state: InterviewState): number {
+  const last = state.turns.at(-1);
+  return state.startedMs + (last ? last.startedMs + (last.durationMs ?? 0) : 0);
+}
+
+/**
+ * Encerra uma entrevista que ficou parada (a pessoa fechou a página ou perdeu a conexão).
+ * Não cria fala nova da Helena (ninguém ouviria); o fim fica na última atividade e o médico recebe um aviso.
+ */
+export function abandon(state: InterviewState): InterviewState {
+  const endedMs = lastActivityMs(state);
+  const min = Math.max(1, Math.round((endedMs - state.startedMs) / 60_000));
+  const closed: InterviewState = { ...state, status: "stopped", endReason: "abandonada", endedMs, currentProbeId: null };
+  return addAviso(closed, `${ABANDON_AVISO_PREFIX} depois de ${min} min. O resumo usa só o que foi dito até ali.`, []);
 }
 
 /** Pergunta-base sem resposta = o bloco inteiro fica sem resposta; vai para a base do próximo bloco. */
