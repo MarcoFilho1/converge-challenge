@@ -52,5 +52,5 @@ export function askedHelena(text: string): boolean {
 export function asksRepeat(text: string): boolean {
   const n = stripPunct(text);
   if (n.split(" ").length > 8) return false;
-  return /\b(pode repetir|repete|repetir a pergunta|como assim|nao entendi|o que voce quer dizer|nao ouvi|fala de novo)\b/.test(n);
+  return /\b(pode repetir|repete|repetir a pergunta|como assim|nao entendi|o que voce quer dizer|nao ouvi|fala de novo|o que eu faco|o que (e|eh) (pra|para) (falar|responder|dizer)|o que (eu )?(falo|respondo|digo))\b/.test(n);
 }

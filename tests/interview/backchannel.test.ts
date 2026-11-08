@@ -37,7 +37,7 @@ describe("sinais de escuta", () => {
     for (const a of acks) { expect(assertNoForbidden(a)).toEqual([]); expect(hasAdvice(a)).toBe(false); }
   });
 
-  it.each(["pode repetir?", "como assim?", "não entendi a pergunta"])("'%s' → pergunta de outro jeito, sem aviso", async (frase) => {
+  it.each(["pode repetir?", "como assim?", "não entendi a pergunta", "O que eu faço?", "o que é pra falar?"])("'%s' → pergunta de outro jeito, sem aviso", async (frase) => {
     const r = await inSaude();
     const out = await speak(r.state, frase);
     expect(out.say.text).toBe(BLOCKS.saude.rephrase);
