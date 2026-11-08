@@ -97,6 +97,11 @@ export function VoiceInterviewRoom({
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  /** Volume da voz da Helena (0 a 1), para a animação estilo Meet. Só funciona se o áudio passar por um AudioContext ativo. */
+  const [helenaLevel, setHelenaLevel] = useState(0);
+  const outCtxRef = useRef<AudioContext | null>(null);
+  const outAnalyserRef = useRef<AnalyserNode | null>(null);
+  const outTriedRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -287,6 +292,30 @@ export function VoiceInterviewRoom({
     }
   }, [stopMediaResources]);
 
+  /** Liga um analisador ao áudio da Helena. Só conecta se o contexto estiver rodando, senão ela ficaria muda. */
+  const ensureOutAnalyser = useCallback(async () => {
+    if (outTriedRef.current || !audioRef.current) return;
+    outTriedRef.current = true;
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new Ctx();
+      await ctx.resume().catch(() => {});
+      if (ctx.state !== "running") {
+        await ctx.close().catch(() => {});
+        return;
+      }
+      const src = ctx.createMediaElementSource(audioRef.current);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      src.connect(analyser);
+      analyser.connect(ctx.destination);
+      outCtxRef.current = ctx;
+      outAnalyserRef.current = analyser;
+    } catch {
+      // sem analisador: a tela usa a animação fixa
+    }
+  }, []);
+
   const playUtterance = useCallback(
     (text: string, audioUrl: string | null, isFinal: boolean) => {
       stopMediaResources();
@@ -301,6 +330,8 @@ export function VoiceInterviewRoom({
       };
 
       if (audioUrl && audioRef.current) {
+        void ensureOutAnalyser();
+        outCtxRef.current?.resume().catch(() => {});
         audioRef.current.src = audioUrl;
         audioRef.current.onended = onSpeechEnd;
         audioRef.current.onerror = () => {
@@ -330,7 +361,7 @@ export function VoiceInterviewRoom({
       const timer = window.setTimeout(onSpeechEnd, 1400);
       return () => window.clearTimeout(timer);
     },
-    [startListening, stopMediaResources]
+    [startListening, stopMediaResources, ensureOutAnalyser]
   );
 
   // Sync / resume on reload via GET /api/entrevista/[token]
@@ -692,6 +723,25 @@ export function VoiceInterviewRoom({
     applyTurnResponse(buildFallbackTurn(turnIndex, null, "stop"));
   };
 
+  useEffect(() => {
+    if (voiceState !== "falando" || !outAnalyserRef.current) {
+      setHelenaLevel(0);
+      return;
+    }
+    const analyser = outAnalyserRef.current;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let raf = 0;
+    const loop = () => {
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i] ?? 0;
+      setHelenaLevel(Math.min(1, (sum / data.length / 255) * 3));
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [voiceState]);
+
   const handleToggleMute = () => {
     const next = !mutedRef.current;
     mutedRef.current = next;
@@ -723,6 +773,7 @@ export function VoiceInterviewRoom({
           doctorRef={doctorRef}
           voiceState={voiceState}
           micLevel={micLevel}
+          helenaLevel={helenaLevel}
           muted={muted}
           captionsOn={captionsOn}
           caption={sayText}
