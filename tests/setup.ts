@@ -11,6 +11,9 @@ for (const k of Object.keys(process.env)) {
   if (/^(FEATHERLESS_API_KEY|ELEVENLABS_API_KEY|AI_GATEWAY_API_KEY)/.test(k)) delete process.env[k];
 }
 process.env.WHATSAPP_DRY_RUN = "true";
+// Entrada aberta só nos testes que ligam de propósito.
+delete process.env.OPEN_ENTRY;
+delete process.env.AI_EMBEDDINGS;
 
 // Indícios e resumo rodam em segundo plano: cada teste espera terminar antes do próximo limpar o banco.
 afterEach(async () => {

@@ -45,7 +45,10 @@ function answerFor(item: Item, intensity: number, i: number): string {
   if (item.code === "PHQ9_9") return "0";
   const { min, max, higherIsWorse } = item.scale;
   const worse = Math.round(min + (max - min) * intensity);
-  return String(higherIsWorse ? worse : max - (worse - min));
+  const value = higherIsWorse ? worse : max - (worse - min);
+  // Itens com ordem própria na tela (ex.: tronco "1 sim · 2 não"): manda o número que a pessoa digitaria.
+  const key = item.choices ? Object.entries(item.choices).find(([, v]) => v === value)?.[0] : undefined;
+  return key ?? String(value);
 }
 
 async function drive(contactId: string, phone: string, demoShort: boolean, intensity: number, idx: number) {

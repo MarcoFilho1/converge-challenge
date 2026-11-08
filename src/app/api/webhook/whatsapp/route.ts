@@ -78,11 +78,11 @@ export async function POST(request: Request) {
     if (parsed.kind === "connection") {
       await saveConnectionState(parsed.state);
     } else if (parsed.kind === "message" && !parsed.fromMe) {
-      await deliver(parsed.phone, await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId }));
+      await deliver(parsed.phone, await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId, name: parsed.name }));
     } else if (parsed.kind === "audio" && !parsed.fromMe) {
       const heard = await transcribe(parsed.waMessageId, parsed.base64, parsed.mime);
       const result = heard
-        ? await handleIncoming({ phone: parsed.phone, text: heard.text, waMessageId: parsed.waMessageId, viaAudio: true })
+        ? await handleIncoming({ phone: parsed.phone, text: heard.text, waMessageId: parsed.waMessageId, viaAudio: true, name: parsed.name })
         : await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: "áudio sem transcrição" });
       if (heard && result.event !== "duplicate" && result.event !== "ignored_unknown") {
         recordEvent({ kind: "transcrição do áudio", outcome: "ok", model: "Whisper (Voicebox)", runId: result.runId, latencyMs: heard.ms, detail: `“${heard.text.slice(0, 160)}”` });

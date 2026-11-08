@@ -191,7 +191,7 @@ describe("convite automático para a entrevista", () => {
   }
 
   it("índice abaixo do limite: o agente manda o link da Helena junto com o encerramento", async () => {
-    const { runId, last } = await runDemo(["2", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
+    const { runId, last } = await runDemo(["1", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
     expect(last.event).toBe("finished");
     expect(last.outbound).toHaveLength(2);
     expect(last.outbound[1]).toMatch(/Helena/);
@@ -201,13 +201,13 @@ describe("convite automático para a entrevista", () => {
   });
 
   it("sem indício e índice alto: só o encerramento, sem convite", async () => {
-    const { runId, last } = await runDemo(["1", "0", "1", "0", "0", "0", "1", "tudo tranquilo"]);
+    const { runId, last } = await runDemo(["2", "0", "1", "0", "0", "0", "1", "tudo tranquilo"]);
     expect(last.outbound).toHaveLength(1);
     expect(await interviewsOf(runId)).toHaveLength(0);
   });
 
   it("crise pelo item 9: nada de convite, só a mensagem de segurança", async () => {
-    const { runId, last } = await runDemo(["2", "4", "3", "1", "1", "1"]);
+    const { runId, last } = await runDemo(["1", "4", "3", "1", "1", "1"]);
     expect(last.event).toBe("crisis");
     expect(await interviewsOf(runId)).toHaveLength(0);
   });
@@ -215,7 +215,7 @@ describe("convite automático para a entrevista", () => {
   it("INTERVIEW_AUTO_INVITE=false desliga o convite", async () => {
     process.env.INTERVIEW_AUTO_INVITE = "false";
     try {
-      const { runId, last } = await runDemo(["2", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
+      const { runId, last } = await runDemo(["1", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
       expect(last.outbound).toHaveLength(1);
       expect(await interviewsOf(runId)).toHaveLength(0);
     } finally {
@@ -300,7 +300,7 @@ describe("frase de risco com negação", () => {
     try {
       const runId = await startDemo();
       let last;
-      for (const t of ["2", "7", "4", "2", "2", "não, nunca pensei em me ferir"]) last = await say(t);
+      for (const t of ["1", "7", "4", "2", "2", "não, nunca pensei em me ferir"]) last = await say(t);
       expect(last!.event).toBe("answer");
       const a = (await answersOf(runId)).find((x) => x.itemCode === "PHQ9_9");
       expect(a?.valueNumeric).toBe(0);
@@ -354,5 +354,53 @@ describe("áudio e mídia no WhatsApp", () => {
     await say("1");
     const r = await handleMedia({ phone: PHONE, waMessageId: msgId(), media: "áudio sem transcrição" });
     expect(r.outbound[0]).toMatch(/Não consegui ouvir/);
+  });
+});
+
+describe("entrada aberta (OPEN_ENTRY=true)", () => {
+  it("número desconhecido vira colaborador com o nome do perfil e recebe o consentimento", async () => {
+    process.env.OPEN_ENTRY = "true";
+    try {
+      const { handleIncoming } = await import("@/lib/engine/engine");
+      const r = await handleIncoming({ phone: "5581977770001", text: "oi", waMessageId: msgId(), name: "Marina Souza" });
+      expect(r.event).toBe("joined");
+      expect(r.outbound[0]).toMatch(/aceita participar/i);
+      expect(r.outbound[0]).toContain("Marina");
+      const { db } = await import("@/db/client");
+      const { contacts } = await import("@/db/schema");
+      const rows = await db.select().from(contacts).where(eq(contacts.phoneE164, "5581977770001"));
+      expect(rows[0].name).toBe("Marina Souza");
+      expect((await getRun(r.runId!)).status).toBe("consent");
+
+      const next = await handleIncoming({ phone: "5581977770001", text: "1", waMessageId: msgId() });
+      expect(next.event).toBe("consent_ok");
+    } finally {
+      delete process.env.OPEN_ENTRY;
+    }
+  });
+
+  it("sem nome no perfil, usa 'Colaborador' e os 4 últimos dígitos", async () => {
+    process.env.OPEN_ENTRY = "true";
+    try {
+      const { handleIncoming } = await import("@/lib/engine/engine");
+      await handleIncoming({ phone: "5581977774321", text: "oi", waMessageId: msgId() });
+      const { db } = await import("@/db/client");
+      const { contacts } = await import("@/db/schema");
+      const rows = await db.select().from(contacts).where(eq(contacts.phoneE164, "5581977774321"));
+      expect(rows[0].name).toBe("Colaborador 4321");
+    } finally {
+      delete process.env.OPEN_ENTRY;
+    }
+  });
+
+  it("frase de risco na primeira mensagem de um número novo ainda corta em crise", async () => {
+    process.env.OPEN_ENTRY = "true";
+    try {
+      const { handleIncoming } = await import("@/lib/engine/engine");
+      const r = await handleIncoming({ phone: "5581977770002", text: "penso em me matar", waMessageId: msgId() });
+      expect(r.event).toBe("crisis");
+    } finally {
+      delete process.env.OPEN_ENTRY;
+    }
   });
 });

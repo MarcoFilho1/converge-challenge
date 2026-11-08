@@ -29,7 +29,8 @@ export type EngineEvent =
   | "already_running"
   | "crisis_confirm"
   | "crisis_denied"
-  | "media";
+  | "media"
+  | "joined";
 
 export type EngineResult = {
   outbound: string[];
@@ -198,7 +199,7 @@ async function maybeInvite(runId: string, severity: Parameters<typeof shouldInvi
   }
 }
 
-export function handleIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean }): Promise<EngineResult> {
+export function handleIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean; name?: string }): Promise<EngineResult> {
   return serialize(input.phone, () => processIncoming(input));
 }
 
@@ -230,11 +231,18 @@ export function handleMedia(input: { phone: string; waMessageId: string; media: 
   });
 }
 
-async function processIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean }): Promise<EngineResult> {
+async function processIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean; name?: string }): Promise<EngineResult> {
   const { phone, text, waMessageId } = input;
   const none = (event: EngineEvent, outbound: string[] = []): EngineResult => ({ outbound, outboundIds: [], runId: null, event });
 
-  const contact = await repo.findContactByPhone(phone);
+  let contact = await repo.findContactByPhone(phone);
+  // Entrada aberta (OPEN_ENTRY=true, demo): quem mandar mensagem vira colaborador na hora, com o nome do perfil.
+  let joined = false;
+  if (!contact && process.env.OPEN_ENTRY === "true") {
+    contact = await repo.createContact({ name: input.name || `Colaborador ${phone.slice(-4)}`, phoneE164: phone, sector: "Demo" });
+    joined = !!contact;
+    if (joined) recordEvent({ kind: "entrada", outcome: "ok", model: "regra em código", detail: `Número novo entrou pela entrada aberta (${input.name ? "nome do perfil" : "sem nome no perfil"})` });
+  }
   if (!contact) {
     if (unknownNotified.has(phone)) return none("ignored_unknown");
     if (unknownNotified.size > 5000) unknownNotified.clear();
@@ -301,6 +309,13 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
       return reply(active?.id ?? null, "crisis_confirm", [copy.crisisConfirm]);
     }
     recordEvent({ kind: "crise", outcome: "descartado", model: "regra + IA", runId: active?.id ?? null, detail: `Frase de risco negada pela pessoa: “${text.slice(0, 100)}”` });
+  }
+
+  // 1b. Número que acabou de entrar: começa pelo consentimento, qualquer que tenha sido a primeira mensagem.
+  if (joined) {
+    const started = await startRun(contact.id);
+    await repo.setMessageRun(inboundId, started.runId);
+    return { ...started, event: "joined" };
   }
 
   const command = normalizeText(text).replace(/[.!]+$/, "");
