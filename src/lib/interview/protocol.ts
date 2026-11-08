@@ -79,3 +79,11 @@ export function CRISIS_SPEECH(medico: string): string {
     `Vou parar a nossa conversa aqui e avisar ${medico} agora, para ela entrar em contato com você.`,
   ].join(" ");
 }
+
+/** Questionário já em urgência: não entrevista, encaminha direto. */
+export function URGENCY_SPEECH(medico: string): string {
+  return `Obrigada por responder. Pelo que você contou no questionário, ${medico} vai entrar em contato com você hoje. Se precisar de alguém agora, o CVV atende no 188, de graça, o dia todo. Se estiver em perigo, ligue para o SAMU, 192.`;
+}
+
+/** Consentimento negado. */
+export const DECLINE_SPEECH = "Tudo bem, obrigada. Nada foi registrado. Se mudar de ideia, é só abrir o link de novo.";
