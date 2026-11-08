@@ -60,6 +60,20 @@ describe("resumo da pessoa no caso", () => {
     expect(s.attention.join(" ")).toMatch(/parou a entrevista/i);
   });
 
+  it("conversa caiu (página fechada): diz isso, sem culpar a pessoa, e não repete o aviso", () => {
+    const aviso = "A conversa terminou sem despedida (página fechada ou conexão perdida) depois de 3 min. O resumo usa só o que foi dito até ali.";
+    const s = patientSummary({
+      ...base,
+      interviews: [item("stopped", { hasSummary: true, durationMs: 180000 })],
+      interviewDetail: { summary: { ...interviewSummary, avisos: [{ texto: aviso, origem: [] }] } } as PatientSummaryInput["interviewDetail"],
+    });
+    expect(s.interview.state).toBe("interrompida");
+    expect(s.interview.headline).toMatch(/conversa caiu/i);
+    expect(s.interview.headline).toMatch(/3 min/);
+    expect(s.attention.join(" ")).not.toMatch(/parou a entrevista/i);
+    expect(s.attention.filter((a) => a.includes("sem despedida"))).toHaveLength(1);
+  });
+
   it("concluída: diz duração e como foi, junta avisos e pontos para a consulta", () => {
     const s = patientSummary({
       ...base,

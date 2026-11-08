@@ -4,6 +4,7 @@
  */
 import type { RunSummary } from "@/lib/ai/types";
 import type { InterviewDetail, InterviewListItem } from "@/lib/interview/contract";
+import { ABANDON_AVISO_PREFIX } from "@/lib/interview/protocol";
 import { shouldInviteToInterview, type SeverityLevel } from "@/lib/instruments";
 
 export type InterviewState =
@@ -33,6 +34,11 @@ export type PatientSummaryInput = {
 
 const minutes = (ms: number | null | undefined) => (ms ? Math.max(1, Math.round(ms / 60000)) : null);
 
+/** Encerrada pelo servidor porque a pessoa sumiu: o resumo traz o aviso montado em código. */
+function abandoned(input: PatientSummaryInput): boolean {
+  return (input.interviewDetail?.summary?.avisos ?? []).some((a) => a.texto.startsWith(ABANDON_AVISO_PREFIX));
+}
+
 function interviewLine(input: PatientSummaryInput): PatientSummary["interview"] {
   const { run, interviews, threshold } = input;
   const index = run.wellbeingIndex ?? null;
@@ -59,6 +65,7 @@ function interviewLine(input: PatientSummaryInput): PatientSummary["interview"] 
     case "running":
       return { state: "em_andamento", headline: "Entrevista em andamento." };
     case "stopped":
+      if (abandoned(input)) return { state: "interrompida", headline: `A conversa caiu no meio (página fechada ou conexão perdida)${min ? `, depois de ${min} min` : ""}.` };
       return { state: "interrompida", headline: `A pessoa parou a entrevista no meio${min ? `, depois de ${min} min` : ""}.` };
     case "crisis":
       return { state: "crise_na_entrevista", headline: "A entrevista foi interrompida por frase de risco." };
@@ -88,7 +95,7 @@ export function patientSummary(input: PatientSummaryInput): PatientSummary {
   if (input.run.severity === "urgency" || input.run.status === "crisis") attention.push("Urgência no questionário: a pessoa recebeu CVV 188 e SAMU 192. Fazer contato hoje.");
   for (const a of s?.avisos ?? []) attention.push(a.texto);
   if (s?.nao_respondido.length) attention.push(`Não respondeu na entrevista: ${s.nao_respondido.join(", ")}.`);
-  if (interview.state === "interrompida") attention.push("A pessoa parou a entrevista antes do fim.");
+  if (interview.state === "interrompida" && !abandoned(input)) attention.push("A pessoa parou a entrevista antes do fim.");
   if (input.run.partial && input.run.status !== "crisis") attention.push("Questionário incompleto: parte das perguntas ficou sem resposta.");
 
   const forConsult = [...(input.summary?.pontos_para_avaliar ?? []).map((p) => p.texto), ...(s?.pontos_para_avaliacao ?? []).map((p) => p.texto)]
