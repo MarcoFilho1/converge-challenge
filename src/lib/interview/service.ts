@@ -222,6 +222,8 @@ export function createInterviewService(deps: ServiceDeps = {}) {
       const row = await running(token);
       let text = input.text?.trim() ?? "";
       let audioPath: string | null = null;
+      // áudio vazio ou minúsculo (botão "Pronto" sem gravação, gravação cortada): trata como "não ouvi"
+      if (input.audio && input.audio.buffer.length < 200) input = { ...input, audio: undefined, text: "" };
       if (input.audio) {
         let wav: Buffer;
         try {

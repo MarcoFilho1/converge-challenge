@@ -74,3 +74,19 @@ describe("áudio mudo não vira resposta inventada", () => {
     expect(r.say.startsWith(REPEAT_PREFIX)).toBe(true);
   });
 });
+
+describe("áudio vazio (botão Pronto sem gravação) não é erro", () => {
+  beforeAll(() => pushSchemaToTestDb());
+  beforeEach(async () => truncateAll());
+  it("vira 'não consegui ouvir' em vez de audio_invalido", async () => {
+    const voice: VoiceProvider = { async tts() { return null; }, async stt() { throw new Error("não deveria chamar"); }, async health() { return true; } };
+    const { createInterviewService } = await import("@/lib/interview/service");
+    const svc = createInterviewService({ voice, ai, dataRoot: mkdtempSync(join(tmpdir(), "ent-")), profile: "t" });
+    const inv = await svc.createInvite(null, { fixture: "prioridade" });
+    const token = inv.inviteUrl.split("/").pop()!;
+    await svc.start(token, true);
+    const r = await svc.turn(token, { audio: { buffer: Buffer.alloc(0), mime: "audio/webm" } });
+    expect(r.heard).toBe("");
+    expect(r.say.startsWith(REPEAT_PREFIX)).toBe(true);
+  });
+});
