@@ -1,3 +1,4 @@
+import type { PatientSummary } from "@/lib/case/patient-summary";
 import type { CaseState, RunStatus, Severity } from "@/db/schema";
 import type { RunSummary } from "@/lib/ai/types";
 import type { InterviewDetail, InterviewListItem, InterviewView } from "@/lib/interview/contract";
@@ -68,6 +69,8 @@ export interface CaseDetailData {
   summary: RunSummary | null;
   interviews: InterviewListItem[];
   interviewDetail: InterviewDetail | null;
+  /** Resumo da pessoa para o topo do caso (src/lib/case/patient-summary.ts). */
+  patient?: PatientSummary;
 }
 
 export const SYNTHETIC_QUEUE_ROWS: QueueRow[] = [

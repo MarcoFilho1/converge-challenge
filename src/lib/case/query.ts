@@ -1,4 +1,5 @@
-import { wellbeingIndex } from "@/lib/instruments";
+import { inviteThreshold, wellbeingIndex } from "@/lib/instruments";
+import { patientSummary } from "@/lib/case/patient-summary";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db/client";
@@ -26,6 +27,14 @@ import {
 } from "@/lib/demo/fixtures";
 
 export async function getCase(runId: string): Promise<CaseDetailData> {
+  const data = await loadCase(runId);
+  return {
+    ...data,
+    patient: patientSummary({ run: data.run, interviews: data.interviews, interviewDetail: data.interviewDetail, summary: data.summary, threshold: inviteThreshold() }),
+  };
+}
+
+async function loadCase(runId: string): Promise<CaseDetailData> {
   // Se for um ID sintético de demonstração, retorna a fixture completa correspondente
   if (SYNTHETIC_QUEUE_ROWS.some((r) => r.runId === runId)) {
     return getSyntheticCaseDetail(runId);

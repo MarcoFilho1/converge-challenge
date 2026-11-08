@@ -6,6 +6,7 @@ import { fetchCaseLive, setCaseState } from "@/app/(app)/caso/[runId]/actions";
 import { ConversationPanel } from "@/components/conversation";
 import { EvidenceList } from "@/components/evidence-list";
 import { InterviewTab } from "@/components/interview-tab";
+import { PatientSummaryCard } from "@/components/patient-summary";
 import { SummaryCard } from "@/components/summary-card";
 import type { CaseState, Severity } from "@/db/schema";
 import { describeCase, fmt, reasonsFor } from "@/lib/case/describe";
@@ -171,6 +172,8 @@ export function CaseView({
           </figure>
         )}
       </div>
+
+      {data.patient && <PatientSummaryCard patient={data.patient} onOpenInterview={openInterview} />}
 
       {facts.length > 0 && (
         <ul className="mt-4 flex flex-wrap gap-2" aria-label="Escores">
