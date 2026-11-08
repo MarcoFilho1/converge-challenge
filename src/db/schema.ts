@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -118,6 +119,8 @@ export const documents = pgTable("documents", {
   kind: docKind("kind").notNull(),
   license: text("license").notNull(),
   sourceUrl: text("source_url").notNull(),
+  /** Códigos de instrumento que este documento explica (TRUNK, WPAI, PHQ9, GAD7, BAT12, COPSOQ). */
+  instruments: text("instruments").array().notNull().default(sql`'{}'::text[]`),
   createdAt: createdAt(),
 });
 
