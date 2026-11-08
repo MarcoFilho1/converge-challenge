@@ -6,7 +6,7 @@ Direção "Prontuário em ordem" (estilo `achromatic-ledger` da taste-skill, com
 
 1. **Uma pergunta por tela.** Fila: quem precisa de mim e por quê. Caso: o que apareceu e o que faço. Colaboradores: quem recebe o questionário. WhatsApp: está conectado.
 2. **A frase vem antes do número.** Todo caso abre com uma frase em português calculada em código (`src/lib/case/describe.ts`), nunca pela IA.
-3. **Cor só no dado.** A moldura não tem cor. A única ação principal de cada tela é azul. Gravidade é um ponto de 8px. Vermelho só em urgência e em escore acima do corte.
+3. **Cor com papel definido.** O azul emoldura: fundo `--frame` com a folha branca por cima, item ativo do menu, a ação principal, etiquetas de fonte e passos numerados. O pêssego carrega a voz humana: a frase do caso, a fala da pessoa e avisos. Gravidade aparece em etiqueta tingida com ponto e texto. Vermelho só em urgência e em escore acima do corte. Cada pessoa tem um avatar pastel. Sem gradiente, sem sombra pesada, sem ícone decorativo.
 4. **Detalhe dobrado.** Resumo, fontes, conversa e entrevista ficam em seções recolhíveis no fim do Caso.
 5. **Sem enfeite.** Sem chamada em maiúsculas acima de títulos, sem cartões de indicador, sem fonte monoespaçada fora de código, sem cartão dentro de cartão.
 
@@ -23,6 +23,9 @@ Direção "Prontuário em ordem" (estilo `achromatic-ledger` da taste-skill, com
 | `--peach` / `--peach-soft` | `#FDD4BD` / `#FEEBDF` | Destaques acolhedores (sala da Helena) |
 | `--alert` / `--alert-ink` | `#B3261E` / `#7D1612` | Urgência, crise, escore acima do corte |
 | `--sev-priority-dot` / `--sev-attention-dot` | `#C2521F` / `#A86F0B` | Pontos de prioridade e atenção |
+| `--frame` / `--frame-line` | `#E8F0F6` / `#D5E2EB` | Fundo azul-claro atrás da folha e sua borda |
+| `--brand-tint` / `--brand-deep` | `#F1F6FB` / `#0A4F80` | Hover e etiquetas azuis / texto azul sobre fundo claro |
+| `--sheet-shadow` | sombra azulada de 2 camadas | Folha branca e cartão do login |
 
 ## Tipografia
 
