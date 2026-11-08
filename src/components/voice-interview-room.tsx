@@ -179,7 +179,8 @@ export function VoiceInterviewRoom({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        // sem ganho automático: ele aumenta o ruído durante o silêncio e o fim da fala nunca é detectado
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
       });
       mediaStreamRef.current = stream;
 
@@ -257,7 +258,7 @@ export function VoiceInterviewRoom({
         if (elapsed < VAD_CALIBRATE_MS) {
           noiseSum += normalized;
           noiseFrames += 1;
-          threshold = Math.max(VAD_MIN_THRESHOLD, (noiseSum / noiseFrames) * 2 + 0.05);
+          threshold = Math.max(VAD_MIN_THRESHOLD, (noiseSum / noiseFrames) * 2.5 + 0.06);
           rafRef.current = requestAnimationFrame(tick);
           return;
         }
