@@ -4,6 +4,7 @@ import { TurnResponse, InterviewView } from "@/lib/interview/contract";
 
 process.env.INTERVIEW_PUBLIC_URL = "http://localhost:3100";
 process.env.VOICE_PROVIDER = "none";
+process.env.VOICEBOX_PROFILE_ID = ""; // não usar o cache local de falas da Helena
 
 const P = <E extends Record<string, string> = Record<never, never>>(token: string, extra?: E) => ({ params: Promise.resolve({ token, ...(extra ?? ({} as E)) }) });
 const json = (url: string, body: unknown) => new Request(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });

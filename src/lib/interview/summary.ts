@@ -20,6 +20,7 @@ const LooseSummary = z.object({
   sinais_de_alerta: z.object({ risco: z.boolean(), origem: z.array(LooseOrigin) }),
   pontos_para_avaliacao: z.array(LooseCited),
   nao_respondido: z.array(z.string()),
+  avisos: z.array(z.object({ texto: z.string(), origem: z.array(LooseOrigin) })).optional(),
 });
 
 export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
@@ -51,6 +52,7 @@ export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
     })(),
     pontos_para_avaliacao: clean(loose.pontos_para_avaliacao),
     nao_respondido: loose.nao_respondido.filter((t) => assertNoForbidden(t).length === 0),
+    avisos: [], // avisos vêm só do estado do motor (buildSummary), nunca do LLM
     duracao_min: Math.round((durationMs / 60_000) * 10) / 10,
     turnos: person.size,
   });
@@ -59,6 +61,11 @@ export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
 export async function buildSummary(state: InterviewState, ai: InterviewAi): Promise<InterviewSummary> {
   const raw = await ai.summarize({ turns: state.turns, findings: state.findings, agenda: state.agenda, skipped: state.skipped });
   const summary = validateSummary(raw, state.turns);
+  const person = new Map(state.turns.filter((t) => t.speaker === "person").map((t) => [t.idx, t]));
+  summary.avisos = (state.avisos ?? []).map((a) => ({
+    texto: a.texto,
+    origem: a.turnIdxs.filter((i) => person.has(i)).map((i) => ({ turnIdx: i, label: formatOrigin(person.get(i)!) })),
+  }));
   if (state.skipped.includes("seguranca") && !summary.nao_respondido.includes(SAFETY_UNANSWERED)) {
     summary.nao_respondido = [SAFETY_UNANSWERED, ...summary.nao_respondido.filter((x) => x !== "Uma pergunta importante")];
   }

@@ -13,8 +13,10 @@ async function main() {
   for (const b of Object.values(BLOCKS)) {
     const id = b.id as BlockId;
     items.push({ key: `${id}:base`, text: renderText(b.base, vars) });
+    if (b.rephrase) items.push({ key: `${id}:base:rephrase`, text: b.rephrase });
     for (const p of b.probes) {
       items.push({ key: `${id}:${p.id}`, text: p.text });
+      items.push({ key: `${id}:${p.id}:rephrase`, text: p.rephrase });
       items.push({ key: `${id}:repeat:${p.id}`, text: REPEAT_PREFIX + p.text });
     }
     items.push({ key: `${id}:repeat:base`, text: REPEAT_PREFIX + renderText(b.base, vars) });

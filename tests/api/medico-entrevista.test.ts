@@ -4,6 +4,7 @@ import { InterviewDetail, InterviewListItem } from "@/lib/interview/contract";
 
 process.env.INTERVIEW_PUBLIC_URL = "http://localhost:3100";
 process.env.VOICE_PROVIDER = "none";
+process.env.VOICEBOX_PROFILE_ID = ""; // não usar o cache local de falas da Helena
 
 const COOKIE = { cookie: "session=ok" };
 const P = <T,>(params: T) => ({ params: Promise.resolve(params) });

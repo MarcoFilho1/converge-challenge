@@ -2,7 +2,7 @@
  * CONTRATO da entrevista por voz (MVP2). Consumido pelas telas
  * /entrevista/[token] (colaborador) e /caso/[runId] aba "Entrevista" (médico).
  * Dono: motor/voz (feature/m7-entrevista-voz). Mudou → contract_publish no hackhub.
- * Versão 3 · 2026-11-08 00h (v2 + 503 stt_indisponivel; segurança fail-safe; nao_respondido inclui "pergunta de segurança não respondida").
+ * Versão 4 · 2026-11-08 01h (v3 + InterviewSummary.avisos; segurança ambígua pergunta de novo em vez de virar crise).
  */
 import { z } from "zod";
 
@@ -111,6 +111,12 @@ export const InterviewSummary = z.object({
   sinais_de_alerta: z.object({ risco: z.boolean(), origem: z.array(Origin) }),
   pontos_para_avaliacao: z.array(Cited),
   nao_respondido: z.array(z.string()), // ex.: ["tratamento atual", "bloco barreiras (pulado)"]
+  /**
+   * Avisos para o médico, montados em código (nunca pelo LLM): pergunta que a pessoa não quis responder
+   * depois de ouvi-la de dois jeitos, pulou, ou ficou em silêncio; e pergunta de segurança sem resposta clara.
+   * A tela mostra em destaque (acima do resumo). origem pode ser vazia (pulo ou silêncio).
+   */
+  avisos: z.array(z.object({ texto: z.string(), origem: z.array(Origin) })).default([]),
   duracao_min: z.number(),
   turnos: z.number().int(),
 });

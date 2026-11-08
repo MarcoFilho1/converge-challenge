@@ -44,12 +44,7 @@ describe("C2: 'parar' no meio da frase não encerra", () => {
   });
 });
 
-describe("I3: segurança é fail-safe", () => {
-  it.each(["não, mas às vezes penso que não vale a pena", "de vez em quando sim", "não sei... talvez", "acho que não sei"])("ambígua vira crise: %s", async (frase) => {
-    const r = await untilSafety();
-    const out = await speak(r.state, frase, 60_000);
-    expect(out.state.status).toBe("crisis");
-  });
+describe("I3 (revisto pelo Marco): segurança ambígua pergunta de novo, não vira crise direto", () => {
   it.each(["não", "não, nada disso", "nunca"])("negação clara segue: %s", async (frase) => {
     const r = await untilSafety();
     const out = await speak(r.state, frase, 60_000);

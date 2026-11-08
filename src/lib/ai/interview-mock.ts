@@ -75,6 +75,7 @@ export function createInterviewMock(): InterviewAi {
         sinais_de_alerta: { risco: false, origem: [] },
         pontos_para_avaliacao: is("procurou", "tratamento").map(cited),
         nao_respondido: skipped.map((b) => (b === "seguranca" ? SAFETY_UNANSWERED : BLOCK_LABELS[b])),
+        avisos: [],
         duracao_min: last ? Math.round(((last.startedMs + (last.durationMs ?? 0)) / 60000) * 10) / 10 : 0,
         turnos: personTurns.length,
       };

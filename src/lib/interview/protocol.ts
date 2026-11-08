@@ -10,8 +10,15 @@ export const PROTOCOL_VERSION = "v0-nao-assinado";
 export const DEFAULT_PRAZO = "uma semana";
 export const REPEAT_PREFIX = "Não consegui ouvir bem. ";
 
+const REPHRASE: Partial<Record<BlockId, string>> = {
+  saude: "Vou perguntar de outro jeito: como anda o seu dia a dia, no corpo ou na cabeça?",
+  trabalho: "Pensando no seu trabalho, o que mais pesa para você hoje?",
+  barreiras: "Tem alguma coisa que dificulta você procurar atendimento?",
+  seguranca: "Vou perguntar de outro jeito, porque é importante: nas últimas semanas, passou pela sua cabeça a ideia de se ferir, ou de que seria melhor não estar aqui? Pode responder só com sim ou não.",
+};
+
 const block = (id: BlockId, base: string, probes: Block["probes"], maxTurns: number, required: boolean): Block => ({
-  id, label: BLOCK_LABELS[id], base, probes, maxTurns, required,
+  id, label: BLOCK_LABELS[id], base, rephrase: REPHRASE[id], probes, maxTurns, required,
 });
 
 export const BLOCKS: Record<BlockId, Block> = {
@@ -24,12 +31,12 @@ export const BLOCKS: Record<BlockId, Block> = {
     "saude",
     "O que você anda sentindo nas últimas semanas?",
     [
-      { id: "desdeQuando", text: "Desde quando é assim?", when: "semDuracao", covers: "duracao" },
-      { id: "frequencia", text: "Isso acontece todo dia ou em períodos?", when: "semFrequencia", covers: "frequencia" },
-      { id: "piora", text: "O que você percebe que piora?", when: "sempre", covers: "gatilho" },
-      { id: "alivia", text: "E o que alivia?", when: "sempre", covers: "alivio" },
-      { id: "procurou", text: "Você já procurou alguém por isso?", when: "naoProcurou", covers: "procurou" },
-      { id: "tratamento", text: "Faz algum acompanhamento ou tratamento hoje?", when: "sempre", covers: "tratamento" },
+      { id: "desdeQuando", text: "Desde quando é assim?", rephrase: "Mais ou menos quando você começou a perceber isso? Faz semanas, meses?", when: "semDuracao", covers: "duracao" },
+      { id: "frequencia", text: "Isso acontece todo dia ou em períodos?", rephrase: "Isso aparece quase todo dia, ou só em alguns momentos?", when: "semFrequencia", covers: "frequencia" },
+      { id: "piora", text: "O que você percebe que piora?", rephrase: "Tem alguma situação em que isso fica mais forte?", when: "sempre", covers: "gatilho" },
+      { id: "alivia", text: "E o que alivia?", rephrase: "E tem alguma coisa que faz isso melhorar um pouco?", when: "sempre", covers: "alivio" },
+      { id: "procurou", text: "Você já procurou alguém por isso?", rephrase: "Você chegou a conversar com algum médico ou outro profissional sobre isso?", when: "naoProcurou", covers: "procurou" },
+      { id: "tratamento", text: "Faz algum acompanhamento ou tratamento hoje?", rephrase: "Hoje você toma algum remédio ou tem algum acompanhamento?", when: "sempre", covers: "tratamento" },
     ],
     4, false,
   ),
@@ -37,11 +44,11 @@ export const BLOCKS: Record<BlockId, Block> = {
     "trabalho",
     "E no trabalho, o que está mais difícil agora?",
     [
-      { id: "quandoMudou", text: "Quando isso começou a mudar?", when: "semDuracao", covers: "mudanca" },
-      { id: "carga", text: "Quantas horas a mais você anda fazendo, mais ou menos?", when: "mencionouTrabalho", covers: "carga" },
-      { id: "pausa", text: "Você consegue parar e descansar durante o dia?", when: "sempre", covers: "pausa" },
-      { id: "chefia", text: "Como está com a chefia e com os colegas?", when: "sempre", covers: "chefia" },
-      { id: "oQueFaltaria", text: "O que você precisaria ter para dar conta?", when: "sempre", covers: "necessidade" },
+      { id: "quandoMudou", text: "Quando isso começou a mudar?", rephrase: "Teve algum momento em que o trabalho ficou mais pesado? Quando foi?", when: "semDuracao", covers: "mudanca" },
+      { id: "carga", text: "Quantas horas a mais você anda fazendo, mais ou menos?", rephrase: "Numa semana normal, você fica quantas horas além do seu horário?", when: "mencionouTrabalho", covers: "carga" },
+      { id: "pausa", text: "Você consegue parar e descansar durante o dia?", rephrase: "Durante o expediente, dá para fazer intervalos?", when: "sempre", covers: "pausa" },
+      { id: "chefia", text: "Como está com a chefia e com os colegas?", rephrase: "E a relação com a sua chefia e com a equipe, como anda?", when: "sempre", covers: "chefia" },
+      { id: "oQueFaltaria", text: "O que você precisaria ter para dar conta?", rephrase: "O que deixaria o seu trabalho mais leve hoje?", when: "sempre", covers: "necessidade" },
     ],
     4, false,
   ),
@@ -49,9 +56,9 @@ export const BLOCKS: Record<BlockId, Block> = {
     "barreiras",
     "O que impediu você de buscar ajuda até agora?",
     [
-      { id: "horarioGarantido", text: "Se tivesse um horário garantido, você iria?", when: "sempre", covers: "barreira" },
-      { id: "pertoOuOnline", text: "Prefere algo perto de casa ou online?", when: "sempre", covers: "barreira" },
-      { id: "medoEmpresa", text: "Você fica com receio de a empresa saber?", when: "sempre", covers: "barreira" },
+      { id: "horarioGarantido", text: "Se tivesse um horário garantido, você iria?", rephrase: "Se a empresa liberasse um horário para isso, você iria?", when: "sempre", covers: "barreira" },
+      { id: "pertoOuOnline", text: "Prefere algo perto de casa ou online?", rephrase: "Seria melhor um atendimento perto de casa ou pela internet?", when: "sempre", covers: "barreira" },
+      { id: "medoEmpresa", text: "Você fica com receio de a empresa saber?", rephrase: "Você se preocupa com a empresa ficar sabendo?", when: "sempre", covers: "barreira" },
     ],
     3, false,
   ),

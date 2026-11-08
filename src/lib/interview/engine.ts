@@ -8,18 +8,38 @@ import { buildAgenda, type Agenda } from "./agenda";
 import { cleanGenerated, extraCrisis } from "./filters";
 import { BLOCKS, CRISIS_SPEECH, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
 import { fechamentoIndex, selectNext } from "./select";
-import type { BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
+import type { Aviso, BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
 
 export const MAX_PERSON_TURNS = 12;
 export const MAX_DURATION_MS = 15 * 60_000;
-/** Segurança é fail-safe: só segue como "não" a negação clara; qualquer dúvida vira crise (falso positivo é aceitável). */
+/**
+ * Pergunta de segurança: "sim" claro (ou padrão de risco) corta em crise; "não" claro segue.
+ * Qualquer outra coisa ("não sei", "às vezes", recusa) → a Helena pergunta de outro jeito; se continuar sem resposta clara,
+ * vira aviso no relatório com as duas falas citadas (decisão do Marco, 8/11).
+ */
+const SAFETY_YES = /^(sim|tive|ja tive|tenho tido|acho que sim|penso|pensei|tenho pensado|ja pensei)\b/;
 const SAFETY_NO = /^(nao|nunca|nada disso|de jeito nenhum|jamais)\b/;
 const SAFETY_DOUBT = /\b(mas|as vezes|sim|talvez|nao sei|vale a pena|de vez em quando|tive|tenho|penso|pensei|pensando|um pouco|acho)\b/;
 export const SAFETY_UNANSWERED = "pergunta de segurança não respondida";
 
+const strip = (t: string) => normalizeText(t).replace(/[.,!?;:…"“”()\-]+/g, " ").replace(/\s+/g, " ").trim();
+
 function safetyClearlyNo(text: string): boolean {
-  const n = normalizeText(text);
+  const n = strip(text);
   return SAFETY_NO.test(n) && !SAFETY_DOUBT.test(n);
+}
+
+function safetyClearlyYes(text: string): boolean {
+  return SAFETY_YES.test(strip(text));
+}
+
+/** Resposta que não responde: só "não sei/sei lá/talvez…" (sem conteúdo depois) ou recusa explícita. */
+const EVASIVE = /^(nao sei|sei la|talvez|nao lembro|nao tenho certeza|pode ser|sei nao|nem sei)( (dizer|responder|ao certo|direito|bem|nao|nao sei))*$/;
+const REFUSAL = /\b(prefiro nao (responder|falar|dizer|comentar)|nao quero (responder|falar|comentar)|pode pular|pula essa|pular essa|sem comentarios?)\b/;
+
+export function isEvasive(text: string): boolean {
+  const n = strip(text);
+  return EVASIVE.test(n) || REFUSAL.test(n);
 }
 
 export type InterviewMode = "live" | "cache_only";
@@ -36,7 +56,9 @@ export type InterviewState = {
   endedMs: number | null;
   mode: InterviewMode;
   repeatCount: number;
+  rephraseCount: number;
   skipped: BlockId[];
+  avisos: Aviso[];
   vars: { medico: string; prazo: string };
   input: InterviewInput;
 };
@@ -66,7 +88,9 @@ export function createState(input: InterviewInput, opts: { mode: InterviewMode; 
     endedMs: null,
     mode: opts.mode,
     repeatCount: 0,
+    rephraseCount: 0,
     skipped: [],
+    avisos: [],
     vars: { medico: input.doctorName, prazo: DEFAULT_PRAZO },
     input,
   };
@@ -101,6 +125,32 @@ function crisis(ctx: Ctx) {
 
 function currentBlockId(state: InterviewState): BlockId {
   return state.agenda.blocks[state.blockIndex].id;
+}
+
+function currentQuestion(state: InterviewState, blockId: BlockId): { text: string; rephrase: string | null } {
+  const probe = BLOCKS[blockId].probes.find((p) => p.id === state.currentProbeId);
+  if (probe) return { text: probe.text, rephrase: probe.rephrase };
+  return { text: renderText(BLOCKS[blockId].base, state.vars), rephrase: BLOCKS[blockId].rephrase ?? null };
+}
+
+function addAviso(state: InterviewState, texto: string, turnIdxs: number[]): InterviewState {
+  return { ...state, avisos: [...(state.avisos ?? []), { texto, turnIdxs }] };
+}
+
+/** Pergunta-base sem resposta = o bloco inteiro fica sem resposta; vai para a base do próximo bloco. */
+function nextBlockBase(ctx: Ctx, s: InterviewState) {
+  const blockId = currentBlockId(s);
+  const moved = { ...s, skipped: s.skipped.includes(blockId) ? s.skipped : [...s.skipped, blockId], blockIndex: Math.min(s.blockIndex + 1, s.agenda.blocks.length - 1) };
+  const next = moved.agenda.blocks[moved.blockIndex].id;
+  if (next === "fechamento") return closing({ ...ctx, state: moved }, "done");
+  return aiTurn({ ...ctx, state: moved }, { text: renderText(BLOCKS[next].base, moved.vars), probeId: null, blockId: next, cacheKey: `${next}:base`, final: false, crisis: false }, "running");
+}
+
+/** Depois de uma pergunta sem resposta: sai do bloco se era a base, senão segue para a próxima sonda. */
+function moveOn(ctx: Ctx, s: InterviewState) {
+  const blockId = currentBlockId(s);
+  if (s.currentProbeId === null && BLOCKS[blockId].probes.length > 0) return nextBlockBase(ctx, s);
+  return advance({ ...ctx, state: s }, "", []);
 }
 
 /** Ao sair de um domínio sem nenhum achado, ele vira "não respondido". */
@@ -168,17 +218,9 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
 
   if (event.kind === "skip") {
     const blockId = currentBlockId(state);
-    // pergunta-base pulada = bloco inteiro pulado
-    const s = state.currentProbeId === null && BLOCKS[blockId].probes.length > 0
-      ? { ...state, skipped: state.skipped.includes(blockId) ? state.skipped : [...state.skipped, blockId], blockIndex: Math.min(state.blockIndex + 1, state.agenda.blocks.length - 1) }
-      : state;
-    if (s.blockIndex !== state.blockIndex) {
-      const next = s.agenda.blocks[s.blockIndex].id;
-      if (next === "fechamento") return closing({ ...ctx, state: s }, "done");
-      const text = renderText(BLOCKS[next].base, s.vars);
-      return aiTurn({ ...ctx, state: s }, { text, probeId: null, blockId: next, cacheKey: `${next}:base`, final: false, crisis: false }, "running");
-    }
-    return advance({ ...ctx, state: s }, "", []);
+    const q = currentQuestion(state, blockId);
+    const s = addAviso({ ...state, repeatCount: 0, rephraseCount: 0 }, `Preferiu pular: “${q.text}”`, []);
+    return moveOn(ctx, s);
   }
 
   // speech
@@ -187,19 +229,38 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
   let s = pushTurn(state, { speaker: "person", text, blockId, probeId: state.currentProbeId, startedMs: nowMs - state.startedMs, durationMs: event.durationMs });
 
   if (detectCrisis(text).hit || extraCrisis(text)) return crisis({ ...ctx, state: s });
-  if (blockId === "seguranca" && normalizeText(text).length >= 2 && !safetyClearlyNo(text)) return crisis({ ...ctx, state: s });
+  if (blockId === "seguranca" && safetyClearlyYes(text)) return crisis({ ...ctx, state: s });
+
+  const q = currentQuestion(state, blockId);
+  const thisTurn = s.turns.length - 1;
 
   if (normalizeText(text).length < 2) {
     if (s.repeatCount === 0) {
-      // a fonte da verdade é a sonda atual, nunca o texto falado (que pode ter acolhimento gerado)
-      const probe = BLOCKS[blockId].probes.find((p) => p.id === state.currentProbeId)?.text ?? renderText(BLOCKS[blockId].base, s.vars);
+      // a fonte da verdade é a pergunta atual, nunca o texto falado (que pode ter acolhimento gerado)
       s = { ...s, repeatCount: 1 };
-      return aiTurn({ ...ctx, state: s }, { text: REPEAT_PREFIX + probe, probeId: state.currentProbeId, blockId, cacheKey: `${blockId}:repeat:${state.currentProbeId ?? "base"}`, final: false, crisis: false }, "running");
+      return aiTurn({ ...ctx, state: s }, { text: REPEAT_PREFIX + q.text, probeId: state.currentProbeId, blockId, cacheKey: `${blockId}:repeat:${state.currentProbeId ?? "base"}`, final: false, crisis: false }, "running");
     }
-    s = { ...s, repeatCount: 0 };
-    return advance({ ...ctx, state: s }, "", []);
+    s = addAviso({ ...s, repeatCount: 0, rephraseCount: 0 }, `Sem resposta: “${q.text}”`, []);
+    return moveOn(ctx, s);
   }
   s = { ...s, repeatCount: 0 };
+
+  const evasive = blockId === "seguranca" ? !safetyClearlyNo(text) : blockId !== "abertura" && isEvasive(text);
+  if (evasive) {
+    if ((s.rephraseCount ?? 0) === 0 && q.rephrase) {
+      s = { ...s, rephraseCount: 1 };
+      return aiTurn({ ...ctx, state: s }, { text: q.rephrase, probeId: state.currentProbeId, blockId, cacheKey: `${blockId}:${state.currentProbeId ?? "base"}:rephrase`, final: false, crisis: false }, "running");
+    }
+    const prevPerson = [...s.turns].slice(0, -1).reverse().find((t) => t.speaker === "person" && t.blockId === blockId);
+    const idxs = prevPerson ? [prevPerson.idx, thisTurn] : [thisTurn];
+    const quotes = idxs.map((i) => `“${s.turns[i].text}”`).join(" e ");
+    const texto = blockId === "seguranca"
+      ? `Pergunta de segurança sem resposta clara. Respostas: ${quotes}. Vale perguntar de novo na consulta.`
+      : `Não quis responder: “${q.text}”. Respostas: ${quotes}.`;
+    s = addAviso({ ...s, rephraseCount: 0 }, texto, idxs);
+    return moveOn(ctx, s);
+  }
+  s = { ...s, rephraseCount: 0 };
 
   let newFindings: Finding[] = [];
   if (blockId !== "abertura" && blockId !== "seguranca") {

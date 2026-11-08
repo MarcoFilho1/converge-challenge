@@ -13,9 +13,13 @@ export const FINDING_THEMES: FindingTheme[] = [
   "carga", "chefia", "pausa", "mudanca", "necessidade", "barreira", "seguranca", "outro",
 ];
 
-export type Probe = { id: string; text: string; when: ProbeCondition; covers: FindingTheme };
+/** rephrase = segunda forma da pergunta, usada quando a pessoa responde "não sei", "talvez" ou recusa. */
+export type Probe = { id: string; text: string; rephrase: string; when: ProbeCondition; covers: FindingTheme };
 
-export type Block = { id: BlockId; label: string; base: string; probes: Probe[]; maxTurns: number; required: boolean };
+export type Block = { id: BlockId; label: string; base: string; rephrase?: string; probes: Probe[]; maxTurns: number; required: boolean };
+
+/** Aviso para o médico: pergunta que a pessoa não quis ou não conseguiu responder. turnIdxs = falas da pessoa que o sustentam. */
+export type Aviso = { texto: string; turnIdxs: number[] };
 
 export type Finding = {
   tema: FindingTheme;
