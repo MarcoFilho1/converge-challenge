@@ -17,7 +17,9 @@ import { fromQuestionnaireRun } from "./adapters/questionnaire";
 import { BLOCK_LABELS, type InterviewDetail, type InterviewListItem, type InterviewView, type TurnResponse } from "./contract";
 import { createState, isFinal, step, type InterviewEvent, type InterviewMode, type InterviewState, type Utterance } from "./engine";
 import { FIXTURES, type FixtureName } from "./fixtures";
-import { BLOCKS } from "./protocol";
+import { ACK_PHRASES, BLOCKS } from "./protocol";
+
+const FALLBACK_ACK = ACK_PHRASES[0];
 import { formatOrigin } from "./origin";
 import * as repo from "./repo";
 import { buildSummary } from "./summary";
@@ -97,7 +99,17 @@ export function createInterviewService(deps: ServiceDeps = {}) {
         // cada parte vem do cache (ou é gerada uma vez e guardada); só a reação nova gasta cota da voz
         const paths: string[] = [];
         for (const part of say.parts) {
-          const p = await getOrGenerate(voice, profile, part.cacheKey, part.text, cacheRoot);
+          let p: string | null = null;
+          try {
+            p = await getOrGenerate(voice, profile, part.cacheKey, part.text, cacheRoot);
+          } catch (err) {
+            if (!(err instanceof VoiceUnavailable)) throw err;
+          }
+          // reação nova sem voz (créditos acabaram, rede caiu): usa uma reação já gravada; nunca a voz do navegador
+          if (!p && part.cacheKey.startsWith("ack:")) {
+            p = await getOrGenerate(voice, profile, `ack:${FALLBACK_ACK}`, FALLBACK_ACK, cacheRoot).catch(() => null);
+            if (!p) continue;
+          }
           if (!p) return { url: null, voice: "browser", path: null };
           paths.push(p);
         }
