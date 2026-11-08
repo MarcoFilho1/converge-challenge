@@ -25,8 +25,11 @@ export const SAFETY_UNANSWERED = "pergunta de segurança não respondida";
 
 const strip = (t: string) => normalizeText(t).replace(/[.,!?;:…"“”()\-]+/g, " ").replace(/\s+/g, " ").trim();
 
+/** "não tive", "não tenho", "nunca tive", "não penso nisso": a negação vale para o verbo, não é dúvida. */
+const NEGATED_VERB = /\b(nao|nunca|jamais)( (nao|mais|isso|disso|nisso|nada))* (tive|tenho|tenho tido|penso|pensei|tenho pensado|pensando)( (nao|isso|disso|nisso|nada))*\b/g;
+
 function safetyClearlyNo(text: string): boolean {
-  const n = strip(text);
+  const n = strip(text).replace(NEGATED_VERB, "nao");
   return SAFETY_NO.test(n) && !SAFETY_DOUBT.test(n);
 }
 

@@ -29,10 +29,22 @@ function loopStart(words: string[]): number {
   return -1;
 }
 
+/** Respostas curtas que a pessoa costuma repetir ("Não. Não. Não."): não é loop do Whisper. */
+const SHORT_ANSWERS = new Set(["nao", "sim", "nunca", "nada", "talvez", "tive", "tenho"]);
+
+/** A transcrição inteira é a mesma resposta curta dita de 2 a 6 vezes? Devolve a primeira, senão null. */
+function repeatedShortAnswer(words: string[]): string | null {
+  if (words.length < 2 || words.length > 6) return null;
+  const keys = words.map(norm);
+  return SHORT_ANSWERS.has(keys[0]) && keys.every((k) => k === keys[0]) ? words[0] : null;
+}
+
 export function cleanTranscript(text: string): string {
   const t = text.trim();
   if (KNOWN_HALLUCINATIONS.some((re) => re.test(t))) return "";
   const words = t.split(/\s+/).filter(Boolean);
+  const short = repeatedShortAnswer(words);
+  if (short) return short;
   const at = loopStart(words);
   const kept = (at >= 0 ? words.slice(0, at) : words).join(" ").trim();
   return kept.replace(/\p{L}/gu, "").length === kept.length ? "" : kept;
@@ -41,5 +53,6 @@ export function cleanTranscript(text: string): string {
 /** true quando o Whisper entrou em loop ou inventou legenda (vale tentar de novo sem os silêncios). */
 export function looksHallucinated(text: string): boolean {
   const t = text.trim();
+  if (repeatedShortAnswer(t.split(/\s+/).filter(Boolean))) return false;
   return KNOWN_HALLUCINATIONS.some((re) => re.test(t)) || loopStart(t.split(/\s+/).filter(Boolean)) >= 0;
 }
