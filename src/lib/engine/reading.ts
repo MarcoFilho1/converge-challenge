@@ -13,6 +13,8 @@ export type Verdict =
 
 /** Negação explícita: único jeito de gravar "nenhuma vez" no item 9 sem confirmar. */
 const EXPLICIT_NO = /\b(nunca|nenhuma vez|nenhum dia|nao|jamais|em nenhum momento)\b/;
+/** Hesitação: no item 9, "acho que não" não é negação explícita. */
+const HEDGE = /\b(acho|talvez|acredito|provavelmente|mais ou menos|sei la|nao sei|creio|pode ser)\b/;
 
 export function judgeReading(item: Item, text: string, r: ReplyReading): Verdict {
   const scale = item.scale;
@@ -24,7 +26,8 @@ export function judgeReading(item: Item, text: string, r: ReplyReading): Verdict
   if (scale.labels && /^[\d\s.,]+$/.test(nQuote)) return { kind: "reject" };
 
   if (item.code === "PHQ9_9" && r.value === 0) {
-    return r.confidence === "alta" && EXPLICIT_NO.test(nQuote) ? { kind: "accept", value: 0, quote, source: r.source } : { kind: "confirm", value: 0, quote };
+    const explicit = r.confidence === "alta" && EXPLICIT_NO.test(nQuote) && !HEDGE.test(normalizeText(text));
+    return explicit ? { kind: "accept", value: 0, quote, source: r.source } : { kind: "confirm", value: 0, quote };
   }
   if (!scale.labels && !hasDigit) return { kind: "confirm", value: r.value, quote };
   if (r.confidence === "baixa") return { kind: "confirm", value: r.value, quote };

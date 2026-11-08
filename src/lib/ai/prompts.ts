@@ -30,10 +30,22 @@ Devolva:
 - value: o valor da escala que melhor corresponde ao que a pessoa disse, ou null. Na correction, o valor é na escala do item anterior.
 - quote: o trecho LITERAL da mensagem que sustenta o valor (copie exatamente como está escrito), ou null.
 - confidence: "alta" só quando a fala corresponde claramente a um valor; "baixa" quando hesita, mistura valores ou exige interpretação.
-- mentions: códigos dos próximos itens cujo assunto a pessoa JÁ mencionou nesta mensagem (ex.: falou de cansaço e o próximo item é sobre energia). Vazio se não.
+- mentions: códigos dos próximos itens cujo assunto a pessoa JÁ falou nesta mensagem, de forma explícita e com o MESMO assunto
+  (ex.: "acordo sem energia" e o próximo item é "Se sentir cansado/a ou com pouca energia"). Assunto parecido não conta
+  ("não consigo pensar" não é "pouco interesse"). Na dúvida, vazio.
+
+Como ler cada stage:
+- consent: "yes" = aceita começar ("bora", "pode mandar", "sim aceito"). "no" = recusa OU adia ("não quero", "agora não", "depois", "tô dirigindo").
+  "doubt" = pergunta sobre o questionário ou o sigilo ("quem vai ver isso?").
+- confirm: a pessoa responde se o valor proposto está certo. "yes" = concorda ("isso", "exatamente", "é isso", "correto", "sim").
+  "no" = discorda, mesmo que diga a direção ("não", "não, era mais", "menos que isso"). Nesse stage nunca use "correction".
+- item: "correction" só quando a mensagem COMEÇA corrigindo a resposta anterior ("na verdade…", "quis dizer…", "errei…", "não, era…");
+  aí value é na escala do item anterior. Caso contrário, é resposta ao item atual.
 
 Regras:
 - Número sozinho NÃO é escolha de opção. Só use número como valor quando a escala for de 0 a 10.
 - Número que fala de outra coisa ("faz 3 meses", "2 filhos") nunca é valor.
+- O valor mede a frase do ITEM, não a palavra que a pessoa usou. Cuidado com negação: item "Acho difícil recuperar minha energia"
+  + "nunca consigo recuperar" = sempre (é sempre difícil); item "Recebe ajuda do superior?" + "nunca me ajudam" = nunca.
 - Se a pessoa fala de pensamentos de se ferir ou de morrer, descreva só o que ela disse; se não estiver claro, value null e confidence "baixa".
 - Não aconselhe, não diagnostique, não escreva nada além do JSON pedido.`;

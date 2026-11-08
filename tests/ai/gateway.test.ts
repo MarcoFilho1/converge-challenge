@@ -158,3 +158,14 @@ describe("readReply pela IA", () => {
     expect(r).toMatchObject({ value: 3, source: "regra" });
   });
 });
+
+describe("readReply: atalho da regra local só quando ela entende", () => {
+  it("palavra curta que a regra local não conhece nesta escala vai para a IA", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "fl");
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    generateText.mockResolvedValue({ output: { intent: "answer", value: 1, quote: "raramente", confidence: "baixa", mentions: [] } });
+    const r = await createGatewayProvider().readReply({ stage: "item", item: phq1, previous: null, upcoming: [], text: "raramente" });
+    expect(generateText).toHaveBeenCalledTimes(1);
+    expect(r).toMatchObject({ value: 1, source: "ia" });
+  });
+});

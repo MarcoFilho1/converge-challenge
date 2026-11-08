@@ -33,6 +33,10 @@ describe("readReply · regra local (mock e reserva quando a IA cai)", () => {
     expect(r.quote).toContain("7");
   });
 
+  it("'a maior parte dos dias' é mais da metade (reserva quando a IA demora)", async () => {
+    expect((await read({ item: item("PHQ9_1"), text: "a maior parte dos dias" })).value).toBe(2);
+  });
+
   it("'quase nunca' no BAT é raramente, não nunca", async () => {
     const r = await read({ item: item("BAT_1"), text: "quase nunca" });
     expect(r.value).toBe(2);

@@ -11,7 +11,7 @@ const SYNONYMS: Record<string, string[]> = {
   // PHQ-9 / GAD-7
   "nenhuma vez": ["nenhuma vez", "nenhum dia", "nunca", "jamais", "em nenhum momento"],
   "varios dias": ["varios dias", "alguns dias", "uns dias", "poucos dias", "as vezes", "de vez em quando", "um pouco"],
-  "mais da metade dos dias": ["mais da metade dos dias", "mais da metade", "metade dos dias", "boa parte dos dias", "muitos dias", "a maioria dos dias"],
+  "mais da metade dos dias": ["mais da metade dos dias", "mais da metade", "metade dos dias", "boa parte dos dias", "muitos dias", "a maioria dos dias", "a maior parte dos dias", "maior parte dos dias"],
   "quase todos os dias": ["quase todos os dias", "quase todo dia", "todo dia", "todos os dias", "o tempo todo", "direto", "sempre"],
   // BAT-12 e COPSOQ (frequência)
   nunca: ["nunca", "jamais", "em nenhum momento"],
@@ -29,7 +29,7 @@ const SYNONYMS: Record<string, string[]> = {
 };
 
 const YES_WORDS = /^(sim|s|ss|claro|aceito|pode|bora|vamos|ok|okay|quero|manda|topo|beleza|isso|exato|correto|certo|com certeza|aham|uhum|e isso|isso mesmo|pode ser)\b/;
-const NO_WORDS = /^(nao|n|nope|prefiro nao|agora nao|nao quero|errado|negativo)\b/;
+const NO_WORDS = /^(?!nao sei)(nao|n|nope|prefiro nao|agora nao|nao quero|errado|negativo|depois)\b/;
 const STOP = /\b(quero parar|parar|chega por hoje|nao quero mais (responder|continuar)|encerrar)\b/;
 const SKIP = /\b(pular|pula|pule|prefiro nao (responder|falar|dizer)|nao quero responder)\b/;
 const CORRECTION = /\b(quis dizer|na verdade|corrigindo|errei|me enganei|digitei errado|falei errado)\b/;

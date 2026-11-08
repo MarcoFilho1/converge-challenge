@@ -104,7 +104,7 @@ async function runHook(fn: (() => Promise<void>) | undefined) {
 }
 
 // Número não é atalho de opção: "1" e "2" não aceitam nem recusam. Fora destes, a IA lê a mensagem.
-const YES = new Set(["sim", "s", "aceito", "sim, aceito", "aceitar", "ok", "pode", "bora", "vamos", "claro", "isso", "isso mesmo"]);
+const YES = new Set(["sim", "s", "aceito", "sim, aceito", "aceitar", "ok", "pode", "bora", "vamos", "claro", "isso", "isso mesmo", "exatamente", "exato", "correto", "certo", "e isso"]);
 const NO = new Set(["nao", "n", "nao quero", "nao quero participar", "prefiro nao"]);
 const unknownNotified = new Set<string>();
 

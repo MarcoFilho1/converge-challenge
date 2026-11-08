@@ -36,6 +36,12 @@ describe("conferidor: a IA sugere, o código decide", () => {
     expect(judgeReading(item("PHQ9_9"), "nunca", r({ value: 0, quote: "nunca", confidence: "baixa" })).kind).toBe("confirm");
   });
 
+  it("item 9: hesitação ('acho que não', 'talvez não') sempre confirma, mesmo com 'não' e certeza alta", () => {
+    expect(judgeReading(item("PHQ9_9"), "acho que não", r({ value: 0, quote: "acho que não" })).kind).toBe("confirm");
+    expect(judgeReading(item("PHQ9_9"), "talvez não", r({ value: 0, quote: "não" })).kind).toBe("confirm");
+    expect(judgeReading(item("PHQ9_9"), "acredito que nunca", r({ value: 0, quote: "nunca" })).kind).toBe("confirm");
+  });
+
   it("item 9 maior que zero com trecho válido: aceita (o motor trata como crise)", () => {
     expect(judgeReading(item("PHQ9_9"), "às vezes penso nisso", r({ value: 1, quote: "às vezes" })).kind).toBe("accept");
   });

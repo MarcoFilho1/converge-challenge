@@ -286,6 +286,8 @@ export function judgeReading(item: Item, text: string, r: ReplyReading): Verdict
 
 ## Etapa 3 · Avaliação com o modelo real (PR 3)
 
+> **Situação (08/11, 10h50):** feita antes da etapa 2, a pedido do Marco, para validar a etapa 1 com o modelo real. Entrou no PR #31. Resultado em `docs/medicoes-whatsapp.md`.
+
 **Entrega:**
 - `pnpm evals:whatsapp` com cerca de 80 respostas reais em linguagem natural, cobrindo cada tipo de escala, dúvidas, correções, consentimento e casos de segurança, com valor esperado;
 - relatório com acerto, % de confirmação e erros;

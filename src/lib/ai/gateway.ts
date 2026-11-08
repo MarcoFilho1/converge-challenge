@@ -94,7 +94,8 @@ export function createGatewayProvider(): AiProvider {
 
     async readReply(input) {
       const local = readReplyLocal(input);
-      if (isTrivial(input.text)) return local;
+      // atalho só quando a regra local entendeu de fato (palavra curta de outra escala ainda vai para a IA)
+      if (isTrivial(input.text) && local.intent !== "other" && local.confidence === "alta") return local;
       return orFallback(
         "readReply",
         async () => {
