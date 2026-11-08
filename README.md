@@ -1,6 +1,6 @@
 <h1 align="center">
   <img alt="" src="public/brand/praevenius-mark.png" width="80"><br>
-  Praevenios
+  Praevenius
 </h1>
 
 <p align="center">
@@ -23,9 +23,15 @@ Produto **Praevenius**, feito no Converge Challenge (Recife, 7 e 8 de novembro d
 
 ## Por quê
 
-Desde 26/05/2026 a NR-1 obriga toda empresa a gerenciar riscos psicossociais, e as multas valem desde 24/09/2026. É na NR-7 (PCMSO) que o médico do trabalho usa esses sinais pessoa a pessoa. Hoje isso costuma ser um formulário em papel ou uma planilha, uma vez por ano e sem acompanhamento.
+**Cuidar de quem trabalha começa antes do adoecimento.**
 
-O Consultório NR-7 leva o questionário para o WhatsApp, que todo colaborador já usa, calcula em código quem precisa de atenção e entrega ao médico uma fila por gravidade. Quando há indício, uma entrevista por voz com a Helena aprofunda o relato, e o resumo dela cita o minuto exato de cada frase.
+O sofrimento mental no trabalho nem sempre é percebido a tempo. Quando os primeiros sinais passam despercebidos, podem se agravar e levar a afastamentos, com consequências para os trabalhadores e suas equipes. Para as empresas, isso também pode significar perda de produtividade e gastos com substituições.
+
+A **Praevenius** foi criada para apoiar o acompanhamento preventivo dos colaboradores e ajudar médicos do trabalho a identificar situações que precisam de atenção.
+
+O trabalhador responde a um questionário pelo WhatsApp, e a plataforma organiza os resultados em uma fila por nível de atenção para o médico. Quando há indicação, ele pode ser convidado a conversar por voz com a **Helena**, assistente de IA que aprofunda a escuta. O médico recebe um resumo com referências aos trechos da entrevista, ganhando mais contexto para avaliar cada caso.
+
+A solução busca apoiar a prevenção de riscos psicossociais no contexto da NR-1 e o acompanhamento de saúde previsto pela NR-7. O objetivo é agir mais cedo para **prevenir o agravamento do sofrimento e contribuir para reduzir afastamentos relacionados ao adoecimento**.
 
 ## Como funciona
 
