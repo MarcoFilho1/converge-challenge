@@ -32,6 +32,42 @@ export function featherlessKeys(env: Env = process.env): string[] {
   return [env.FEATHERLESS_API_KEY, ...numbered].filter((k): k is string => !!k && k.trim() !== "");
 }
 
+/**
+ * Vetores pela Featherless (Qwen3 Embedding, 1536 dimensões, o mesmo tamanho do banco), com troca de chave.
+ * Sem fallback para vetor local: misturar espaços estragaria a busca. Quem chama decide o que fazer com o erro.
+ */
+export async function featherlessEmbed(texts: string[], dims: number, env: Env = process.env): Promise<number[][]> {
+  const model = env.AI_EMBEDDING_MODEL_FEATHERLESS ?? "Qwen/Qwen3-Embedding-8B";
+  let last: unknown = new Error("Nenhuma chave da Featherless para vetores.");
+  for (const key of featherlessKeys(env)) {
+    if (exhausted.has(key)) continue;
+    const t0 = Date.now();
+    try {
+      const res = await fetch(`${FEATHERLESS_URL}/embeddings`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, input: texts, dimensions: dims }),
+        signal: AbortSignal.timeout(Number(env.AI_EMBED_TIMEOUT_MS ?? 30_000)),
+      });
+      if (!res.ok) throw Object.assign(new Error(`Featherless respondeu ${res.status}: ${(await res.text()).slice(0, 160)}`), { statusCode: res.status });
+      const json = (await res.json()) as { data: { embedding: number[] }[]; usage?: { total_tokens?: number } };
+      const vectors = json.data.map((d) => d.embedding);
+      const wrong = vectors.find((v) => v.length !== dims);
+      if (wrong) throw new Error(`Modelo de vetores devolveu ${wrong.length} dimensões; o banco espera ${dims}.`);
+      recordEvent({ kind: "vetores", outcome: "ok", model: `featherless:${model}`, tokensIn: json.usage?.total_tokens ?? null, latencyMs: Date.now() - t0, detail: `${texts.length} textos` });
+      return vectors;
+    } catch (err) {
+      last = err;
+      if (isCreditError(err)) {
+        exhausted.add(key);
+        continue;
+      }
+      if (err instanceof Error && /dimensões/.test(err.message)) throw err;
+    }
+  }
+  throw last;
+}
+
 /** Há algum modelo real configurado (Featherless ou AI Gateway)? */
 export function hasChatKey(env: Env = process.env): boolean {
   return featherlessKeys(env).length > 0 || !!env.AI_GATEWAY_API_KEY;
