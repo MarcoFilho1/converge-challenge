@@ -129,3 +129,32 @@ describe("busca semântica com o Qwen3 Embedding da Featherless", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("readReply pela IA", () => {
+  const base = { stage: "item" as const, item: phq1, previous: null, upcoming: [{ code: "PHQ9_2", text: "Se sentir para baixo" }] };
+
+  it("fala livre vai para o modelo rápido; mentions só com códigos dos próximos itens", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "fl");
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    generateText.mockResolvedValue({ output: { intent: "answer", value: 3, quote: "quase todo dia", confidence: "alta", mentions: ["PHQ9_2", "INVENTADO"] } });
+    const r = await createGatewayProvider().readReply({ ...base, text: "quase todo dia, tô sem vontade e meio pra baixo" });
+    expect(r).toMatchObject({ intent: "answer", value: 3, quote: "quase todo dia", source: "ia", mentions: ["PHQ9_2"] });
+    expect(generateText).toHaveBeenCalledTimes(1);
+  });
+
+  it("rótulo exato não gasta chamada de modelo", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "fl");
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    const r = await createGatewayProvider().readReply({ ...base, text: "Vários dias" });
+    expect(r).toMatchObject({ value: 1, source: "regra" });
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it("IA fora do ar: cai para a regra local sem lançar erro", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "fl");
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    generateText.mockRejectedValue(new Error("timeout"));
+    const r = await createGatewayProvider().readReply({ ...base, text: "acho que quase todo dia" });
+    expect(r).toMatchObject({ value: 3, source: "regra" });
+  });
+});
