@@ -8,6 +8,12 @@ export async function findContactByPhone(phone: string) {
   return c ?? null;
 }
 
+/** Cadastro na hora (entrada aberta): se dois pedidos chegarem juntos, devolve o que já existe. */
+export async function createContact(input: { name: string; phoneE164: string; sector?: string }) {
+  const [c] = await db.insert(contacts).values(input).onConflictDoNothing().returning();
+  return c ?? (await findContactByPhone(input.phoneE164));
+}
+
 export async function getContact(id: string) {
   const [c] = await db.select().from(contacts).where(eq(contacts.id, id));
   return c ?? null;
@@ -58,6 +64,17 @@ export async function setMessageRun(messageId: string, runId: string) {
 }
 
 /** Depois do envio: guarda o id do WhatsApp ou marca que não foi entregue. */
+/** Texto da última mensagem que o bot mandou para a pessoa (para saber se esperava uma confirmação). */
+export async function lastOutboundText(contactId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ text: messages.text })
+    .from(messages)
+    .where(and(eq(messages.contactId, contactId), eq(messages.direction, "out")))
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  return row?.text ?? null;
+}
+
 export async function markDelivery(messageId: string, waMessageId: string | null) {
   await db
     .update(messages)

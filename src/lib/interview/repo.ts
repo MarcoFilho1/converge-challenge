@@ -83,3 +83,7 @@ export async function markRunUrgency(runId: string, ex: Executor = db) {
 export async function setTurnAudio(interviewId: string, idx: number, audioPath: string) {
   await db.update(interviewTurns).set({ audioPath }).where(and(eq(interviewTurns.interviewId, interviewId), eq(interviewTurns.idx, idx)));
 }
+
+export async function listRunning(): Promise<InterviewRow[]> {
+  return db.select().from(interviews).where(eq(interviews.status, "running"));
+}

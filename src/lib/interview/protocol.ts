@@ -102,3 +102,6 @@ export const REPEAT_ASK_PREFIX = "Claro. ";
 
 /** Sinais de escuta falados (fixos, guardados em áudio); nenhum avalia nem aconselha. */
 export const ACK_PHRASES = ["Hmm, entendi.", "Certo.", "Sei.", "Entendi, obrigada por me contar.", "Hum, faz sentido."];
+
+/** Início do aviso que o médico recebe quando a conversa cai (página fechada ou conexão perdida). */
+export const ABANDON_AVISO_PREFIX = "A conversa terminou sem despedida (página fechada ou conexão perdida)";

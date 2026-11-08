@@ -102,3 +102,18 @@ describe("mock summarizeRun", () => {
     expect(summary.dificuldades_relatadas[0].origem).toContain("PHQ9_1");
   });
 });
+
+describe("sim e não na mesma ordem do consentimento", () => {
+  it("na pergunta-tronco, 1 é sim e 2 é não (o valor gravado continua 2 = sim)", async () => {
+    const { createMockProvider } = await import("@/lib/ai/mock");
+    const { getItems, TRUNK_YES } = await import("@/lib/instruments");
+    const trunk = getItems(true).find((i) => i.code === "TRUNK")!;
+    const ai = createMockProvider();
+    expect(trunk.scaleLine).toBe("1 sim · 2 não");
+    expect(await ai.interpretAnswer(trunk, "1")).toBe(TRUNK_YES);
+    expect(await ai.interpretAnswer(trunk, "2")).toBe(1);
+    expect(await ai.interpretAnswer(trunk, "sim")).toBe(TRUNK_YES);
+    expect(await ai.interpretAnswer(trunk, "não")).toBe(1);
+    expect(await ai.interpretAnswer(trunk, "3")).toBeNull();
+  });
+});

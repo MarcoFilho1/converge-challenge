@@ -35,11 +35,28 @@ describe("parseWebhook", () => {
     expect(out).toEqual({ kind: "ignore" });
   });
 
-  it("ignora mensagem sem texto (áudio, imagem)", () => {
+  it("lê áudio com o base64 que a Evolution manda junto e o tipo do arquivo", () => {
     const out = parseWebhook(
-      upsert({ key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "I" }, message: { audioMessage: {} } }),
+      upsert({
+        key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "A1" },
+        messageType: "audioMessage",
+        message: { audioMessage: { mimetype: "audio/ogg; codecs=opus", ptt: true }, base64: "T2dnUw==" },
+      }),
     );
-    expect(out).toEqual({ kind: "ignore" });
+    expect(out).toEqual({ kind: "audio", phone: "5581999990001", waMessageId: "A1", fromMe: false, base64: "T2dnUw==", mime: "audio/ogg; codecs=opus" });
+  });
+
+  it("áudio sem base64 no corpo: o webhook busca depois pelo id", () => {
+    const out = parseWebhook(upsert({ key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "A2" }, message: { audioMessage: {} } }));
+    expect(out).toMatchObject({ kind: "audio", waMessageId: "A2", base64: null, mime: "audio/ogg" });
+  });
+
+  it("figurinha, foto, vídeo e arquivo viram mídia com o tipo em português", () => {
+    const kind = (message: object) => parseWebhook(upsert({ key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "M" }, message }));
+    expect(kind({ stickerMessage: {} })).toEqual({ kind: "media", phone: "5581999990001", waMessageId: "M", fromMe: false, media: "figurinha" });
+    expect(kind({ imageMessage: {} })).toMatchObject({ kind: "media", media: "foto" });
+    expect(kind({ videoMessage: {} })).toMatchObject({ kind: "media", media: "vídeo" });
+    expect(kind({ documentMessage: {} })).toMatchObject({ kind: "media", media: "arquivo" });
   });
 
   it("lê atualização de conexão", () => {
@@ -76,5 +93,10 @@ describe("parseWebhook · contatos @lid", () => {
       },
     });
     expect(out).toMatchObject({ kind: "message", phone: "5581999990001" });
+  });
+
+  it("traz o nome do perfil do WhatsApp (pushName) quando vem", () => {
+    const out = parseWebhook(upsert({ key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "N1" }, pushName: "Marina Souza", message: { conversation: "oi" } }));
+    expect(out).toMatchObject({ kind: "message", text: "oi", name: "Marina Souza" });
   });
 });

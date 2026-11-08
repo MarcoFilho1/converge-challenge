@@ -1,3 +1,4 @@
+import { recordEvent } from "@/lib/obs/events";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 import { normalizeText } from "@/lib/crisis/detect";
 import type { Item } from "@/lib/instruments/types";
@@ -45,6 +46,7 @@ function interpretLocal(item: Item, text: string): number | null {
   if (!scale) return null;
   const normalized = normalizeText(text);
   const numberMatch = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)(?=\s|$|[.!?])/);
+  if (numberMatch && item.choices) return item.choices[numberMatch[1]] ?? null;
   if (numberMatch) {
     const value = Number(numberMatch[1].replace(",", "."));
     return value >= scale.min && value <= scale.max ? value : null;
@@ -78,7 +80,9 @@ export function createMockProvider(): AiProvider {
     },
 
     async interpretAnswer(item, text) {
-      return interpretLocal(item, text);
+      const value = interpretLocal(item, text);
+      if (value !== null) recordEvent({ kind: "valor da resposta", outcome: "ok", model: "regra local", detail: `“${text}” → ${value} (regra local)` });
+      return value;
     },
 
     async classifyAnswer({ item, value, chunks }: ClassifyInput): Promise<Classification> {

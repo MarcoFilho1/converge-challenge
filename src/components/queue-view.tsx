@@ -99,6 +99,7 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
               <tr className="text-left text-[12px] text-[var(--muted)]">
                 <th className="w-[32%] border-b border-[var(--border)] px-3 pb-2.5 font-normal">Colaborador</th>
                 <th className="border-b border-[var(--border)] px-3 pb-2.5 font-normal">O que apareceu</th>
+                <th className="w-[90px] border-b border-[var(--border)] px-3 pb-2.5 text-right font-normal" title="Índice de bem-estar de 0 a 100; abaixo de 70 recebe convite para a entrevista">Índice</th>
                 <th className="w-[150px] border-b border-[var(--border)] px-3 pb-2.5 text-right font-normal">Respondeu</th>
                 <th className="w-[72px] border-b border-[var(--border)] pb-2.5"><span className="sr-only">Ação</span></th>
               </tr>
@@ -109,7 +110,7 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
                 if (groupRows.length === 0) return null;
                 return [
                   <tr key={`${g.severity}-h`} id={`grupo-${g.severity}`} className="scroll-mt-6">
-                    <td colSpan={4} className="px-3 pb-2.5 pt-7">
+                    <td colSpan={5} className="px-3 pb-2.5 pt-7">
                       <Chip g={g}>
                         {g.label} <span className="tabular-nums opacity-80">{groupRows.length}</span>
                       </Chip>
@@ -131,6 +132,16 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
                         </div>
                       </td>
                       <td className="border-b border-[var(--rule)] px-3 py-3.5 text-[14px]">{describeCase(r)}</td>
+                      <td className="border-b border-[var(--rule)] px-3 py-3.5 text-right tabular-nums">
+                        {r.wellbeingIndex != null ? (
+                          <span className="text-[15px] font-semibold text-[var(--ink)]">
+                            {r.wellbeingIndex}
+                            <span className="text-[12px] font-normal text-[var(--muted)]">/100</span>
+                          </span>
+                        ) : (
+                          <span className="text-[13px] text-[var(--muted)]">—</span>
+                        )}
+                      </td>
                       <td className="border-b border-[var(--rule)] px-3 py-3.5 text-right text-[13px] tabular-nums">
                         {r.finishedAt ? formatWhen(r.finishedAt) : "—"}
                         {r.caseState !== "aberto" && (
@@ -176,7 +187,10 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
                           <AvatarInitial name={r.contactName} />
                           {r.contactName}
                         </span>
-                        <span className="text-[12px] tabular-nums text-[var(--muted)]">{r.finishedAt ? formatWhen(r.finishedAt) : "—"}</span>
+                        <span className="text-[12px] tabular-nums text-[var(--muted)]">
+                          {r.wellbeingIndex != null ? `índice ${r.wellbeingIndex} · ` : ""}
+                          {r.finishedAt ? formatWhen(r.finishedAt) : "—"}
+                        </span>
                       </div>
                       <div className="mt-0.5 text-[14px] text-[var(--ink-2)]">{describeCase(r)}</div>
                     </Link>

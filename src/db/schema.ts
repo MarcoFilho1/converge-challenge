@@ -172,6 +172,49 @@ export const waSessions = pgTable("wa_sessions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Rastro do agente: cada chamada de modelo e cada decisão (valor interpretado, indício, crise, convite, envio).
+ * Fica no nosso banco, sem serviço externo de rastreio, porque as conversas são dados de saúde.
+ * run_id e interview_id não têm chave estrangeira: o rastro sobrevive se o caso for apagado.
+ */
+export const agentEvents = pgTable(
+  "agent_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: createdAt(),
+    runId: uuid("run_id"),
+    interviewId: uuid("interview_id"),
+    answerId: uuid("answer_id"),
+    kind: text("kind").notNull(),
+    outcome: text("outcome").notNull(),
+    model: text("model"),
+    tokensIn: integer("tokens_in"),
+    tokensOut: integer("tokens_out"),
+    costUsd: real("cost_usd"),
+    latencyMs: integer("latency_ms"),
+    detail: text("detail"),
+  },
+  (t) => [index("agent_events_run_idx").on(t.runId), index("agent_events_interview_idx").on(t.interviewId), index("agent_events_created_idx").on(t.createdAt)],
+);
+export type AgentEvent = typeof agentEvents.$inferSelect;
+
+/** Avisos para a médica no painel (ex.: entrevista terminou). Em uso real, o mesmo aviso vai também no WhatsApp dela. */
+export const doctorNotices = pgTable(
+  "doctor_notices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: createdAt(),
+    runId: uuid("run_id"),
+    interviewId: uuid("interview_id"),
+    kind: text("kind").notNull(),
+    contactName: text("contact_name").notNull(),
+    text: text("text").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (t) => [index("doctor_notices_created_idx").on(t.createdAt)],
+);
+export type DoctorNotice = typeof doctorNotices.$inferSelect;
+
 export type Contact = typeof contacts.$inferSelect;
 export type QuestionnaireRun = typeof questionnaireRuns.$inferSelect;
 export type Message = typeof messages.$inferSelect;

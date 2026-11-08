@@ -21,6 +21,16 @@ export type Item = {
   part?: string;
   /** Linha da escala como aparece no WhatsApp. */
   scaleLine?: string;
+  /**
+   * Número que a pessoa digita → valor gravado, quando a ordem na tela difere da escala original.
+   * Ex.: pergunta-tronco mostra "1 sim · 2 não" (igual ao consentimento), mas grava 2 = sim como no instrumento.
+   */
+  choices?: Record<string, number>;
+  /**
+   * Linha de apoio: explicação em linguagem simples, mostrada entre parênteses abaixo da pergunta.
+   * Não substitui o texto validado; só ajuda a entender o termo difícil.
+   */
+  help?: string;
   /** Porta de entrada: o item só é perguntado se devolver true. */
   when?: (answers: Answers) => boolean;
 };

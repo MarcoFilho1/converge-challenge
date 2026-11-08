@@ -5,8 +5,9 @@
 import { z } from "zod";
 import type { InterviewAi } from "@/lib/ai/interview";
 import { assertNoForbidden } from "@/lib/ai/forbidden-terms";
+import { leaksPrompt } from "@/lib/ai/injection";
 import { InterviewSummary as SummarySchema, type InterviewSummary } from "./contract";
-import { SAFETY_UNANSWERED, type InterviewState } from "./engine";
+import { SAFETY_UNANSWERED, turnsForAi, type InterviewState } from "./engine";
 import { formatOrigin } from "./origin";
 import type { Turn } from "./types";
 
@@ -23,9 +24,11 @@ const LooseSummary = z.object({
   avisos: z.array(z.object({ texto: z.string(), origem: z.array(LooseOrigin) })).optional(),
 });
 
-export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
+export function validateSummary(raw: unknown, turns: Turn[], excluded: number[] = []): InterviewSummary {
   const loose = LooseSummary.parse(raw);
-  const person = new Map(turns.filter((t) => t.speaker === "person").map((t) => [t.idx, t]));
+  // Fala marcada como tentativa de mudar as regras nunca sustenta uma frase do resumo.
+  const blocked = new Set(excluded);
+  const person = new Map(turns.filter((t) => t.speaker === "person" && !blocked.has(t.idx)).map((t) => [t.idx, t]));
 
   const origins = (list: { turnIdx: number }[]) =>
     list
@@ -33,7 +36,7 @@ export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
       .map((o) => ({ turnIdx: o.turnIdx, label: formatOrigin(person.get(o.turnIdx)!) }));
   const clean = <T extends { texto: string; origem: { turnIdx: number }[] }>(list: T[]) =>
     list
-      .filter((e) => assertNoForbidden(e.texto).length === 0)
+      .filter((e) => assertNoForbidden(e.texto).length === 0 && !leaksPrompt(e.texto))
       .map((e) => ({ ...e, origem: origins(e.origem) }))
       .filter((e) => e.origem.length > 0);
 
@@ -59,8 +62,8 @@ export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
 }
 
 export async function buildSummary(state: InterviewState, ai: InterviewAi): Promise<InterviewSummary> {
-  const raw = await ai.summarize({ turns: state.turns, findings: state.findings, agenda: state.agenda, skipped: state.skipped });
-  const summary = validateSummary(raw, state.turns);
+  const raw = await ai.summarize({ turns: turnsForAi(state), findings: state.findings, agenda: state.agenda, skipped: state.skipped });
+  const summary = validateSummary(raw, state.turns, state.injectionTurns ?? []);
   const person = new Map(state.turns.filter((t) => t.speaker === "person").map((t) => [t.idx, t]));
   summary.avisos = (state.avisos ?? []).map((a) => ({
     texto: a.texto,

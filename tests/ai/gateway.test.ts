@@ -19,17 +19,42 @@ const phq1: Item = {
 const chunk = { id: "c1", documentTitle: "PHQ-9", page: 1, text: "Item 1" };
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   generateText.mockReset();
   embedMany.mockReset();
 });
 
 describe("provedor gateway", () => {
   it("embeda com o modelo configurado e recusa dimensão diferente de 1536", async () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "gw");
     const { createGatewayProvider } = await import("@/lib/ai/gateway");
     embedMany.mockResolvedValue({ embeddings: [new Array(1536).fill(0.1)] });
     expect((await createGatewayProvider().embed(["x"]))[0]).toHaveLength(1536);
     embedMany.mockResolvedValue({ embeddings: [new Array(3072).fill(0.1)] });
     await expect(createGatewayProvider().embed(["x"])).rejects.toThrow(/1536/);
+  });
+
+  it("sem chave do AI Gateway, os vetores continuam locais (mesmo espaço do índice já gravado)", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "fl");
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    const [v] = await createGatewayProvider().embed(["cansaço no trabalho"]);
+    expect(v).toHaveLength(1536);
+    expect(embedMany).not.toHaveBeenCalled();
+  });
+
+  it("com chave da Featherless, o resumo vai para o modelo dela com limite de tempo", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "fl");
+    vi.stubEnv("AI_CHAT_MODEL", "moonshotai/Kimi-K2-Instruct-0905");
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    generateText.mockResolvedValue({
+      output: { dificuldades_relatadas: [], impacto_funcional: { texto: "", origem: [] }, fatores_do_trabalho: [], pontos_para_avaliar: [], nao_respondido: [] },
+    });
+    await createGatewayProvider().summarizeRun({ answers: [], scores: [], evidence: [], missingInstruments: [] });
+    const call = generateText.mock.calls[0][0] as { model: { modelId: string; provider: string }; abortSignal: AbortSignal; maxRetries: number };
+    expect(call.model.modelId).toBe("moonshotai/Kimi-K2-Instruct-0905");
+    expect(call.model.provider).toContain("featherless");
+    expect(call.abortSignal).toBeInstanceOf(AbortSignal);
+    expect(call.maxRetries).toBe(0);
   });
 
   it("interpreta localmente antes de gastar chamada de modelo", async () => {
@@ -65,5 +90,42 @@ describe("provedor gateway", () => {
     const out = await createGatewayProvider().classifyAnswer({ item: phq1, answerText: "3", value: 3, chunks: [chunk] });
     expect(out.relevante).toBe(true);
     expect(out.trechos[0].chunkId).toBe("c1");
+  });
+});
+
+describe("busca semântica com o Qwen3 Embedding da Featherless", () => {
+  const vec = (n: number) => new Array(n).fill(0.01);
+
+  it("AI_EMBEDDINGS=featherless: pede 1536 dimensões ao Qwen3 Embedding e devolve os vetores", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "k1");
+    vi.stubEnv("AI_EMBEDDINGS", "featherless");
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [{ embedding: vec(1536) }, { embedding: vec(1536) }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    const out = await createGatewayProvider().embed(["cansaço", "metas"]);
+    expect(out).toHaveLength(2);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.featherless.ai/v1/embeddings");
+    expect(JSON.parse(String(init.body))).toMatchObject({ model: "Qwen/Qwen3-Embedding-8B", dimensions: 1536, input: ["cansaço", "metas"] });
+    expect(embedMany).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("chave sem crédito passa para a próxima; dimensão errada é recusada", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "k1");
+    vi.stubEnv("FEATHERLESS_API_KEY_2", "k2");
+    vi.stubEnv("AI_EMBEDDINGS", "featherless");
+    const used: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_u: string, init: RequestInit) => {
+      const key = (init.headers as Record<string, string>).Authorization;
+      used.push(key);
+      return key.endsWith("k1") ? new Response('{"error":{"message":"Insufficient credits"}}', { status: 402 }) : new Response(JSON.stringify({ data: [{ embedding: vec(1536) }] }), { status: 200 });
+    }));
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    expect((await createGatewayProvider().embed(["x"]))[0]).toHaveLength(1536);
+    expect(used).toEqual(["Bearer k1", "Bearer k2"]);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ data: [{ embedding: vec(1024) }] }), { status: 200 })));
+    await expect(createGatewayProvider().embed(["x"])).rejects.toThrow(/1536/);
+    vi.unstubAllGlobals();
   });
 });

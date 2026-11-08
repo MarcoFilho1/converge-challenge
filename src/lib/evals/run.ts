@@ -5,7 +5,7 @@ import { contacts, evidence, questionnaireRuns, summaries } from "@/db/schema";
 import { assertNoForbidden } from "@/lib/ai";
 import { getItems } from "@/lib/instruments";
 import type { Item } from "@/lib/instruments/types";
-import { handleIncoming, startRun } from "@/lib/engine/engine";
+import { handleIncoming, settleBackground, startRun } from "@/lib/engine/engine";
 import { getActiveRun } from "@/lib/engine/repo";
 import { ITEM_TEXTS } from "@/lib/evidence/summarize";
 import { ingestDocuments, type ManifestEntry } from "@/lib/rag/ingest";
@@ -45,7 +45,10 @@ function answerFor(item: Item, intensity: number, i: number): string {
   if (item.code === "PHQ9_9") return "0";
   const { min, max, higherIsWorse } = item.scale;
   const worse = Math.round(min + (max - min) * intensity);
-  return String(higherIsWorse ? worse : max - (worse - min));
+  const value = higherIsWorse ? worse : max - (worse - min);
+  // Itens com ordem própria na tela (ex.: tronco "1 sim · 2 não"): manda o número que a pessoa digitaria.
+  const key = item.choices ? Object.entries(item.choices).find(([, v]) => v === value)?.[0] : undefined;
+  return key ?? String(value);
 }
 
 async function drive(contactId: string, phone: string, demoShort: boolean, intensity: number, idx: number) {
@@ -59,6 +62,7 @@ async function drive(contactId: string, phone: string, demoShort: boolean, inten
     if (!run) break;
     await say(answerFor(items[run.currentItem], intensity, idx));
   }
+  await settleBackground();
 }
 
 async function ensureKnowledge() {
