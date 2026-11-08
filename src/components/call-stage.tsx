@@ -53,7 +53,8 @@ export function CallStage(p: Props) {
         </div>
         <span className="flex items-center gap-1.5 text-[#a9a19e] shrink-0">
           <LockIcon />
-          Só a {p.doctorRef} ouve
+          <span className="hidden sm:inline">Só a {p.doctorRef} ouve</span>
+          <span className="sm:hidden">Sigilo</span>
         </span>
       </header>
 
