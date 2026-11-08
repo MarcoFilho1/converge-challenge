@@ -560,25 +560,25 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
         {
           id: "m-3",
           direction: "out",
-          text: "Pergunta 1 de 8 · Nos últimos 30 dias, você trabalhou mesmo sentindo algum problema físico ou emocional? (1 Sim · 0 Não)",
+          text: "Durante o último mês, você precisou trabalhar em algum dia mesmo se sentindo mal ou com algum problema de saúde física ou mental? (1 não · 2 sim)",
           createdAt: "18:11",
         },
         {
           id: "m-4",
           direction: "in",
-          text: "1, trabalhei todos os dias assim",
+          text: "2, trabalhei todos os dias assim",
           createdAt: "18:12",
         },
         {
           id: "m-5",
           direction: "out",
-          text: "Pergunta 6 de 8 · Nas últimas 2 semanas, com que frequência você teve pensamentos de se machucar ou de que seria melhor não acordar? (0 Nenhuma vez · 1 Vários dias · 2 Mais da metade dos dias · 3 Quase todos os dias)",
+          text: "Nas últimas duas semanas, quantos dias você pensou em se ferir de alguma maneira ou que seria melhor estar morto(a)? (1 nenhuma vez · 2 vários dias · 3 mais da metade dos dias · 4 quase todos os dias)",
           createdAt: "18:15",
         },
         {
           id: "m-6",
           direction: "in",
-          text: "2, às vezes penso que não aguento mais viver nessa pressão",
+          text: "3, às vezes penso que não aguento mais viver nessa pressão",
           createdAt: "18:16",
         },
         {
@@ -594,13 +594,13 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
           itemCode: "PHQ9_9",
           theme: "Corte de segurança · Protocolo imediato",
           explanation:
-            "Resposta positiva ao item 9 do PHQ-9 (escore 2) combinada à expressão de risco na mensagem aciona interrupção determinística e notificação imediata ao médico do trabalho.",
+            "Resposta positiva ao item 9 do PHQ-9 combinada à expressão de risco na mensagem aciona interrupção determinística e notificação imediata ao médico do trabalho.",
           source: "rule",
           chunk: {
-            id: "chk-phq9-9",
-            documentTitle: "PHQ-9 · Validação Brasileira (Santos et al., 2013) & Protocolo CVV",
-            page: 2,
-            text: "Qualquer pontuação acima de zero no item 9 do PHQ-9 ou menção direta a autolesão requer avaliação clínica presencial imediata pelo profissional responsável e oferta imediata dos canais de apoio à vida (CVV 188 / SAMU 192).",
+            id: "cd17a542-a1dc-41e3-a9da-878492766e04",
+            documentTitle: "PHQ-9 e item 9 de segurança (ficha técnica)",
+            page: 5,
+            text: "Item 9: pensamentos de morte ou autolesão: O item 9 é sempre perguntado, mesmo com PHQ-2 negativo. Qualquer resposta diferente de nenhuma vez (valor 1 ou mais) exige avaliação: segundo o manual Pfizer, a decisão final sobre o risco real de autolesão requer entrevista clínica. Simon 2016, com mais de 500 mil adultos, mostrou que o risco de tentativa de suicídio em 2 anos sobe de cerca de 0,5% (nenhuma vez) para 3,5% (quase todos os dias). No Consultório NR-7, item 9 maior ou igual a 1 dispara urgência, a mensagem de segurança com CVV 188 e SAMU 192 e aviso ao médico.",
           },
         },
         {
@@ -608,13 +608,13 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
           itemCode: "BAT12_1",
           theme: "Exaustão ocupacional acentuada",
           explanation:
-            "Pontuação média de 3,67 no BAT-12 supera o ponto de corte estatístico brasileiro (2,54 para atenção e 2,96 para sinal acentuado).",
+            "Pontuação média de 3,67 no BAT-12 supera o ponto de corte estatístico (2,54 para atenção e 2,96 para sinal acentuado).",
           source: "rag",
           chunk: {
-            id: "chk-bat12",
-            documentTitle: "Manual BAT-12 Brasil · Burnout Assessment Tool (Schaufeli & Vazquez)",
-            page: 14,
-            text: "Escores médios iguais ou superiores a 2,96 na dimensão de exaustão indicam fadiga severa relacionada às demandas de trabalho, exigindo revisão imediata de carga e acompanhamento no PCMSO (NR-7).",
+            id: "279d4221-d2cc-486f-97d1-3ad51a928517",
+            documentTitle: "BAT-12, esgotamento no trabalho (ficha técnica)",
+            page: 3,
+            text: "Pontuação e cortes: Média dos 12 itens, de 1 a 5, nenhum item invertido. Cortes de Schaufeli 2023 na amostra conjunta: média maior ou igual a 2,54 indica risco de esgotamento (faixa laranja; sensibilidade 0,88 a 0,98); maior ou igual a 2,96 indica esgotamento grave provável (faixa vermelha; especificidade 0,90 a 0,94). Os autores chamam os cortes de provisórios para outros países. No BAT-12 só o escore total tem corte; as médias por parte servem para descrever.",
           },
         },
       ],
@@ -666,19 +666,19 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
       {
         id: "m-103",
         direction: "out",
-        text: "Parte 1 de 5 · Presenteísmo. Nos últimos 30 dias, você trabalhou mesmo sentindo algum problema de saúde físico ou emocional? (1 Sim · 0 Não)",
+        text: "Durante o último mês, você precisou trabalhar em algum dia mesmo se sentindo mal ou com algum problema de saúde física ou mental? (1 não · 2 sim)",
         createdAt: "18:23",
       },
       {
         id: "m-104",
         direction: "in",
-        text: "1",
+        text: "2",
         createdAt: "18:23",
       },
       {
         id: "m-105",
         direction: "out",
-        text: "Nos últimos 7 dias, quanto esse problema afetou sua produtividade enquanto estava trabalhando? Escolha um número de 0 (não afetou) a 10 (impediu totalmente).",
+        text: "Durante os últimos sete dias, até que ponto seus problemas de saúde afetaram sua produtividade enquanto estava trabalhando? (Responda de 0 a 10 · 0 = não tiveram nenhum efeito sobre meu trabalho · 10 = me impediram completamente de realizar meu trabalho)",
         createdAt: "18:24",
       },
       {
@@ -690,7 +690,7 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
       {
         id: "m-107",
         direction: "out",
-        text: "Parte 3 de 5 · Energia no trabalho (BAT-12). No trabalho, sinto-me mentalmente exausto(a). (1 Nunca · 2 Raramente · 3 Às vezes · 4 Frequentemente · 5 Sempre)",
+        text: "No trabalho, sinto-me mentalmente exausto(a). (1 nunca · 2 raramente · 3 algumas vezes · 4 com frequência · 5 sempre)",
         createdAt: "18:25",
       },
       {
@@ -702,7 +702,7 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
       {
         id: "m-109",
         direction: "out",
-        text: "Pergunta aberta · O que no trabalho está mais difícil para você agora?",
+        text: "Se quiser, conte em poucas palavras o que mais tem pesado no seu trabalho ou na sua saúde ultimamente.",
         createdAt: "18:28",
       },
       {
@@ -721,10 +721,10 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
           "Relatou nota 7/10 de impacto nas entregas durante a jornada nos últimos 7 dias (ponto de corte operacional ≥ 3/10).",
         source: "rule",
         chunk: {
-          id: "chk-wpai-1",
-          documentTitle: "WPAI-GH · Adaptação para o Português no Brasil (Ciconelli et al., 2006)",
-          page: 4,
-          text: "O item Q5 mensura a redução da efetividade no trabalho decorrente de problemas de saúde nos últimos sete dias em escala de 0 a 10; valores iguais ou superiores a 3 indicam perda funcional relevante por presenteísmo.",
+          id: "dad7d33a-3118-48ef-8aab-22873067948c",
+          documentTitle: "Presenteísmo: pergunta-tronco e WPAI-GH Q5 (ficha técnica)",
+          page: 3,
+          text: 'WPAI-GH, pergunta 5: prejuízo no trabalho (sinal B): Texto validado: "Durante os últimos sete dias, até que ponto seus problemas de saúde afetaram sua produtividade enquanto estava trabalhando?" Escala de 0 a 10. 0 = os problemas de saúde não tiveram nenhum efeito sobre meu trabalho. 10 = os problemas de saúde me impediram completamente de realizar meu trabalho. Pontuação: percentual de prejuízo no trabalho por presenteísmo = Q5 × 10. Quanto maior, maior o prejuízo da produtividade enquanto a pessoa trabalha doente. Ponto de atenção: o WPAI não tem corte validado. O Consultório NR-7 usa Q5 maior ou igual a 3 (30% ou mais de prejuízo) como corte operacional, a ser calibrado com o médico do trabalho. O painel mostra sempre o número bruto. Leitura: prejuízo alto na Q5 junto com presenteísmo relatado (A e B) é indício de que problemas de saúde estão reduzindo a capacidade de trabalho, situação que a NR-7 manda rastrear precocemente no PCMSO.',
         },
       },
       {
@@ -732,27 +732,27 @@ export function getSyntheticCaseDetail(runId: string): CaseDetailData {
         itemCode: "BAT12_1",
         theme: "Sinal de esgotamento e fadiga cognitiva (BAT-12)",
         explanation:
-          "Média global de 3,42 no BAT-12 situa-se acima do limiar de referência brasileiro (2,54) e do percentil elevado (2,96).",
+          "Média global de 3,42 no BAT-12 situa-se acima do limiar de referência (2,54) e do percentil elevado (2,96).",
         source: "rag",
         chunk: {
-          id: "chk-bat-2",
-          documentTitle: "Manual BAT-12 Brasil · Avaliação de Esgotamento Ocupacional",
-          page: 11,
-          text: "Respostas 'frequentemente' (4) ou 'sempre' (5) nos itens nucleares de exaustão mental e dificuldade de recuperação após o turno sinalizam desgaste ocupacional que requer investigação clínica das condições de trabalho.",
+          id: "279d4221-d2cc-486f-97d1-3ad51a928517",
+          documentTitle: "BAT-12, esgotamento no trabalho (ficha técnica)",
+          page: 3,
+          text: "Pontuação e cortes: Média dos 12 itens, de 1 a 5, nenhum item invertido. Cortes de Schaufeli 2023 na amostra conjunta: média maior ou igual a 2,54 indica risco de esgotamento (faixa laranja; sensibilidade 0,88 a 0,98); maior ou igual a 2,96 indica esgotamento grave provável (faixa vermelha; especificidade 0,90 a 0,94). Os autores chamam os cortes de provisórios para outros países. No BAT-12 só o escore total tem corte; as médias por parte servem para descrever.",
         },
       },
       {
         id: "ev-3",
         itemCode: "OPEN_1",
-        theme: "Sobrecarga de ritmo e supressão de pausas (NR-1 / Guia MTE)",
+        theme: "Fatores do trabalho e ritmo intenso (COPSOQ II-Br / NR-1)",
         explanation:
           "Relato livre aponta acúmulo por duas vagas em aberto no turno da tarde e restrição de pausas regulares.",
         source: "rag",
         chunk: {
-          id: "chk-nr1-1",
-          documentTitle: "Guia MTE · Fatores de Risco Psicossociais Relacionados ao Trabalho (2025) & NR-1",
-          page: 19,
-          text: "Cap. 1.5 da NR-1: A organização deve identificar exigências de ritmo excessivo, subdimensionamento de equipe e insuficiência de pausas de recuperação, integrando os sinais coletados ao controle médico do PCMSO (NR-7).",
+          id: "4b098e39-29d1-44db-9f4b-264edfdba908",
+          documentTitle: "COPSOQ II-Br curto, fatores do trabalho (ficha técnica)",
+          page: 2,
+          text: "Por que entra: A NR-1, capítulo 1.5, trata de fatores de risco do trabalho, não de diagnóstico individual. Sem algum item sobre o trabalho, o médico veria só sintomas. Os quatro itens abaixo mostram o porquê ligado ao trabalho.",
         },
       },
     ],

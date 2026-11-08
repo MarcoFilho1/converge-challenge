@@ -45,7 +45,7 @@ export function EvidenceList({ evidence }: { evidence: CaseEvidenceItem[] }) {
               </p>
 
               {/* Citação literal do documento de origem */}
-              <blockquote className="mt-2.5 rounded-[6px] border border-[var(--border)] bg-[var(--card)] p-3 text-[12px] leading-[18px] text-[var(--muted)]">
+              <blockquote className="mt-2.5 rounded-[6px] border border-[var(--border)] bg-[var(--card)] p-3 text-[13px] leading-[19px] text-[var(--muted)]">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-1 text-[11px] font-medium text-[var(--ink)]">
                   <span>Fonte: {ev.chunk.documentTitle}</span>
                   {ev.chunk.page !== null && (
