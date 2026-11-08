@@ -59,6 +59,8 @@ export function VoiceInterviewRoom({
   initialView: InterviewView;
 }) {
   const doctorRef = formatDoctorRef(initialView.doctorName);
+  /** Só a demonstração sem servidor (dados sintéticos) pode simular a conversa. Com o servidor real, nunca inventamos fala. */
+  const demoMode = initialView.id.startsWith("99999999-");
 
   const [status, setStatus] = useState<InterviewStatus>(initialView.status);
   const [voiceState, setVoiceState] = useState<RoomVoiceState>("inativo");
@@ -458,6 +460,17 @@ export function VoiceInterviewRoom({
     [doctorRef, elapsedMs]
   );
 
+  const reportSendFailure = (retry: () => void) => {
+    setConnectionError(true);
+    setRetryAction(() => () => {
+      setMicError(null);
+      retry();
+    });
+    setShowTextInput(true);
+    setMicError("Sua resposta não chegou. Você também pode responder digitando abaixo.");
+    setVoiceState("inativo");
+  };
+
   const handleStart = async (consent: boolean) => {
     setConnectionError(false);
     setVoiceState("pensando");
@@ -483,6 +496,10 @@ export function VoiceInterviewRoom({
       // Fallback to local contract simulation before merge
     }
 
+    if (!demoMode) {
+      reportSendFailure(() => handleStart(consent));
+      return;
+    }
     if (!consent) {
       applyTurnResponse(buildFallbackTurn(0, null, "stop"));
       return;
@@ -540,6 +557,10 @@ export function VoiceInterviewRoom({
         // Fallback when backend voice route is in sibling worktree
       }
 
+      if (!demoMode) {
+        reportSendFailure(() => submitAudioRef.current?.(blob, durationMs));
+        return;
+      }
       const simulatedHeard =
         turnIndex === 0
           ? "Tenho sentido bastante cansaço mental no fim do turno e dificuldade para desligar à noite."
@@ -552,7 +573,7 @@ export function VoiceInterviewRoom({
         buildFallbackTurn(turnIndex + 1, simulatedHeard, "turno")
       );
     },
-    [applyTurnResponse, buildFallbackTurn, token, turnIndex]
+    [applyTurnResponse, buildFallbackTurn, token, turnIndex, demoMode]
   );
 
   useEffect(() => {
@@ -590,6 +611,10 @@ export function VoiceInterviewRoom({
       // Fallback
     }
 
+    if (!demoMode) {
+      reportSendFailure(() => sendTextTurnValue(trimmed));
+      return;
+    }
     applyTurnResponse(buildFallbackTurn(turnIndex + 1, trimmed, "turno"));
   };
 
@@ -622,6 +647,10 @@ export function VoiceInterviewRoom({
     } catch {
       // Fallback
     }
+    if (!demoMode) {
+      reportSendFailure(() => handleSkip());
+      return;
+    }
     applyTurnResponse(
       buildFallbackTurn(turnIndex + 1, "(pergunta pulada)", "skip")
     );
@@ -647,6 +676,10 @@ export function VoiceInterviewRoom({
       }
     } catch {
       // Fallback
+    }
+    if (!demoMode) {
+      reportSendFailure(() => handleStop());
+      return;
     }
     applyTurnResponse(buildFallbackTurn(turnIndex, null, "stop"));
   };
