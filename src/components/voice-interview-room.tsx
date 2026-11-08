@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { CallStage } from "@/components/call-stage";
 import type {
   BlockInfo,
   InterviewStatus,
@@ -38,12 +39,6 @@ const DEMO_SCRIPT: DemoScriptStep[] = [
 const CRISIS_REGEX =
   /\b(me\s+matar|suic[ií]dio|acabar\s+com\s+tudo|n[aã]o\s+aguento\s+mais\s+viver|quero\s+morrer|me\s+machucar|tirar\s+minha\s+vida)\b/i;
 
-function formatTimer(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`; // taste-skill-ignore
-}
 
 function formatDoctorRef(doctorName: string): string {
   return doctorName.startsWith("Dra.") || doctorName.startsWith("Dr.")
@@ -70,21 +65,25 @@ export function VoiceInterviewRoom({
 
   const [status, setStatus] = useState<InterviewStatus>(initialView.status);
   const [voiceState, setVoiceState] = useState<RoomVoiceState>("inativo");
-  const [block, setBlock] = useState<BlockInfo | null>(initialView.block);
+  const [, setBlock] = useState<BlockInfo | null>(initialView.block);
   const [sayText, setSayText] = useState<string>(
     initialView.currentUtterance?.text ??
       (initialView.status === "crisis"
         ? "Obrigada por contar. Você não precisa passar por isso sozinho(a)."
         : "")
   );
-  const [heardText, setHeardText] = useState<string | null>(null);
   const [turnIndex, setTurnIndex] = useState<number>(initialView.turnsCount);
   const [elapsedMs, setElapsedMs] = useState<number>(initialView.elapsedMs);
   const [micLevel, setMicLevel] = useState<number>(0);
-  const [recordMs, setRecordMs] = useState<number>(0);
+  const [, setRecordMs] = useState<number>(0);
   const [showTextInput, setShowTextInput] = useState<boolean>(false);
   const [textDraft, setTextDraft] = useState<string>("");
   const [micError, setMicError] = useState<string | null>(null);
+  /** Microfone desligado pela pessoa: a Helena termina de falar e espera, sem gravar. */
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
+  /** Legenda (só da fala da Helena), desligada por padrão: a conversa é por voz. */
+  const [captionsOn, setCaptionsOn] = useState(false);
   const [connectionError, setConnectionError] = useState<boolean>(false);
   const [retryAction, setRetryAction] = useState<(() => void) | null>(null);
   const [crisisInfo, setCrisisInfo] = useState<{
@@ -294,7 +293,7 @@ export function VoiceInterviewRoom({
       setVoiceState("falando");
 
       const onSpeechEnd = () => {
-        if (isFinal) {
+        if (isFinal || mutedRef.current) {
           setVoiceState("inativo");
         } else {
           startListening();
@@ -374,9 +373,6 @@ export function VoiceInterviewRoom({
       setStatus(res.status);
       setBlock(res.block);
       setSayText(res.say);
-      if (res.heard !== null) {
-        setHeardText(res.heard);
-      }
       setTurnIndex(res.turnIndex);
       setElapsedMs(res.elapsedMs);
       if (res.crisis) {
@@ -696,42 +692,65 @@ export function VoiceInterviewRoom({
     applyTurnResponse(buildFallbackTurn(turnIndex, null, "stop"));
   };
 
-  const finishSpeakingNow = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
+  const handleToggleMute = () => {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMuted(next);
+    if (next) {
+      // desligar: descarta o que estava sendo gravado, não envia nada
+      discardRecordingRef.current = mediaRecorderRef.current?.state === "recording";
       stopMediaResources();
-    } else {
-      handleSendAudioTurn(new Blob([], { type: "audio/webm" }), 1200);
+      setVoiceState((v) => (v === "ouvindo" ? "inativo" : v));
+    } else if (voiceState === "inativo" || voiceState === "ouvindo") {
+      startListening();
     }
   };
 
+  const handleToggleText = () => {
+    const opening = !showTextInput;
+    setShowTextInput(opening);
+    if (opening && !mutedRef.current) handleToggleMute();
+    if (!opening && mutedRef.current) handleToggleMute();
+  };
+
   return (
-    <div className="min-h-dvh bg-[var(--bg)] text-[var(--ink)] flex flex-col justify-between px-4 py-5 sm:px-6 sm:py-8">
+    <>
+      {/* o elemento de áudio fica sempre montado no mesmo lugar: trocar de tela não corta a fala da Helena */}
       <audio ref={audioRef} className="hidden" />
+      {status === "running" ? (
+        <CallStage
+          interviewerName={initialView.interviewer.name}
+          doctorRef={doctorRef}
+          voiceState={voiceState}
+          micLevel={micLevel}
+          muted={muted}
+          captionsOn={captionsOn}
+          caption={sayText}
+          showListenHint={turnIndex <= 2}
+          connectionError={connectionError}
+          micError={micError}
+          showTextInput={showTextInput}
+          textDraft={textDraft}
+          onRetry={retryAction}
+          onToggleMute={handleToggleMute}
+          onToggleCaptions={() => setCaptionsOn((v) => !v)}
+          onSkip={handleSkip}
+          onToggleText={handleToggleText}
+          onHangUp={handleStop}
+          onTextChange={setTextDraft}
+          onSubmitText={handleSendTextTurn}
+        />
+      ) : (
+    <div className="min-h-dvh bg-[var(--bg)] text-[var(--ink)] flex flex-col justify-between px-4 py-5 sm:px-6 sm:py-8">
 
       {/* Cabeçalho fino */}
       <header className="w-full max-w-[440px] mx-auto flex items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
-        {status === "running" && block ? (
-          <>
-            <span className="text-[13px] font-medium text-[var(--ink)] truncate">
-              {block.label}
-            </span>
-            <span className="tabular-nums text-[13px] text-[var(--muted)] shrink-0">
-              {block.index} de {block.total}
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="text-[13px] font-medium text-[var(--ink)] truncate">
-              Consultório NR-7 · {doctorRef}
-            </span>
-            <span className="tabular-nums text-[12px] text-[var(--muted)] shrink-0">
-              Sigilo médico
-            </span>
-          </>
-        )}
+        <span className="text-[13px] font-medium text-[var(--ink)] truncate">
+          Consultório NR-7 · {doctorRef}
+        </span>
+        <span className="tabular-nums text-[12px] text-[var(--muted)] shrink-0">
+          Sigilo médico
+        </span>
       </header>
 
       {/* Corpo central (uma coluna, mobile-first) */}
@@ -791,209 +810,6 @@ export function VoiceInterviewRoom({
               >
                 Prefiro não
               </button>
-            </div>
-          </section>
-        )}
-
-        {/* ESTADO 2: CHAMADA EM ANDAMENTO */}
-        {status === "running" && (
-          <section
-            aria-label="Sala de entrevista por voz"
-            className="space-y-4"
-          >
-            {/* Cartão central com foto, nome e pastilha de estado */}
-            <div className="bg-[var(--card)] border border-[var(--line)] rounded-[12px] p-5 sm:p-6 space-y-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`relative w-12 h-12 rounded-full flex items-center justify-center font-semibold text-[16px] transition-transform duration-150 ${
-                      voiceState === "falando"
-                        ? "bg-[var(--accent-soft)] text-[var(--brand)] ring-4 ring-[var(--brand)]/25"
-                        : voiceState === "ouvindo"
-                        ? "bg-[var(--ok-bg)] text-[var(--ok-fg)] ring-4 ring-[var(--ok-fg)]/25"
-                        : "bg-[var(--warn-bg)] text-[var(--warn-fg)] ring-2 ring-[var(--warn-fg)]/30"
-                    }`}
-                    style={
-                      voiceState === "ouvindo"
-                        ? {
-                            transform: `scale(${(1 + micLevel * 0.18).toFixed(3)})`,
-                          }
-                        : undefined
-                    }
-                  >
-                    H
-                  </div>
-                  <div>
-                    <p className="text-[15px] font-semibold text-[var(--ink)]">
-                      {initialView.interviewer.name}
-                    </p>
-                    <p className="text-[13px] text-[var(--muted)]">
-                      trabalha com a {doctorRef}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Pastilha de estado: ouvindo / pensando / falando */}
-                <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[13px] font-medium ${
-                    voiceState === "falando"
-                      ? "bg-[var(--accent-soft)] text-[var(--brand)]"
-                      : voiceState === "ouvindo"
-                      ? "bg-[var(--ok-bg)] text-[var(--ok-fg)]"
-                      : "bg-[var(--warn-bg)] text-[var(--warn-fg)]"
-                  }`}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full bg-current"
-                    aria-hidden="true"
-                  />
-                  {voiceState === "falando"
-                    ? "Falando"
-                    : voiceState === "ouvindo"
-                    ? `Ouvindo · ${formatTimer(recordMs)}`
-                    : "Helena está pensando"}
-                </span>
-              </div>
-
-              {/* Acima da legenda grande, em cinza, heard ("Você disse: ...") */}
-              {heardText && (
-                <div className="bg-[var(--surface-subtle)] border border-[var(--line)] rounded-[8px] px-3.5 py-2.5 text-[13px] text-[var(--muted)]">
-                  <span className="font-medium text-[var(--ink-2)]">
-                    Você disse:{" "}
-                  </span>
-                  <span>“{heardText}”</span>
-                </div>
-              )}
-
-              {/* Legenda grande com say */}
-              <div className="pt-2 border-t border-[var(--line-subtle)]">
-                <p className="text-[18px] leading-[1.55] font-normal text-[var(--ink)]">
-                  {sayText}
-                </p>
-              </div>
-
-              {/* Barra de volume / onda quando ouvindo */}
-              {voiceState === "ouvindo" && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[13px] text-[var(--muted)]">
-                    <span>Fale com tranquilidade</span>
-                    <span className="tabular-nums">máx. 01:00</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-[var(--surface-subtle)] overflow-hidden border border-[var(--line)]">
-                    <div
-                      className="h-full bg-[var(--ok-fg)] transition-[width] duration-75"
-                      style={{
-                        width: `${Math.max(8, Math.round(micLevel * 100))}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Erro de conexão: "a conexão falhou, toque para tentar de novo" */}
-              {connectionError && retryAction && (
-                <button
-                  type="button"
-                  onClick={retryAction}
-                  className="w-full py-3 px-4 rounded-[8px] border border-[var(--danger-fg)] bg-[var(--danger-bg)] text-[var(--danger-fg)] font-semibold text-[14px] text-center"
-                >
-                  A conexão falhou, toque para tentar de novo
-                </button>
-              )}
-
-              {micError && (
-                <p className="text-[13px] text-[var(--warn-fg)] bg-[var(--warn-bg)] px-3 py-2 rounded-[8px]">
-                  {micError}
-                </p>
-              )}
-
-              {/* Rodapé de controles: "Pronto", "Pular pergunta", "Encerrar" */}
-              <div className="space-y-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={
-                    voiceState === "falando"
-                      ? () => {
-                          if (
-                            typeof window !== "undefined" &&
-                            "speechSynthesis" in window
-                          ) {
-                            window.speechSynthesis.cancel();
-                          }
-                          if (audioRef.current) {
-                            audioRef.current.pause();
-                          }
-                          startListening();
-                        }
-                      : finishSpeakingNow
-                  }
-                  disabled={voiceState === "pensando"}
-                  className="w-full py-3 px-4 rounded-[8px] bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-semibold text-[15px] transition-colors disabled:opacity-50"
-                >
-                  Pronto
-                </button>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSkip}
-                    disabled={voiceState === "pensando"}
-                    className="py-2.5 px-3 rounded-[8px] border border-[var(--line)] bg-[var(--surface-subtle)] hover:bg-[var(--bg)] text-[var(--ink-2)] font-medium text-[13px] transition-colors disabled:opacity-50"
-                  >
-                    Pular pergunta
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleStop}
-                    disabled={voiceState === "pensando"}
-                    className="py-2.5 px-3 rounded-[8px] border border-[var(--line)] bg-[var(--surface-subtle)] hover:bg-[var(--bg)] text-[var(--danger-fg)] font-medium text-[13px] transition-colors disabled:opacity-50"
-                  >
-                    Encerrar
-                  </button>
-                </div>
-
-                <div className="pt-1 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowTextInput((prev) => !prev)}
-                    className="text-[13px] font-medium text-[var(--muted)] hover:text-[var(--ink)] underline"
-                  >
-                    {showTextInput
-                      ? "Ocultar resposta por texto"
-                      : "Prefere responder digitando?"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Modo texto (fallback de acessibilidade e teste) */}
-              {showTextInput && (
-                <form
-                  onSubmit={handleSendTextTurn}
-                  className="pt-3 border-t border-[var(--line-subtle)] space-y-2.5"
-                >
-                  <label
-                    htmlFor="turn-text-input"
-                    className="block text-[13px] font-medium text-[var(--ink-2)]"
-                  >
-                    Digite sua resposta
-                  </label>
-                  <textarea
-                    id="turn-text-input"
-                    rows={3}
-                    value={textDraft}
-                    onChange={(e) => setTextDraft(e.target.value)}
-                    placeholder="Escreva com suas palavras..."
-                    className="w-full rounded-[8px] border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-[14px] text-[var(--ink)] focus:outline-none focus:border-[var(--brand)]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!textDraft.trim() || voiceState === "pensando"}
-                    className="w-full py-2.5 px-4 rounded-[8px] bg-[var(--ink)] hover:opacity-90 text-white font-medium text-[14px] transition-opacity disabled:opacity-50"
-                  >
-                    Enviar texto
-                  </button>
-                </form>
-              )}
             </div>
           </section>
         )}
@@ -1086,5 +902,7 @@ export function VoiceInterviewRoom({
         <span className="tabular-nums">CVV 188 · SAMU 192</span>
       </footer>
     </div>
+      )}
+    </>
   );
 }
