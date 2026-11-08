@@ -164,3 +164,54 @@ describe("motor de turnos", () => {
     expect(r.state.skipped).toContain("saude");
   });
 });
+
+describe("frase de risco com negação na entrevista", () => {
+  async function toSafety() {
+    let r = await start(FIXTURES.semIndicio);
+    for (const a of ["pode", "nada demais", "tranquilo", "nada", "não precisei", "um pouco", "tanto faz", "não", "nada", "não sei"]) {
+      r = await speak(r.state, a);
+      if (r.say.blockId === "seguranca") break;
+    }
+    expect(r.say.blockId).toBe("seguranca");
+    return r;
+  }
+
+  it("IA diz que negou: 'não, nunca pensei em me machucar' não corta a entrevista", async () => {
+    const { setRiskJudge, resetRiskJudge } = await import("@/lib/crisis/judge");
+    setRiskJudge(async () => "negado");
+    try {
+      const r = await speak((await toSafety()).state, "não, nunca pensei em me machucar");
+      expect(r.state.status).not.toBe("crisis");
+    } finally {
+      resetRiskJudge();
+    }
+  });
+
+  it("sem certeza (ou IA fora do ar): corta em crise, como antes", async () => {
+    const r = await speak((await toSafety()).state, "não, nunca pensei em me machucar");
+    expect(r.state.status).toBe("crisis");
+  });
+});
+
+describe("pergunta de segurança com resposta negativa natural", () => {
+  async function toSafety() {
+    let r = await start(FIXTURES.semIndicio);
+    for (const a of ["pode", "nada demais", "tranquilo", "nada", "não precisei", "um pouco", "tanto faz", "não", "nada", "não sei"]) {
+      r = await speak(r.state, a);
+      if (r.say.blockId === "seguranca") break;
+    }
+    expect(r.say.blockId).toBe("seguranca");
+    return r;
+  }
+
+  it.each(["Não, não tive não.", "não tenho", "Não tive.", "nunca tive isso", "não, não penso nisso", "Não."])("'%s' é um não claro: segue sem perguntar de novo", async (resposta) => {
+    const r = await speak((await toSafety()).state, resposta);
+    expect(r.state.status).not.toBe("crisis");
+    expect(r.say.blockId).not.toBe("seguranca");
+  });
+
+  it.each(["não, mas às vezes penso nisso", "não sei", "talvez"])("'%s' continua sem resposta clara: pergunta de outro jeito", async (resposta) => {
+    const r = await speak((await toSafety()).state, resposta);
+    expect(r.say.blockId).toBe("seguranca");
+  });
+});

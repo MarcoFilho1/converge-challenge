@@ -8,6 +8,7 @@
  */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
+import { recordEvent, type EventOutcome } from "@/lib/obs/events";
 
 export type ChatTarget = { label: string; key: string; model: LanguageModel };
 
@@ -47,6 +48,19 @@ export function chatTargets(env: Env = process.env, purpose: ChatPurpose = "long
   const models = ordered.filter(
     (m, i, all): m is string => !!m && all.indexOf(m) === i,
   );
+  const make = (modelId: string, key: string, i: number): ChatTarget => ({
+    label: `featherless:${modelId}#${i + 1}`,
+    key,
+    model: createOpenAICompatible({
+      name: "featherless",
+      baseURL: FEATHERLESS_URL,
+      apiKey: key,
+      includeUsage: true,
+      supportsStructuredOutputs: true,
+    }).chatModel(modelId),
+  });
+  // Tarefa rápida: alterna os modelos antes de trocar de chave (modelo lento na hora não melhora com outra chave).
+  if (purpose === "fast") return keys.flatMap((key, i) => models.map((modelId) => make(modelId, key, i)));
   return models.flatMap((modelId) =>
     keys.map((key, i) => ({
       label: `featherless:${modelId}#${i + 1}`,
@@ -60,6 +74,12 @@ export function chatTargets(env: Env = process.env, purpose: ChatPurpose = "long
       }).chatModel(modelId),
     })),
   );
+}
+
+function failureOutcome(err: unknown): EventOutcome {
+  if (isCreditError(err)) return "sem_credito";
+  const e = err as { name?: string; message?: string } | null;
+  return e?.name === "TimeoutError" || e?.name === "AbortError" || /timeout|aborted/i.test(e?.message ?? "") ? "tempo_esgotado" : "erro";
 }
 
 /** Chave sem crédito, cota esgotada ou recusada: não adianta tentar de novo com ela. */
@@ -97,12 +117,24 @@ export async function withChat<T>(
   for (const target of targets) {
     if (exhausted.has(target.key)) continue;
     if (limit && clock() - started + limit.attemptMs > limit.budgetMs) break;
+    const t0 = Date.now();
     try {
       const result = await run(target.model, target);
       recordCost(stage, result);
+      const usage = (result as { usage?: { inputTokens?: number; outputTokens?: number; raw?: { cost?: unknown } } } | null)?.usage;
+      recordEvent({
+        kind: stage,
+        outcome: "ok",
+        model: target.label,
+        tokensIn: usage?.inputTokens ?? null,
+        tokensOut: usage?.outputTokens ?? null,
+        costUsd: typeof usage?.raw?.cost === "number" ? usage.raw.cost : null,
+        latencyMs: Date.now() - t0,
+      });
       return result;
     } catch (err) {
       last = err;
+      recordEvent({ kind: stage, outcome: failureOutcome(err), model: target.label, latencyMs: Date.now() - t0, detail: err instanceof Error ? err.message : String(err) });
       if (isCreditError(err)) {
         exhausted.add(target.key);
         console.warn(`[ia] ${target.label} sem crédito ou recusada; trocando de chave`);
@@ -123,9 +155,9 @@ export function chatCallOptions(purpose: ChatPurpose = "long", env: Env = proces
   return { maxRetries: 0, abortSignal: AbortSignal.timeout(timeoutMs), timeoutMs };
 }
 
-/** Teto da tarefa rápida: AI_FAST_BUDGET_MS (padrão 14 s), com tentativas do tamanho de AI_FAST_TIMEOUT_MS. */
+/** Teto da tarefa rápida: AI_FAST_BUDGET_MS (padrão 15 s, duas tentativas de 7 s), com tentativas do tamanho de AI_FAST_TIMEOUT_MS. */
 function fastBudget(env: Env = process.env): { attemptMs: number; budgetMs: number; clock?: () => number } {
-  return { attemptMs: chatCallOptions("fast", env).timeoutMs, budgetMs: Number(env.AI_FAST_BUDGET_MS ?? 14_000) };
+  return { attemptMs: chatCallOptions("fast", env).timeoutMs, budgetMs: Number(env.AI_FAST_BUDGET_MS ?? 15_000) };
 }
 
 /** Custo em dólar que a Featherless devolve em cada chamada (usage.raw.cost), somado por etapa. */

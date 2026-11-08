@@ -35,6 +35,11 @@ export const copy = {
       `Suas respostas foram para ${doctor()}, só para ele(a). Se for o caso, ele(a) vai chamar você para conversar.`,
       "Lembrete: em emergência, 192. Para conversar a qualquer hora, 188 (CVV).",
     ].join("\n"),
+  crisisConfirm: "Só para eu ter certeza e cuidar de você: você tem pensado em se machucar ou em não estar mais aqui? Responda SIM ou NÃO.",
+  crisisDenied: "Obrigado por responder. Vamos continuar.",
+  mediaUnsupported: "Por enquanto eu leio mensagens de texto e ouço áudios. Figurinhas, fotos, vídeos e arquivos eu não consigo entender.",
+  audioFailed: "Não consegui ouvir seu áudio agora. Pode escrever a resposta?",
+  heardAudio: (text: string) => `Ouvi seu áudio: “${text}”`,
   interviewInvite: (url: string) =>
     [
       `Para entender melhor como você está, a Helena, assistente de ${doctor()}, pode conversar com você por uns 10 minutos, por voz ou por texto.`,

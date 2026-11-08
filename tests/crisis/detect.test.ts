@@ -12,6 +12,8 @@ const positives = [
   "tenho vontade de me machucar",
   "já pensei em me cortar",
   "seria melhor morrer",
+  "às vezes penso que seria melhor sumir",
+  "era melhor eu desaparecer",
   "penso em suicídio",
   "me cortei de novo ontem",
   "me machuquei de propósito",
