@@ -12,7 +12,7 @@ import { db } from "@/db/client";
 import { contacts, questionnaireRuns } from "@/db/schema";
 import type { InterviewRow } from "@/db/schema-interview";
 import { eq } from "drizzle-orm";
-import { concatWav, getOrGenerate, getVoice, toWav16k, voiceProfileName, VoiceUnavailable, type VoiceProvider } from "@/lib/voice";
+import { cleanTranscript, concatWav, looksHallucinated, getOrGenerate, getVoice, toWav16k, trimSilence, voiceProfileName, VoiceUnavailable, type VoiceProvider } from "@/lib/voice";
 import { fromQuestionnaireRun } from "./adapters/questionnaire";
 import { BLOCK_LABELS, type InterviewDetail, type InterviewListItem, type InterviewView, type TurnResponse } from "./contract";
 import { createState, isFinal, step, type InterviewEvent, type InterviewMode, type InterviewState, type Utterance } from "./engine";
@@ -233,7 +233,20 @@ export function createInterviewService(deps: ServiceDeps = {}) {
         }
         try {
           // áudio mudo: o Whisper inventa texto ("E aí E aí"); trata como "não ouvi" sem transcrever
-          text = isSilent(wav) ? "" : (await voice.stt(wav, "audio/wav")).text;
+          // Whisper alucina em silêncio longo ("eu eu eu…"): se o texto vier em loop, transcreve de novo sem os silêncios
+          // e fica com o resultado limpo mais completo. O áudio original continua guardado para o médico.
+          if (isSilent(wav)) text = "";
+          else {
+            const raw = (await voice.stt(wav, "audio/wav")).text;
+            text = cleanTranscript(raw);
+            if (looksHallucinated(raw)) {
+              const trimmed = await trimSilence(wav).catch(() => null);
+              if (trimmed && !isSilent(trimmed)) {
+                const second = cleanTranscript((await voice.stt(trimmed, "audio/wav")).text);
+                if (second.length > text.length) text = second;
+              }
+            }
+          }
         } catch (err) {
           if (err instanceof VoiceUnavailable) throw new SttUnavailable(err.message);
           throw err;

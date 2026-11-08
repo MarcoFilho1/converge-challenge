@@ -40,3 +40,24 @@ export function concatWav(wavs: Buffer[]): Buffer {
   h.writeUInt32LE(body.length, 40);
   return Buffer.concat([h, body]);
 }
+
+/** Remove silêncios longos (> 0,4 s abaixo de -40 dB) de um wav 16 kHz antes de transcrever; o Whisper alucina no silêncio. */
+export function trimSilence(wav: Buffer, timeoutMs = 10_000): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const ff = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", "pipe:0",
+      "-af", "silenceremove=start_periods=1:start_threshold=-40dB:stop_periods=-1:stop_duration=0.4:stop_threshold=-40dB",
+      "-ac", "1", "-ar", "16000", "-f", "wav", "pipe:1"]);
+    const out: Buffer[] = [];
+    const timer = setTimeout(() => { ff.kill("SIGKILL"); reject(new Error("ffmpeg: tempo esgotado")); }, timeoutMs);
+    ff.stdout.on("data", (d: Buffer) => out.push(d));
+    ff.on("error", (e) => { clearTimeout(timer); reject(e); });
+    ff.on("close", (code) => {
+      clearTimeout(timer);
+      const b = Buffer.concat(out);
+      if (code === 0 && b.length >= 44) resolve(b);
+      else reject(new Error(`ffmpeg falhou (${code})`));
+    });
+    ff.stdin.on("error", () => {});
+    ff.stdin.end(wav);
+  });
+}
