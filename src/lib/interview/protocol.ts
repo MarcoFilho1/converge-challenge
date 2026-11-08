@@ -51,7 +51,7 @@ export const BLOCKS: Record<BlockId, Block> = {
     [
       { id: "horarioGarantido", text: "Se tivesse um horário garantido, você iria?", when: "sempre", covers: "barreira" },
       { id: "pertoOuOnline", text: "Prefere algo perto de casa ou online?", when: "sempre", covers: "barreira" },
-      { id: "medoEmpresa", text: "Você tem receio de a empresa saber?", when: "sempre", covers: "barreira" },
+      { id: "medoEmpresa", text: "Você fica com receio de a empresa saber?", when: "sempre", covers: "barreira" },
     ],
     3, false,
   ),
