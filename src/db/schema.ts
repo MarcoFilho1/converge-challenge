@@ -227,6 +227,13 @@ export const doctorNotices = pgTable(
 );
 export type DoctorNotice = typeof doctorNotices.$inferSelect;
 
+/** Configurações que a médica muda no painel (vencem o .env). Uma linha por chave. */
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /**
  * Telegram, a reserva do WhatsApp: liga cada conversa do bot a uma pessoa.
  * person_key é o telefone (quem compartilhou o número; o mesmo caso do WhatsApp continua)

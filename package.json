@@ -24,6 +24,7 @@
     "telegram:db": "tsx scripts/telegram-db.ts",
     "evals:entrevista:real": "EVAL_REAL=true tsx evals/entrevista.ts",
     "avisos:db": "tsx scripts/avisos-db.ts",
+    "config:db": "tsx scripts/config-db.ts",
     "whatsapp:db": "tsx scripts/whatsapp-db.ts"
   },
   "dependencies": {

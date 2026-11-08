@@ -16,7 +16,7 @@ export function pushSchemaToTestDb() {
 export async function truncateAll() {
   const { db } = await import("@/db/client");
   await db.execute(sql`
-    TRUNCATE telegram_links, doctor_notices, agent_events, interview_summaries, interview_turns, interviews, evidence, summaries, scores, answers, messages, questionnaire_runs, contacts, wa_sessions
+    TRUNCATE app_settings, telegram_links, doctor_notices, agent_events, interview_summaries, interview_turns, interviews, evidence, summaries, scores, answers, messages, questionnaire_runs, contacts, wa_sessions
     RESTART IDENTITY CASCADE
   `);
 }

@@ -34,10 +34,24 @@ export type NotifyDeps = {
   /** Aviso no painel da médica (padrão: tabela doctor_notices). Sempre gravado, com ou sem WhatsApp. */
   saveNotice?: (n: { kind: NoticeKind; contactName: string; runId: string | null; interviewId: string | null; text: string }) => Promise<unknown>;
   lookupName?: (runId: string) => Promise<string | null>;
+  /** Nome e telefone de quem fez a entrevista (para o aviso ao participante na demo). */
+  lookupContact?: (runId: string) => Promise<{ name: string; phone: string } | null>;
   doctorPhone?: string;
   baseUrl?: string;
 };
 export type NotifyResult = "enviado" | "sem_numero" | "sem_caso" | "erro";
+
+async function defaultLookupContact(runId: string): Promise<{ name: string; phone: string } | null> {
+  const { db } = await import("@/db/client");
+  const { contacts, questionnaireRuns } = await import("@/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const [r] = await db
+    .select({ name: contacts.name, phone: contacts.phoneE164 })
+    .from(questionnaireRuns)
+    .innerJoin(contacts, eq(contacts.id, questionnaireRuns.contactId))
+    .where(eq(questionnaireRuns.id, runId));
+  return r ?? null;
+}
 
 async function defaultLookupName(runId: string): Promise<string | null> {
   const { db } = await import("@/db/client");
@@ -69,13 +83,29 @@ export function panelNotice(kind: NoticeKind, contactName: string): string {
 
 /** Nunca lança: o fim da entrevista não pode cair porque o WhatsApp está fora. */
 export async function notifyDoctor(n: NotifyInput, deps: NotifyDeps = {}): Promise<NotifyResult> {
-  const phone = toE164(deps.doctorPhone ?? process.env.DOCTOR_WHATSAPP ?? "");
+  const { getSettings } = await import("@/lib/settings");
+  const settings = await getSettings();
+  const phone = toE164(deps.doctorPhone ?? settings.doctorWhatsapp ?? "");
+  // Demonstração: quem fez a entrevista recebe no próprio WhatsApp o aviso que iria para a médica.
+  if (settings.notifyParticipant && n.runId) {
+    try {
+      const who = await (deps.lookupContact ?? defaultLookupContact)(n.runId);
+      if (who?.phone) {
+        const base = (deps.baseUrl ?? process.env.INTERVIEW_PUBLIC_URL ?? "http://localhost:3100").replace(/\/$/, "");
+        const text = `_Demonstração: este é o aviso que a médica do trabalho receberia no WhatsApp quando uma entrevista termina._\n\n${doctorNotice({ kind: noticeKind(n.state), contactName: who.name, caseUrl: `${base}/caso/${n.runId}` })}`;
+        await (deps.send ?? defaultSend)(who.phone, text);
+        recordEvent({ kind: "aviso ao participante", outcome: "ok", detail: "aviso da médica enviado a quem fez a entrevista (demo)", interviewId: n.interviewId, runId: n.runId });
+      }
+    } catch (err) {
+      console.warn("[entrevista] aviso ao participante falhou", err instanceof Error ? err.message : err);
+    }
+  }
   const event = (outcome: "ok" | "descartado" | "erro", detail: string) =>
     recordEvent({ kind: "aviso ao médico", outcome, detail, interviewId: n.interviewId, runId: n.runId });
   // Aviso no painel: sempre, com ou sem o WhatsApp da médica configurado.
   if (n.runId) {
     try {
-      const contactName = (await (deps.lookupName ?? defaultLookupName)(n.runId)) ?? "Um colaborador";
+      const contactName = (deps.lookupContact ? (await deps.lookupContact(n.runId))?.name : await (deps.lookupName ?? defaultLookupName)(n.runId)) ?? "Um colaborador";
       const kind = noticeKind(n.state);
       await (deps.saveNotice ?? defaultSaveNotice)({ kind, contactName, runId: n.runId, interviewId: n.interviewId, text: panelNotice(kind, contactName) });
     } catch (err) {

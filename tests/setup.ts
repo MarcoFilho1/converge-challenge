@@ -18,6 +18,9 @@ process.env.TELEGRAM_DRY_RUN = "true";
 delete process.env.OPEN_ENTRY;
 delete process.env.AI_EMBEDDINGS;
 delete process.env.INTERVIEW_INVITE_ALL;
+delete process.env.DEMO_NOTIFY_PARTICIPANT;
+delete process.env.AUTO_DISPATCH;
+delete process.env.DOCTOR_WHATSAPP;
 
 // Indícios e resumo rodam em segundo plano: cada teste espera terminar antes do próximo limpar o banco.
 afterEach(async () => {

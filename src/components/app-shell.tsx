@@ -29,6 +29,7 @@ export function AppShell({ children, urgentCount, priorityCount, noticeCount = 0
     { href: "/avisos", label: "Avisos", count: noticeCount > 0 ? String(noticeCount) : null, hot: false },
     { href: "/conexao", label: "Canais", count: null, hot: false },
     { href: "/medicao", label: "Medição", count: null, hot: false },
+    { href: "/configuracoes", label: "Configurações", count: null, hot: false },
   ];
   const isActive = (href: string) =>
     href === "/fila" ? pathname === "/fila" || pathname.startsWith("/caso/") : pathname.startsWith(href);
