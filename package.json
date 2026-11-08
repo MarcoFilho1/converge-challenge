@@ -11,7 +11,12 @@
     "db:push": "drizzle-kit push --force",
     "ingest": "tsx scripts/ingest.ts",
     "seed": "tsx scripts/seed.ts",
-    "evals": "tsx scripts/evals.ts"
+    "evals": "tsx scripts/evals.ts",
+    "entrevista:db": "tsx scripts/entrevista-db.ts",
+    "entrevista:convite": "tsx scripts/entrevista-convite.ts",
+    "voz:pregerar": "tsx scripts/voz-pregerar.ts",
+    "voz:medir": "tsx scripts/voz-medir.ts",
+    "evals:entrevista": "tsx evals/entrevista.ts"
   },
   "dependencies": {
     "ai": "^7.0.164",

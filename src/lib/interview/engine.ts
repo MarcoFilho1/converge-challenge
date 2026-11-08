@@ -5,7 +5,7 @@
 import type { InterviewAi } from "@/lib/ai/interview";
 import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
 import { buildAgenda, type Agenda } from "./agenda";
-import { cleanGenerated } from "./filters";
+import { cleanGenerated, extraCrisis } from "./filters";
 import { BLOCKS, CRISIS_SPEECH, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
 import { fechamentoIndex, selectNext } from "./select";
 import type { BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
@@ -174,7 +174,7 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
   const blockId = currentBlockId(state);
   let s = pushTurn(state, { speaker: "person", text, blockId, probeId: state.currentProbeId, startedMs: nowMs - state.startedMs, durationMs: event.durationMs });
 
-  if (detectCrisis(text).hit) return crisis({ ...ctx, state: s });
+  if (detectCrisis(text).hit || extraCrisis(text)) return crisis({ ...ctx, state: s });
   if (blockId === "seguranca" && SAFETY_YES.test(normalizeText(text))) return crisis({ ...ctx, state: s });
 
   if (normalizeText(text).length < 2) {
