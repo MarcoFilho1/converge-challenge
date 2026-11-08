@@ -65,3 +65,46 @@ describe("serviço gera só o que falta", () => {
     expect(spoken.length).toBe(before);
   });
 });
+
+describe("créditos da voz acabaram no meio da entrevista", () => {
+  beforeAll(() => pushSchemaToTestDb());
+  beforeEach(async () => truncateAll());
+
+  it("reação gerada que falha vira reação gravada; a pergunta sai do cache e nunca cai na voz do navegador", async () => {
+    const { VoiceUnavailable } = await import("@/lib/voice/types");
+    const { getOrGenerate } = await import("@/lib/voice/cache");
+    const root = mkdtempSync(join(tmpdir(), "ent-"));
+    let quotaOver = false;
+    const voice: VoiceProvider = {
+      async tts() {
+        if (quotaOver) throw new VoiceUnavailable("quota_exceeded");
+        return { audio: pcmToWav(Buffer.alloc(480), 24000), mime: "audio/wav" };
+      },
+      async stt() { return { text: "", ms: 0 }; },
+      async health() { return true; },
+    };
+    // pré-gravado: perguntas e reações fixas
+    for (const a of ACK_PHRASES) await getOrGenerate(voice, "t", `ack:${a}`, a, join(root, "voz"));
+    const { BLOCKS, renderText, DEFAULT_PRAZO } = await import("@/lib/interview/protocol");
+    const vars = { medico: process.env.DOCTOR_NAME ?? "Dra. Ana Lima", prazo: DEFAULT_PRAZO };
+    for (const b of Object.values(BLOCKS)) {
+      await getOrGenerate(voice, "t", `${b.id}:base`, renderText(b.base, vars), join(root, "voz"));
+      for (const pr of b.probes) await getOrGenerate(voice, "t", `${b.id}:${pr.id}`, pr.text, join(root, "voz"));
+    }
+    const { createInterviewService } = await import("@/lib/interview/service");
+    const { createInterviewMock } = await import("@/lib/ai/interview-mock");
+    const base = createInterviewMock();
+    // IA que gera reação nova (não gravada)
+    const ai = { ...base, phraseAck: async () => "Entendi, o cansaço piora no fim do expediente." };
+    const svc = createInterviewService({ voice, ai, dataRoot: root, profile: "t" });
+    const inv = await svc.createInvite(null, { fixture: "prioridade" });
+    const token = inv.inviteUrl.split("/").pop()!;
+    await svc.start(token, true);
+    await svc.turn(token, { text: "pode" }); // grava a pergunta-base de saúde no cache
+    await svc.turn(token, { text: "um cansaço grande" }); // grava a sonda seguinte
+    quotaOver = true;
+    const r = await svc.turn(token, { text: "piora no fim do dia" });
+    expect(r.voice).not.toBe("browser");
+    expect(r.audioUrl).toBeTruthy();
+  });
+});
