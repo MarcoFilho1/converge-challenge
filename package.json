@@ -16,6 +16,7 @@
     "entrevista:convite": "tsx scripts/entrevista-convite.ts",
     "voz:pregerar": "tsx scripts/voz-pregerar.ts",
     "voz:medir": "tsx scripts/voz-medir.ts",
+    "voz:cota": "tsx scripts/voz-cota.ts",
     "evals:entrevista": "tsx evals/entrevista.ts"
   },
   "dependencies": {
