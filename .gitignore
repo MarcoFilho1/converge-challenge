@@ -9,3 +9,4 @@ next-env.d.ts
 
 # entrevista por voz: áudio gravado da pessoa e cache de TTS (nunca commitar)
 /data/
+.taste-skill/

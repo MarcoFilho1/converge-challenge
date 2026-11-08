@@ -57,7 +57,7 @@ const agentStages = [
 
 function AgentJourney() {
   return <section className="lp-process" id="como-funciona" aria-labelledby="process-title">
-    <h2 id="process-title">O agente conecta as etapas.<br /><em>O médico conduz o cuidado.</em></h2>
+    <h2 id="process-title">O agente conecta as etapas.{" "}<br /><em>O médico conduz o cuidado.</em></h2>
     <ol className="lp-journey" aria-label="Etapas do acompanhamento clínico">
       {agentStages.map((stage, index) => <li key={stage.title} className={index === 4 ? "lp-journeyHuman" : ""}>
         <div className="lp-journeyNode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={stage.icon} /></svg><span className="lp-journeyNumber">0{index + 1}</span></div>
@@ -77,8 +77,7 @@ function TryIt() {
     return () => { alive = false; };
   }, []);
   return <section className="lp-privacy lp-try" id="testar" aria-labelledby="try-title">
-    <p className="lp-eyebrow">TESTE AGORA</p>
-    <div className="lp-sectionHeading"><h2 id="try-title">Responda como um colaborador.<br /><em>Pelo seu celular.</em></h2><p>O questionário chega pelo WhatsApp, o canal principal. Se o WhatsApp estiver fora do ar, o atendimento continua pelo Telegram, a reserva.</p></div>
+        <div className="lp-sectionHeading"><h2 id="try-title">Teste como colaborador,{" "}<br /><em>pelo seu celular.</em></h2><p>O questionário chega pelo WhatsApp, o canal principal. Se o WhatsApp estiver fora do ar, o atendimento continua pelo Telegram, a reserva.</p></div>
     <div className="lp-tryRow">
       {qr && <div className="lp-tryQr" role="img" aria-label="QR code para abrir o teste no celular" dangerouslySetInnerHTML={{ __html: qr }} />}
       <div><p className="lp-tryText">No computador, leia o QR code com a câmera do celular. No celular, toque no botão.</p><Link className="lp-button" href="/demo">Iniciar a demo <span aria-hidden="true">↗</span></Link><p className="lp-tryNote">O roteiro passa por todos os papéis: colaborador, Helena e médica. Quer só o questionário? <Link href="/entrar">Abrir direto no WhatsApp</Link>.</p></div>
@@ -112,27 +111,23 @@ export function LandingPage() {
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     preference.addEventListener("change", onScroll);
-    const animations = new Set<Animation>();
+    // A marca de "script ligado" vai no <html>: o className do .lp é controlado pelo React e seria sobrescrito.
+    document.documentElement.classList.add("lp-js");
+    const revealed = container.querySelectorAll<HTMLElement>(".lp-sectionHeading, .lp-conversation, .lp-process > h2, .lp-journey li, .lp-accessRows article, .lp-evidenceNumbers > div, .lp-evidenceCaveats, .lp-tryRow, .lp-final > h2, .lp-final > .lp-button");
+    revealed.forEach(element => {
+      // Items of one list arrive a beat apart; headings and single blocks arrive at once.
+      const index = element.matches("li, article, .lp-evidenceNumbers > div") ? Array.from(element.parentElement?.children ?? []).indexOf(element) : 0;
+      element.style.setProperty("--i", String(Math.max(0, index)));
+      element.classList.add("lp-reveal");
+    });
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (!entry.isIntersecting) return;
         observer.unobserve(entry.target);
-        if (preference.matches) return;
-        const element = entry.target as HTMLElement;
-        const isPreview = element.classList.contains("lp-conversation");
-        const index = Array.from(element.parentElement?.children ?? []).indexOf(element);
-        const stagger = element.matches("li, article") ? Math.max(0, index) * 110 : 0;
-        const animation = element.animate([
-          { opacity: 0, transform: isPreview ? "translateY(36px) scale(.97)" : "translateY(24px)" },
-          { opacity: 1, transform: "translateY(0) scale(1)" },
-        ], { duration: isPreview ? 850 : 650, delay: stagger, easing: "cubic-bezier(.22,1,.36,1)", fill: "backwards" });
-        animations.add(animation);
-        animation.onfinish = () => animations.delete(animation);
+        entry.target.classList.add("lp-in");
       });
-    }, { threshold: 0.12 });
-    container.querySelectorAll(".lp-sectionHeading, .lp-conversation, .lp-process > h2, .lp-process li, .lp-accessRows article, .lp-evidenceNumbers > div, .lp-final > h2, .lp-final > .lp-button").forEach(element => observer.observe(element));
-    const stopMotion = () => { if (preference.matches) animations.forEach(animation => animation.cancel()); };
-    preference.addEventListener("change", stopMotion);
+    }, { rootMargin: "0px 0px -10% 0px", threshold: 0.08 });
+    revealed.forEach(element => observer.observe(element));
     const navigate = (event: MouseEvent) => {
       if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
       const link = (event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]');
@@ -145,15 +140,15 @@ export function LandingPage() {
       target.focus({ preventScroll: true });
     };
     container.addEventListener("click", navigate);
-    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); preference.removeEventListener("change", onScroll); cancelAnimationFrame(scrollFrame); observer.disconnect(); animations.forEach(animation => animation.cancel()); preference.removeEventListener("change", stopMotion); container.removeEventListener("click", navigate); };
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); preference.removeEventListener("change", onScroll); cancelAnimationFrame(scrollFrame); observer.disconnect(); container.removeEventListener("click", navigate); document.documentElement.classList.remove("lp-js"); };
   }, []);
   return <div className={scrolled ? "lp lp-scrolled" : "lp"} ref={root} id="inicio">
     <a className="lp-skip" href="#conteudo">Ir para o conteúdo</a>
-    <header className="lp-header"><Brand /><button className="lp-menu" aria-expanded={menuOpen} aria-controls="landing-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "Fechar ×" : "Menu ☰"}</button><nav id="landing-navigation" className={menuOpen ? "lp-nav lp-navOpen" : "lp-nav"} aria-label="Navegação principal"><a href="#prevencao" onClick={() => setMenuOpen(false)}>A plataforma</a><a href="#como-funciona" onClick={() => setMenuOpen(false)}>Como funciona</a><a href="#privacidade" onClick={() => setMenuOpen(false)}>Privacidade</a><a href="#testar" onClick={() => setMenuOpen(false)}>Testar agora</a><Link href="/demo" className="lp-login lp-demoLink">Iniciar a demo <span aria-hidden="true">↗</span></Link><Link href="/login" className="lp-login">Entrar <span aria-hidden="true">↗</span></Link></nav></header>
+    <header className="lp-header"><Brand /><button className="lp-menu" aria-expanded={menuOpen} aria-controls="landing-navigation" onClick={() => setMenuOpen(!menuOpen)}><span>{menuOpen ? "Fechar" : "Menu"}</span><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">{menuOpen ? <path d="M5 5l10 10M15 5L5 15" /> : <path d="M3 6h14M3 10h14M3 14h14" />}</svg></button><nav id="landing-navigation" className={menuOpen ? "lp-nav lp-navOpen" : "lp-nav"} aria-label="Navegação principal"><a href="#prevencao" onClick={() => setMenuOpen(false)}>A plataforma</a><a href="#como-funciona" onClick={() => setMenuOpen(false)}>Como funciona</a><a href="#privacidade" onClick={() => setMenuOpen(false)}>Privacidade</a><a href="#testar" onClick={() => setMenuOpen(false)}>Testar agora</a><Link href="/demo" className="lp-login lp-demoLink">Iniciar a demo <span aria-hidden="true">↗</span></Link><Link href="/login" className="lp-login">Entrar <span aria-hidden="true">↗</span></Link></nav></header>
     <main id="conteudo">
-      <section className="lp-hero" aria-labelledby="hero-title"><h1 id="hero-title">Cuidar antes que<br /><em>o problema cresça.</em></h1><div className="lp-heroBottom"><p>A Praevenius apoia o médico do trabalho na identificação precoce de sinais de adoecimento e ajuda empresas a organizar a prevenção. O objetivo é evitar agravamentos e reduzir o impacto dos afastamentos.</p><div className="lp-heroActions"><Link className="lp-button" href="/demo">Iniciar a demo <span aria-hidden="true">↗</span></Link><a className="lp-button lp-buttonQuiet" href="#evidencias">Conheça a Praevenius <span aria-hidden="true">↘</span></a></div></div></section>
+      <section className="lp-hero" aria-labelledby="hero-title"><h1 id="hero-title"><span className="lp-line" style={{ "--i": 0 } as React.CSSProperties}><span>Cuidar antes que</span></span><span className="lp-line" style={{ "--i": 1 } as React.CSSProperties}><span><em>o problema cresça.</em></span></span></h1><div className="lp-heroBottom"><p>A Praevenius apoia o médico do trabalho na identificação precoce de sinais de adoecimento e ajuda empresas a organizar a prevenção. O objetivo é evitar agravamentos e reduzir o impacto dos afastamentos.</p><div className="lp-heroActions"><Link className="lp-button" href="/demo">Iniciar a demo <span aria-hidden="true">↗</span></Link><a className="lp-button lp-buttonQuiet" href="#evidencias">Conheça a Praevenius <span aria-hidden="true">↘</span></a></div></div></section>
       <section className="lp-privacy lp-evidence" id="evidencias" aria-labelledby="evidence-title">
-        <div className="lp-sectionHeading"><h2 id="evidence-title">Saúde e trabalho.<br /><em>O cenário brasileiro.</em></h2><p>Dados sobre benefícios por incapacidade e engajamento no Brasil.</p></div>
+        <div className="lp-sectionHeading"><h2 id="evidence-title">Saúde e trabalho.{" "}<br /><em>O cenário brasileiro.</em></h2><p>Dados sobre benefícios por incapacidade e engajamento no Brasil.</p></div>
         <dl className="lp-evidenceNumbers lp-brazilNumbers">
           <div><dt>Benefícios por transtornos mentais · 2022–2025</dt><dd><CountUp value={171} prefix="+" /><span>%</span></dd><p>De 201.864 para 546.254 benefícios por incapacidade temporária concedidos. Crescimento aproximado; dados de 2025 divulgados como preliminares.</p><a href="https://www.gov.br/fundacentro/pt-br/comunicacao/noticias/noticias/2026/marco/concessao-de-beneficios-por-transtornos-mentais-e-comportamentais-cresce-mais-de-100-apos-pandemia" target="_blank" rel="noopener noreferrer">Previdência Social / Fundacentro ↗</a></div>
           <div><dt>Perdas anuais associadas ao desengajamento</dt><dd><CountUp value={77} prefix="R$ " /> <span>bilhões</span></dd><p>Estimativa equivalente a cerca de 0,66% do PIB brasileiro, considerando presenteísmo e rotatividade. Não são perdas exclusivamente atribuíveis à saúde mental.</p><a href="https://portal.fgv.br/noticias/engajamento-no-trabalho-cai-ao-menor-nivel-da-serie-historica-e-gera-perda-anual-de-r-77" target="_blank" rel="noopener noreferrer">FGV EAESP · Engaja S/A, 2025 ↗</a></div>
@@ -162,7 +157,7 @@ export function LandingPage() {
         <details className="lp-evidenceCaveats"><summary>Contexto e limites dos dados</summary><ul><li>Benefícios concedidos não equivalem necessariamente a pessoas distintas. Nem todos os transtornos que motivaram benefícios tiveram origem no trabalho.</li><li>O crescimento de aproximadamente 171% é calculado sobre os totais de 2022 e 2025 apresentados. Os dados de 2025 são preliminares.</li><li>Os R$ 77 bilhões são uma estimativa da pesquisa Engaja S/A para desengajamento, somando presenteísmo e rotatividade; não medem apenas saúde mental.</li><li>Os 39% se referem aos participantes da pesquisa de 2025. Os indicadores não demonstram resultados obtidos pela Praevenius.</li></ul></details>
       </section>
       <section className="lp-privacy" id="prevencao" aria-labelledby="prevention-title">
-        <div className="lp-sectionHeading"><h2 id="prevention-title">Do cuidado individual<br /><em>à prevenção na empresa.</em></h2><p>A Praevenius reúne duas frentes de apoio: o acompanhamento do médico do trabalho e a organização do ciclo de prevenção da empresa.</p></div>
+        <div className="lp-sectionHeading"><h2 id="prevention-title">Do cuidado individual{" "}<br /><em>à prevenção na empresa.</em></h2><p>A Praevenius reúne duas frentes de apoio: o acompanhamento do médico do trabalho e a organização do ciclo de prevenção da empresa.</p></div>
         <div className="lp-accessRows">
           <article><span>NR-7 / CONSULTÓRIO<br />Disponível na demonstração</span><h3>Mais contexto para o médico.</h3><p>Questionário pelo WhatsApp, fila de triagem, evidências e entrevista com Helena. Informações organizadas para apoiar a avaliação e o acompanhamento individual pelo médico do trabalho.</p></article>
           <article><span>NR-1 / EMPRESA<br />Em breve</span><h3>Um ciclo de prevenção contínuo.</h3><p>A proposta é acompanhar sinais por setor, sugerir ações, registrar responsáveis e prazos, reavaliar e reunir evidências do acompanhamento. O RH recebe somente informações agregadas, sem acesso às conversas individuais.</p></article>
@@ -170,12 +165,12 @@ export function LandingPage() {
         </div>
       </section>
       <AgentJourney />
-      <section className="lp-product" id="plataforma" aria-labelledby="product-title"><div className="lp-sectionHeading"><h2 id="product-title">Uma conversa pode ser<br />o <em>primeiro passo.</em></h2><p>Helena é a assistente da Praevenius. Ela conduz uma escuta sobre a relação com o trabalho, com perguntas simples e espaço para responder no seu ritmo.</p></div>
-        <div className="lp-conversation"><div className="lp-conversationBar"><div><span className="lp-helenaIcon" aria-hidden="true">h.</span><div><strong>Helena</strong><span>Assistente de bem-estar</span></div></div><span className="lp-exampleLabel">Conversa ilustrativa</span></div><div className="lp-dialogue" key={topic}><p className="lp-userMessage">{example.message}</p><div className="lp-helenaMessage"><span>HELENA</span><p>{example.reply}</p></div></div><div className="lp-topics" role="group" aria-label="Exemplos de conversa">{examples.map((item, index) => <button key={item.label} aria-pressed={topic === index} onClick={() => setTopic(index)}>{item.label}<span aria-hidden="true">↗</span></button>)}</div><div className="lp-conversationFoot"><span>Você escolhe o que compartilhar.</span><Link href="/entrevista/demo-mariana-nr7">Conhecer a sala da Helena →</Link></div></div>
+      <section className="lp-product" id="plataforma" aria-labelledby="product-title"><div className="lp-sectionHeading"><h2 id="product-title">Uma conversa pode ser{" "}<br />o <em>primeiro passo.</em></h2><p>Helena é a assistente da Praevenius. Ela conduz uma escuta sobre a relação com o trabalho, com perguntas simples e espaço para responder no seu ritmo.</p></div>
+        <div className="lp-conversation"><div className="lp-conversationBar"><div><span className="lp-helenaIcon" aria-hidden="true">h.</span><div><strong>Helena</strong><span>Assistente de bem-estar</span></div></div><span className="lp-exampleLabel">Conversa ilustrativa</span></div><div className="lp-dialogue" key={topic}><p className="lp-userMessage">{example.message}</p><div className="lp-helenaMessage"><span>Helena</span><p>{example.reply}</p></div></div><div className="lp-topics" role="group" aria-label="Exemplos de conversa">{examples.map((item, index) => <button key={item.label} aria-pressed={topic === index} onClick={() => setTopic(index)}>{item.label}<span aria-hidden="true">↗</span></button>)}</div><div className="lp-conversationFoot"><span>Você escolhe o que compartilhar.</span><Link href="/entrevista/demo-mariana-nr7">Conhecer a sala da Helena →</Link></div></div>
       </section>
-      <section className="lp-privacy" id="privacidade" aria-labelledby="privacy-title"><div className="lp-sectionHeading"><h2 id="privacy-title">O cuidado aproxima.<br /><em>A privacidade protege.</em></h2><p>Visões diferentes, com limites claros sobre o acesso às informações.</p></div><div className="lp-accessRows"><article><span>Trabalhador</span><h3>Um espaço pessoal.</h3><p>Converse com Helena e reflita sobre a sua relação com o trabalho.</p></article><article><span>Organização</span><h3>Um olhar coletivo.</h3><p>Indicadores agregados por setor, em grupos de pelo menos cinco pessoas. Conversas individuais não fazem parte dessa visão.</p></article><article><span>Médico do trabalho</span><h3>Acompanhamento individual.</h3><p>A escuta clínica pertence a um ambiente separado, com acesso restrito ao profissional de saúde.</p></article></div></section>
+      <section className="lp-privacy" id="privacidade" aria-labelledby="privacy-title"><div className="lp-sectionHeading"><h2 id="privacy-title">O cuidado aproxima.{" "}<br /><em>A privacidade protege.</em></h2><p>Visões diferentes, com limites claros sobre o acesso às informações.</p></div><div className="lp-accessRows"><article><span>Trabalhador</span><h3>Um espaço pessoal.</h3><p>Converse com Helena e reflita sobre a sua relação com o trabalho.</p></article><article><span>Organização</span><h3>Um olhar coletivo.</h3><p>Indicadores agregados por setor, em grupos de pelo menos cinco pessoas. Conversas individuais não fazem parte dessa visão.</p></article><article><span>Médico do trabalho</span><h3>Acompanhamento individual.</h3><p>A escuta clínica pertence a um ambiente separado, com acesso restrito ao profissional de saúde.</p></article></div></section>
       <section className="lp-privacy" id="embasamento" aria-labelledby="basis-title">
-        <div className="lp-sectionHeading"><h2 id="basis-title">Escuta humana.<br /><em>Critérios claros.</em></h2><p>Na trilha clínica, o acompanhamento reúne questionários, regras de pontuação e referências documentais para apoiar o médico do trabalho.</p></div>
+        <div className="lp-sectionHeading"><h2 id="basis-title">Escuta humana.{" "}<br /><em>Critérios claros.</em></h2><p>Na trilha clínica, o acompanhamento reúne questionários, regras de pontuação e referências documentais para apoiar o médico do trabalho.</p></div>
         <div className="lp-accessRows">
           <article><span>QUESTIONÁRIOS</span><h3>Pontuação por regras.</h3><p>WPAI-GH, BAT-12, PHQ-9, GAD-7 e COPSOQ II-Br: os escores são calculados em código, separados da conversa com a assistente.</p></article>
           <article><span>ACOMPANHAMENTO</span><h3>Sinais para avaliação.</h3><p>Os resultados são apresentados como indícios e relatos para avaliação profissional. A assistente não estabelece diagnósticos.</p></article>
@@ -184,7 +179,7 @@ export function LandingPage() {
         </div>
       </section>
       <TryIt />
-      <section className="lp-final" aria-labelledby="final-title"><h2 id="final-title">Mais escuta.<br /><em>Mais espaço para cuidar.</em></h2><Link className="lp-button" href="/login">Acessar a plataforma <span aria-hidden="true">↗</span></Link></section>
+      <section className="lp-final" aria-labelledby="final-title"><h2 id="final-title">Mais escuta.{" "}<br /><em>Mais espaço para cuidar.</em></h2><Link className="lp-button" href="/login">Acessar a plataforma <span aria-hidden="true">↗</span></Link></section>
     </main><footer className="lp-footer"><Brand /><span>Bem-estar no trabalho, com pessoas no centro.</span><a href="#conteudo">Voltar ao topo ↑</a></footer>
   </div>;
 }
