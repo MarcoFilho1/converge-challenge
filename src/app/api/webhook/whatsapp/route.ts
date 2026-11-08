@@ -1,6 +1,7 @@
-import { handleIncoming } from "@/lib/engine/engine";
+import { handleIncoming, handleMedia, type EngineResult } from "@/lib/engine/engine";
 import { markDelivery } from "@/lib/engine/repo";
-import { sendText } from "@/lib/whatsapp/evolution";
+import { getMediaBase64, sendText } from "@/lib/whatsapp/evolution";
+import { transcribeAudio } from "@/lib/voice/transcribe-message";
 import { parseWebhook } from "@/lib/whatsapp/parse-webhook";
 import { saveConnectionState } from "@/lib/whatsapp/session";
 import { recordEvent } from "@/lib/obs/events";
@@ -23,6 +24,34 @@ async function sendWithRetry(phone: string, text: string): Promise<string | null
     }
   }
   return null;
+}
+
+/** Envia cada resposta do motor em ordem e registra a entrega. */
+async function deliver(phone: string, result: EngineResult) {
+  for (let i = 0; i < result.outbound.length; i++) {
+    const waId = await sendWithRetry(phone, result.outbound[i]);
+    if (!waId) recordEvent({ kind: "envio", outcome: "erro", runId: result.runId, detail: `Mensagem ${i + 1} não entregue no WhatsApp depois de ${SEND_ATTEMPTS} tentativas` });
+    const messageId = result.outboundIds?.[i];
+    if (!messageId) continue;
+    try {
+      await markDelivery(messageId, waId);
+    } catch (e) {
+      console.error("[webhook] não consegui registrar a entrega", e);
+    }
+  }
+}
+
+/** Áudio do WhatsApp → texto pelo Whisper. null se não deu: o motor pede para escrever e registra no rastro. */
+async function transcribe(waMessageId: string, base64: string | null, mime: string): Promise<{ text: string; ms: number } | null> {
+  const started = Date.now();
+  try {
+    const media = base64 ? { base64, mime } : await getMediaBase64(waMessageId);
+    const { text } = await transcribeAudio(Buffer.from(media.base64, "base64"), media.mime);
+    return { text, ms: Date.now() - started };
+  } catch (err) {
+    console.error("[webhook] não consegui transcrever o áudio", err);
+    return null;
+  }
 }
 
 /** Webhook da Evolution API. Rota pública, protegida pelo cabeçalho x-webhook-secret. */
@@ -49,18 +78,18 @@ export async function POST(request: Request) {
     if (parsed.kind === "connection") {
       await saveConnectionState(parsed.state);
     } else if (parsed.kind === "message" && !parsed.fromMe) {
-      const result = await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId });
-      for (let i = 0; i < result.outbound.length; i++) {
-        const waId = await sendWithRetry(parsed.phone, result.outbound[i]);
-        if (!waId) recordEvent({ kind: "envio", outcome: "erro", runId: result.runId, detail: `Mensagem ${i + 1} não entregue no WhatsApp depois de ${SEND_ATTEMPTS} tentativas` });
-        const messageId = result.outboundIds?.[i];
-        if (!messageId) continue;
-        try {
-          await markDelivery(messageId, waId);
-        } catch (e) {
-          console.error("[webhook] não consegui registrar a entrega", e);
-        }
+      await deliver(parsed.phone, await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId }));
+    } else if (parsed.kind === "audio" && !parsed.fromMe) {
+      const heard = await transcribe(parsed.waMessageId, parsed.base64, parsed.mime);
+      const result = heard
+        ? await handleIncoming({ phone: parsed.phone, text: heard.text, waMessageId: parsed.waMessageId, viaAudio: true })
+        : await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: "áudio sem transcrição" });
+      if (heard && result.event !== "duplicate" && result.event !== "ignored_unknown") {
+        recordEvent({ kind: "transcrição do áudio", outcome: "ok", model: "Whisper (Voicebox)", runId: result.runId, latencyMs: heard.ms, detail: `“${heard.text.slice(0, 160)}”` });
       }
+      await deliver(parsed.phone, result);
+    } else if (parsed.kind === "media" && !parsed.fromMe) {
+      await deliver(parsed.phone, await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: parsed.media }));
     }
   } catch (err) {
     console.error("[webhook] erro ao processar mensagem", err);

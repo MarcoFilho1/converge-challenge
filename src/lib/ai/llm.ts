@@ -48,6 +48,19 @@ export function chatTargets(env: Env = process.env, purpose: ChatPurpose = "long
   const models = ordered.filter(
     (m, i, all): m is string => !!m && all.indexOf(m) === i,
   );
+  const make = (modelId: string, key: string, i: number): ChatTarget => ({
+    label: `featherless:${modelId}#${i + 1}`,
+    key,
+    model: createOpenAICompatible({
+      name: "featherless",
+      baseURL: FEATHERLESS_URL,
+      apiKey: key,
+      includeUsage: true,
+      supportsStructuredOutputs: true,
+    }).chatModel(modelId),
+  });
+  // Tarefa rápida: alterna os modelos antes de trocar de chave (modelo lento na hora não melhora com outra chave).
+  if (purpose === "fast") return keys.flatMap((key, i) => models.map((modelId) => make(modelId, key, i)));
   return models.flatMap((modelId) =>
     keys.map((key, i) => ({
       label: `featherless:${modelId}#${i + 1}`,
@@ -142,9 +155,9 @@ export function chatCallOptions(purpose: ChatPurpose = "long", env: Env = proces
   return { maxRetries: 0, abortSignal: AbortSignal.timeout(timeoutMs), timeoutMs };
 }
 
-/** Teto da tarefa rápida: AI_FAST_BUDGET_MS (padrão 14 s), com tentativas do tamanho de AI_FAST_TIMEOUT_MS. */
+/** Teto da tarefa rápida: AI_FAST_BUDGET_MS (padrão 15 s, duas tentativas de 7 s), com tentativas do tamanho de AI_FAST_TIMEOUT_MS. */
 function fastBudget(env: Env = process.env): { attemptMs: number; budgetMs: number; clock?: () => number } {
-  return { attemptMs: chatCallOptions("fast", env).timeoutMs, budgetMs: Number(env.AI_FAST_BUDGET_MS ?? 14_000) };
+  return { attemptMs: chatCallOptions("fast", env).timeoutMs, budgetMs: Number(env.AI_FAST_BUDGET_MS ?? 15_000) };
 }
 
 /** Custo em dólar que a Featherless devolve em cada chamada (usage.raw.cost), somado por etapa. */

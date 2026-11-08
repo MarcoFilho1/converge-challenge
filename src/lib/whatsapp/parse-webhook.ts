@@ -1,7 +1,11 @@
 import { jidToPhone } from "./phone";
 
+export type MediaKind = "figurinha" | "foto" | "vídeo" | "arquivo";
+
 export type ParsedWebhook =
   | { kind: "message"; phone: string; text: string; waMessageId: string; fromMe: boolean }
+  | { kind: "audio"; phone: string; waMessageId: string; fromMe: boolean; base64: string | null; mime: string }
+  | { kind: "media"; phone: string; waMessageId: string; fromMe: boolean; media: MediaKind }
   | { kind: "connection"; state: string }
   | { kind: "ignore" };
 
@@ -10,7 +14,18 @@ type Payload = {
   data?: {
     state?: string;
     key?: { remoteJid?: string; remoteJidAlt?: string; senderPn?: string; fromMe?: boolean; id?: string };
-    message?: { conversation?: string; extendedTextMessage?: { text?: string } } | null;
+    message?: {
+      conversation?: string;
+      extendedTextMessage?: { text?: string };
+      audioMessage?: { mimetype?: string };
+      stickerMessage?: object;
+      imageMessage?: object;
+      videoMessage?: object;
+      documentMessage?: object;
+      documentWithCaptionMessage?: object;
+      /** Com o webhook em base64, a Evolution manda o arquivo da mídia aqui. */
+      base64?: string;
+    } | null;
   };
 };
 
@@ -29,7 +44,24 @@ export function parseWebhook(body: unknown): ParsedWebhook {
     return { kind: "ignore" };
   }
 
-  const text = data.message?.conversation ?? data.message?.extendedTextMessage?.text;
+  const phone = jidToPhone(jid);
+  const fromMe = !!data.key.fromMe;
+  const msg = data.message ?? {};
+  if (msg.audioMessage) {
+    return { kind: "audio", phone, waMessageId: data.key.id, fromMe, base64: msg.base64 ?? null, mime: msg.audioMessage.mimetype ?? "audio/ogg" };
+  }
+  const media: MediaKind | null = msg.stickerMessage
+    ? "figurinha"
+    : msg.imageMessage
+      ? "foto"
+      : msg.videoMessage
+        ? "vídeo"
+        : msg.documentMessage || msg.documentWithCaptionMessage
+          ? "arquivo"
+          : null;
+  if (media) return { kind: "media", phone, waMessageId: data.key.id, fromMe, media };
+
+  const text = msg.conversation ?? msg.extendedTextMessage?.text;
   if (!text || !text.trim()) return { kind: "ignore" };
 
   return {
