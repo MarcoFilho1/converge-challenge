@@ -19,6 +19,13 @@ describe("gateway da entrevista", () => {
     warn.mockRestore();
   });
 
+  it("getInterviewAi devolve o gateway real em AI_PROVIDER=featherless", () => {
+    process.env.AI_PROVIDER = "featherless";
+    const ai = getInterviewAi();
+    expect(ai.phraseAck.toString()).toBe(createInterviewGateway().phraseAck.toString());
+    process.env.AI_PROVIDER = "mock";
+  });
+
   it("getInterviewAi devolve o mock em AI_PROVIDER=mock", () => {
     process.env.AI_PROVIDER = "mock";
     const ai = getInterviewAi();

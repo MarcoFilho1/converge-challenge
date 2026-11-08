@@ -8,6 +8,7 @@ import type { InterviewSummary } from "@/lib/interview/contract";
 import { FINDING_THEMES, type BlockId, type Finding, type Turn } from "@/lib/interview/types";
 import { createInterviewGateway } from "./interview-gateway";
 import { createInterviewMock } from "./interview-mock";
+import { aiMode } from "./index";
 
 export const FindingDraftSchema = z.object({
   tema: z.enum(FINDING_THEMES as [string, ...string[]]).transform((t) => t as Finding["tema"]),
@@ -27,11 +28,11 @@ export interface InterviewAi {
 
 let cached: { mode: string; ai: InterviewAi } | null = null;
 
-/** AI_PROVIDER=gateway usa o modelo real (Task 6); qualquer outro valor usa o mock. */
+/** AI_PROVIDER=featherless ou gateway usa o modelo real; qualquer outro valor usa o mock. */
 export function getInterviewAi(): InterviewAi {
-  const mode = process.env.AI_PROVIDER === "gateway" ? "gateway" : "mock";
+  const mode = aiMode();
   if (cached?.mode !== mode) {
-    cached = { mode, ai: mode === "gateway" ? createInterviewGateway() : createInterviewMock() };
+    cached = { mode, ai: mode === "real" ? createInterviewGateway() : createInterviewMock() };
   }
   return cached.ai;
 }

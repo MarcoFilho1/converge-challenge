@@ -2,55 +2,51 @@ import { config } from "dotenv";
 config({ path: ".env" });
 
 /**
- * Confere a chave da IA real em menos de um minuto, sem tocar no banco.
- * Uso: preencha AI_GATEWAY_API_KEY no .env e rode `pnpm ai:check`.
+ * Confere as chaves da IA real em menos de um minuto, sem tocar no banco.
+ * Testa cada alvo (modelo × chave da Featherless, ou o AI Gateway) e, se houver AI_GATEWAY_API_KEY, os vetores.
+ * Uso: `pnpm ai:check`.
  */
 async function main() {
-  if (!process.env.AI_GATEWAY_API_KEY) {
-    console.log("AI_GATEWAY_API_KEY está vazio no .env. Preencha a chave e rode de novo.");
+  const { generateText, Output, embedMany, gateway } = await import("ai");
+  const { z } = await import("zod");
+  const { chatTargets, hasChatKey } = await import("../src/lib/ai/llm");
+  if (!hasChatKey()) {
+    console.log("Nenhuma chave de IA no .env (FEATHERLESS_API_KEY_1 ou AI_GATEWAY_API_KEY).");
     process.exit(1);
   }
-  const { embedMany, gateway, generateText, Output } = await import("ai");
-  const { z } = await import("zod");
-  const chat = process.env.AI_CHAT_MODEL ?? "anthropic/claude-sonnet-5-5";
-  const emb = process.env.AI_EMBEDDING_MODEL ?? "openai/text-embedding-3-small";
-  let ok = true;
-
-  const t1 = Date.now();
-  try {
-    const { embeddings } = await embedMany({ model: gateway.embeddingModel(emb), values: ["cansaço no trabalho"] });
-    const dims = embeddings[0].length;
-    const good = dims === 1536;
-    ok &&= good;
-    console.log(`${good ? "OK  " : "FALHOU"} Embeddings (${emb}): ${dims} dimensões, ${Date.now() - t1} ms${good ? "" : " — o banco espera 1536"}`);
-  } catch (e) {
-    ok = false;
-    console.log(`FALHOU Embeddings (${emb}): ${(e as Error).message}`);
+  let working = 0;
+  for (const target of chatTargets()) {
+    const t = Date.now();
+    try {
+      const { output, usage } = await generateText({
+        model: target.model,
+        temperature: 0,
+        maxRetries: 0,
+        abortSignal: AbortSignal.timeout(30_000),
+        output: Output.object({ schema: z.object({ value: z.number().nullable() }) }),
+        prompt: 'Escala 0 nenhuma vez, 1 vários dias, 2 mais da metade dos dias, 3 quase todos os dias. Resposta: "quase todo dia". Devolva o valor.',
+      });
+      const good = output.value === 3;
+      if (good) working++;
+      const cost = (usage.raw as { cost?: number } | undefined)?.cost;
+      console.log(`${good ? "OK  " : "FALHOU"} ${target.label}: "quase todo dia" → ${output.value}, ${Date.now() - t} ms${cost !== undefined ? `, US$ ${cost.toFixed(6)}` : ""}`);
+    } catch (e) {
+      console.log(`FALHOU ${target.label}: ${(e as Error).message.slice(0, 160)}`);
+    }
   }
-
-  const t2 = Date.now();
-  try {
-    const { output } = await generateText({
-      model: chat,
-      temperature: 0,
-      output: Output.object({ schema: z.object({ value: z.number().nullable() }) }),
-      prompt: 'Escala 0 nenhuma vez, 1 vários dias, 2 mais da metade dos dias, 3 quase todos os dias. Resposta: "quase todo dia". Devolva o valor.',
-    });
-    const good = output.value === 3;
-    ok &&= good;
-    console.log(`${good ? "OK  " : "FALHOU"} Chat (${chat}): interpretou "quase todo dia" como ${output.value}, ${Date.now() - t2} ms`);
-  } catch (e) {
-    ok = false;
-    console.log(`FALHOU Chat (${chat}): ${(e as Error).message}`);
+  if (process.env.AI_GATEWAY_API_KEY) {
+    const emb = process.env.AI_EMBEDDING_MODEL ?? "openai/text-embedding-3-small";
+    try {
+      const { embeddings } = await embedMany({ model: gateway.embeddingModel(emb), values: ["cansaço no trabalho"] });
+      console.log(`${embeddings[0].length === 1536 ? "OK  " : "FALHOU"} Vetores (${emb}): ${embeddings[0].length} dimensões`);
+    } catch (e) {
+      console.log(`FALHOU Vetores (${emb}): ${(e as Error).message}`);
+    }
+  } else {
+    console.log("Vetores: locais (sem AI Gateway). A busca usa o índice já gravado.");
   }
-
-  if (ok) {
-    console.log("\nChave funcionando. Para ligar a IA real:");
-    console.log("  1. No .env, troque AI_PROVIDER=mock por AI_PROVIDER=gateway");
-    console.log("  2. Rode `pnpm ingest` de novo (os vetores mudam de espaço)");
-    console.log("  3. Rode `pnpm evals` para conferir origem, termos e crise com a IA real");
-  }
-  process.exit(ok ? 0 : 1);
+  console.log(working > 0 ? `\n${working} alvo(s) funcionando. Se um ficar sem crédito, o sistema passa para o próximo.` : "\nNenhum alvo funcionando.");
+  process.exit(working > 0 ? 0 : 1);
 }
 main().catch((e) => {
   console.error(e);
