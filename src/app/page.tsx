@@ -1,19 +1,5 @@
-import { Suspense } from "react";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth/session";
+import { LandingPage } from "@/components/landing-page";
 
-/** Lê o cookie dentro de <Suspense>: com cacheComponents, cookies() fora dele quebra o next build. */
-async function RedirectByAuth() {
-  const cookieStore = await cookies();
-  redirect(isAuthenticated(cookieStore) ? "/fila" : "/login");
-  return null;
-}
+export const metadata = { title: "Praevenius · Bem-estar no trabalho", description: "Escuta individual e acompanhamento preventivo do bem-estar no trabalho com Praevenius e Helena." };
 
-export default function RootPage() {
-  return (
-    <Suspense fallback={null}>
-      <RedirectByAuth />
-    </Suspense>
-  );
-}
+export default function Page() { return <LandingPage />; }
