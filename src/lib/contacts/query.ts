@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
+import { listContactSeverities } from "@/lib/severity/contact";
 import { contacts, questionnaireRuns, type RunStatus, type Severity } from "@/db/schema";
 import { SYNTHETIC_QUEUE_ROWS } from "@/lib/demo/fixtures";
 
@@ -11,7 +12,8 @@ export interface ContactListRow {
   role: string;
   latestRunId: string | null;
   status: RunStatus;
-  severity: Severity;
+  /** Gravidade da pessoa (maior entre os casos não encerrados); null = ainda sem avaliação. */
+  severity: Severity | null;
   updatedAt: string;
 }
 
@@ -43,6 +45,7 @@ export async function listContactsWithRuns(): Promise<{
       .from(questionnaireRuns)
       .orderBy(desc(questionnaireRuns.createdAt));
 
+    const personSeverity = new Map((await listContactSeverities()).map((p) => [p.contactId, p.severity]));
     const rows: ContactListRow[] = dbContacts.map((c) => {
       const latest = allRuns.find((r) => r.contactId === c.id);
       return {
@@ -53,7 +56,7 @@ export async function listContactsWithRuns(): Promise<{
         role: c.role ?? "Colaborador",
         latestRunId: latest?.id ?? null,
         status: latest?.status ?? "pending",
-        severity: latest?.severity ?? "none",
+        severity: personSeverity.get(c.id) ?? null,
         updatedAt: (latest?.finishedAt ?? latest?.startedAt ?? c.createdAt).toISOString(),
       };
     });

@@ -50,7 +50,7 @@ export function ContactsTable({
     } else if (filter === "done") {
       if (r.status !== "done") return false;
     } else if (filter === "flagged") {
-      if (r.severity === "none") return false;
+      if (!r.severity || r.severity === "none") return false;
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -476,7 +476,11 @@ export function ContactsTable({
                         <RunStatusText status={row.status} />
                       </td>
                       <td className="py-2 px-3">
-                        <SeverityBadge severity={row.severity} />
+                        {row.severity ? (
+                          <SeverityBadge severity={row.severity} />
+                        ) : (
+                          <span className="text-[13px] text-[var(--muted)]" title="Ainda sem questionário concluído">—</span>
+                        )}
                       </td>
                       <td className="num mono-code py-2 px-3 text-[13px] text-[var(--muted)]">
                         {formatPhoneBr(row.phoneE164)}
