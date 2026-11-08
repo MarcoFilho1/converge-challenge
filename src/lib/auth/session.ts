@@ -12,6 +12,7 @@ export function isAuthenticated(cookies: CookieReader): boolean {
 
 export function isPublicPath(pathname: string): boolean {
   if (pathname === "/login") return true;
+  if (pathname === "/brand/praevenius-mark.png" || pathname === "/brand/praevenius-logo.png") return true;
   if (pathname === "/api/auth/demo-session") return true;
   if (pathname.startsWith("/api/webhook/")) return true;
   if (pathname === "/entrevista" || pathname.startsWith("/entrevista/")) return true;
