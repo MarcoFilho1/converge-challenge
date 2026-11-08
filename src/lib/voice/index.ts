@@ -4,7 +4,7 @@ import { createVoicebox } from "./voicebox";
 import { createElevenLabs } from "./elevenlabs";
 
 export * from "./types";
-export { toWav16k } from "./convert";
+export { toWav16k, concatWav } from "./convert";
 export { audioCachePath, getOrGenerate, DEFAULT_VOICE_CACHE_ROOT } from "./cache";
 
 let cached: { key: string; provider: VoiceProvider } | null = null;

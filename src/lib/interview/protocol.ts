@@ -99,3 +99,6 @@ export const DECLINE_SPEECH = "Tudo bem, obrigada. Nada foi registrado. Se mudar
 export const ASKED_ACK = "Entendi sim, não se preocupa.";
 /** Prefixo quando a pessoa pede para repetir e a segunda forma já foi usada. */
 export const REPEAT_ASK_PREFIX = "Claro. ";
+
+/** Sinais de escuta falados (fixos, guardados em áudio); nenhum avalia nem aconselha. */
+export const ACK_PHRASES = ["Hmm, entendi.", "Certo.", "Sei.", "Entendi, obrigada por me contar.", "Hum, faz sentido."];

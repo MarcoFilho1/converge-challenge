@@ -25,3 +25,18 @@ export function toWav16k(input: Buffer, mime: string, timeoutMs = 10_000): Promi
     ff.stdin.end(input);
   });
 }
+
+/** Junta wavs PCM 16-bit do mesmo formato num só (usa o formato do primeiro). */
+export function concatWav(wavs: Buffer[]): Buffer {
+  const pcm = (w: Buffer) => {
+    const at = w.indexOf("data", 12);
+    return at >= 0 ? w.subarray(at + 8, at + 8 + w.readUInt32LE(at + 4)) : w.subarray(44);
+  };
+  const first = wavs[0];
+  const body = Buffer.concat(wavs.map(pcm));
+  const h = Buffer.from(first.subarray(0, 44));
+  h.write("data", 36);
+  h.writeUInt32LE(36 + body.length, 4);
+  h.writeUInt32LE(body.length, 40);
+  return Buffer.concat([h, body]);
+}

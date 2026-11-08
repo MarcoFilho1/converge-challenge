@@ -2,6 +2,7 @@ import { normalizeText } from "@/lib/crisis/detect";
 import { BLOCK_LABELS, type InterviewSummary } from "@/lib/interview/contract";
 import { formatOrigin } from "@/lib/interview/origin";
 import { SAFETY_UNANSWERED } from "@/lib/interview/engine";
+import { ACK_PHRASES } from "@/lib/interview/protocol";
 import type { BlockId, Finding, FindingTheme } from "@/lib/interview/types";
 import type { InterviewAi } from "./interview";
 
@@ -23,8 +24,7 @@ const THEMES: [FindingTheme, RegExp][] = [
   ["barreira", /\b(nao tenho tempo|caro|dinheiro|nao sei onde|medo|vergonha|empresa saber|achei que passava)\b/],
 ];
 const WORK = /\b(trabalho|servico|empresa|chefe|meta|prazo|turno|escala|fechamento|hora extra|horas extras|equipe|cliente)\b/;
-/** Sinais de escuta falados; nenhum avalia nem aconselha. */
-const ACKS = ["Hmm, entendi.", "Certo.", "Sei.", "Entendi, obrigada por me contar.", "Hum, faz sentido."];
+const ACKS = ACK_PHRASES;
 const DEFAULT_THEME: Partial<Record<BlockId, FindingTheme>> = { saude: "sintoma", trabalho: "carga", barreiras: "barreira" };
 
 function durationOf(normalized: string, original: string): string | null {

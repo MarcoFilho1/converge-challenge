@@ -3,7 +3,7 @@
  * Cada turno é uma requisição; o estado inteiro vive em interviews.state (jsonb) com lock otimista.
  */
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getInterviewAi, type InterviewAi } from "@/lib/ai/interview";
 import { scoreRun } from "@/lib/instruments";
@@ -12,7 +12,7 @@ import { db } from "@/db/client";
 import { contacts, questionnaireRuns } from "@/db/schema";
 import type { InterviewRow } from "@/db/schema-interview";
 import { eq } from "drizzle-orm";
-import { getOrGenerate, getVoice, toWav16k, voiceProfileName, VoiceUnavailable, type VoiceProvider } from "@/lib/voice";
+import { concatWav, getOrGenerate, getVoice, toWav16k, voiceProfileName, VoiceUnavailable, type VoiceProvider } from "@/lib/voice";
 import { fromQuestionnaireRun } from "./adapters/questionnaire";
 import { BLOCK_LABELS, type InterviewDetail, type InterviewListItem, type InterviewView, type TurnResponse } from "./contract";
 import { createState, isFinal, step, type InterviewEvent, type InterviewMode, type InterviewState, type Utterance } from "./engine";
@@ -93,6 +93,20 @@ export function createInterviewService(deps: ServiceDeps = {}) {
 
   async function aiAudio(row: InterviewRow, say: Utterance, turnIdx: number): Promise<AiAudio> {
     try {
+      if (say.parts && say.parts.length > 1) {
+        // cada parte vem do cache (ou é gerada uma vez e guardada); só a reação nova gasta cota da voz
+        const paths: string[] = [];
+        for (const part of say.parts) {
+          const p = await getOrGenerate(voice, profile, part.cacheKey, part.text, cacheRoot);
+          if (!p) return { url: null, voice: "browser", path: null };
+          paths.push(p);
+        }
+        const dir = join(dataRoot, "entrevistas", row.id);
+        mkdirSync(dir, { recursive: true });
+        const path = join(dir, `ai-${turnIdx}-${randomBytes(4).toString("hex")}.wav`);
+        writeFileSync(path, concatWav(paths.map((p) => readFileSync(p))));
+        return { url: `/api/entrevista/${row.token}/fala/${turnIdx}`, voice: "live", path };
+      }
       if (say.cacheKey) {
         const path = await getOrGenerate(voice, profile, say.cacheKey, say.text, cacheRoot);
         return path ? { url: `/api/entrevista/${row.token}/fala/${turnIdx}`, voice: "cache", path } : { url: null, voice: "browser", path: null };

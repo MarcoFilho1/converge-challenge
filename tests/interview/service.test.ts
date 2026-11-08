@@ -6,6 +6,7 @@ import { pushSchemaToTestDb, truncateAll } from "../helpers/db";
 import { createInterviewMock } from "@/lib/ai/interview-mock";
 import { createNoVoice } from "@/lib/voice/none";
 import { VoiceUnavailable, type VoiceProvider } from "@/lib/voice/types";
+import { pcmToWav } from "@/lib/voice/elevenlabs";
 
 process.env.INTERVIEW_PUBLIC_URL = "http://localhost:3100";
 
@@ -108,7 +109,7 @@ describe("serviço da entrevista", () => {
     expect(s1.voice).toBe("browser");
 
     const working: VoiceProvider = {
-      async tts() { return { audio: Buffer.from("RIFFxxxxWAVEfmt "), mime: "audio/wav" }; },
+      async tts() { return { audio: pcmToWav(Buffer.alloc(480), 24000), mime: "audio/wav" }; },
       async stt() { return { text: "cansaço há dois meses", ms: 10 }; },
       async health() { return true; },
     };

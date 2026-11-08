@@ -69,7 +69,9 @@ export type InterviewEvent =
   | { kind: "skip" }
   | { kind: "stop" };
 
-export type Utterance = { text: string; probeId: string | null; blockId: BlockId; cacheKey: string | null; final: boolean; crisis: boolean };
+/** parts: quando há reação + pergunta, cada uma vira um áudio próprio (a pergunta sempre do cache). */
+export type UtterancePart = { text: string; cacheKey: string };
+export type Utterance = { text: string; probeId: string | null; blockId: BlockId; cacheKey: string | null; final: boolean; crisis: boolean; parts?: UtterancePart[] };
 
 export function isFinal(status: InterviewStatus): boolean {
   return status === "crisis" || status === "done" || status === "stopped";
@@ -199,8 +201,10 @@ async function advance(ctx: Ctx, lastText: string, newFindings: Finding[]) {
   const wantsAck = state.mode === "live" && fromBlock !== "abertura" && blockId !== "seguranca";
   const ack = !wantsAck ? "" : askedHelena(lastText) ? ASKED_ACK : cleanGenerated(await ctx.ai.phraseAck({ lastText, findings: newFindings, probeText }));
   const text = [ack, probeText].filter(Boolean).join(" ");
-  const cacheKey = ack ? null : `${blockId}:${probeId ?? "base"}`;
-  return aiTurn({ ...ctx, state }, { text, probeId, blockId, cacheKey, final: false, crisis: false }, "running");
+  const probeKey = `${blockId}:${probeId ?? "base"}`;
+  const cacheKey = ack ? null : probeKey;
+  const parts = ack ? [{ text: ack, cacheKey: `ack:${ack}` }, { text: probeText, cacheKey: probeKey }] : undefined;
+  return aiTurn({ ...ctx, state }, { text, probeId, blockId, cacheKey, final: false, crisis: false, parts }, "running");
 }
 
 export async function step(state: InterviewState, event: InterviewEvent, ai: InterviewAi, nowMs: number): Promise<{ state: InterviewState; say: Utterance }> {
