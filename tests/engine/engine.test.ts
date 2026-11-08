@@ -356,3 +356,51 @@ describe("áudio e mídia no WhatsApp", () => {
     expect(r.outbound[0]).toMatch(/Não consegui ouvir/);
   });
 });
+
+describe("entrada aberta (OPEN_ENTRY=true)", () => {
+  it("número desconhecido vira colaborador com o nome do perfil e recebe o consentimento", async () => {
+    process.env.OPEN_ENTRY = "true";
+    try {
+      const { handleIncoming } = await import("@/lib/engine/engine");
+      const r = await handleIncoming({ phone: "5581977770001", text: "oi", waMessageId: msgId(), name: "Marina Souza" });
+      expect(r.event).toBe("joined");
+      expect(r.outbound[0]).toMatch(/aceita participar/i);
+      expect(r.outbound[0]).toContain("Marina");
+      const { db } = await import("@/db/client");
+      const { contacts } = await import("@/db/schema");
+      const rows = await db.select().from(contacts).where(eq(contacts.phoneE164, "5581977770001"));
+      expect(rows[0].name).toBe("Marina Souza");
+      expect((await getRun(r.runId!)).status).toBe("consent");
+
+      const next = await handleIncoming({ phone: "5581977770001", text: "1", waMessageId: msgId() });
+      expect(next.event).toBe("consent_ok");
+    } finally {
+      delete process.env.OPEN_ENTRY;
+    }
+  });
+
+  it("sem nome no perfil, usa 'Colaborador' e os 4 últimos dígitos", async () => {
+    process.env.OPEN_ENTRY = "true";
+    try {
+      const { handleIncoming } = await import("@/lib/engine/engine");
+      await handleIncoming({ phone: "5581977774321", text: "oi", waMessageId: msgId() });
+      const { db } = await import("@/db/client");
+      const { contacts } = await import("@/db/schema");
+      const rows = await db.select().from(contacts).where(eq(contacts.phoneE164, "5581977774321"));
+      expect(rows[0].name).toBe("Colaborador 4321");
+    } finally {
+      delete process.env.OPEN_ENTRY;
+    }
+  });
+
+  it("frase de risco na primeira mensagem de um número novo ainda corta em crise", async () => {
+    process.env.OPEN_ENTRY = "true";
+    try {
+      const { handleIncoming } = await import("@/lib/engine/engine");
+      const r = await handleIncoming({ phone: "5581977770002", text: "penso em me matar", waMessageId: msgId() });
+      expect(r.event).toBe("crisis");
+    } finally {
+      delete process.env.OPEN_ENTRY;
+    }
+  });
+});

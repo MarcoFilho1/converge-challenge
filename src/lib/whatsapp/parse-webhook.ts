@@ -3,8 +3,8 @@ import { jidToPhone } from "./phone";
 export type MediaKind = "figurinha" | "foto" | "vídeo" | "arquivo";
 
 export type ParsedWebhook =
-  | { kind: "message"; phone: string; text: string; waMessageId: string; fromMe: boolean }
-  | { kind: "audio"; phone: string; waMessageId: string; fromMe: boolean; base64: string | null; mime: string }
+  | { kind: "message"; phone: string; text: string; waMessageId: string; fromMe: boolean; name?: string }
+  | { kind: "audio"; phone: string; waMessageId: string; fromMe: boolean; base64: string | null; mime: string; name?: string }
   | { kind: "media"; phone: string; waMessageId: string; fromMe: boolean; media: MediaKind }
   | { kind: "connection"; state: string }
   | { kind: "ignore" };
@@ -13,6 +13,8 @@ type Payload = {
   event?: string;
   data?: {
     state?: string;
+    /** Nome do perfil do WhatsApp de quem mandou. */
+    pushName?: string;
     key?: { remoteJid?: string; remoteJidAlt?: string; senderPn?: string; fromMe?: boolean; id?: string };
     message?: {
       conversation?: string;
@@ -46,9 +48,10 @@ export function parseWebhook(body: unknown): ParsedWebhook {
 
   const phone = jidToPhone(jid);
   const fromMe = !!data.key.fromMe;
+  const name = data.pushName?.trim() ? { name: data.pushName.trim() } : {};
   const msg = data.message ?? {};
   if (msg.audioMessage) {
-    return { kind: "audio", phone, waMessageId: data.key.id, fromMe, base64: msg.base64 ?? null, mime: msg.audioMessage.mimetype ?? "audio/ogg" };
+    return { kind: "audio", phone, waMessageId: data.key.id, fromMe, base64: msg.base64 ?? null, mime: msg.audioMessage.mimetype ?? "audio/ogg", ...name };
   }
   const media: MediaKind | null = msg.stickerMessage
     ? "figurinha"
@@ -70,5 +73,6 @@ export function parseWebhook(body: unknown): ParsedWebhook {
     text: text.trim(),
     waMessageId: data.key.id,
     fromMe: !!data.key.fromMe,
+    ...name,
   };
 }

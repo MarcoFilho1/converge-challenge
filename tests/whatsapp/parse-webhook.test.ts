@@ -94,4 +94,9 @@ describe("parseWebhook · contatos @lid", () => {
     });
     expect(out).toMatchObject({ kind: "message", phone: "5581999990001" });
   });
+
+  it("traz o nome do perfil do WhatsApp (pushName) quando vem", () => {
+    const out = parseWebhook(upsert({ key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "N1" }, pushName: "Marina Souza", message: { conversation: "oi" } }));
+    expect(out).toMatchObject({ kind: "message", text: "oi", name: "Marina Souza" });
+  });
 });

@@ -8,6 +8,12 @@ export async function findContactByPhone(phone: string) {
   return c ?? null;
 }
 
+/** Cadastro na hora (entrada aberta): se dois pedidos chegarem juntos, devolve o que já existe. */
+export async function createContact(input: { name: string; phoneE164: string; sector?: string }) {
+  const [c] = await db.insert(contacts).values(input).onConflictDoNothing().returning();
+  return c ?? (await findContactByPhone(input.phoneE164));
+}
+
 export async function getContact(id: string) {
   const [c] = await db.select().from(contacts).where(eq(contacts.id, id));
   return c ?? null;
