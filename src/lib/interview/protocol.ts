@@ -38,7 +38,7 @@ export const BLOCKS: Record<BlockId, Block> = {
     "E no trabalho, o que está mais difícil agora?",
     [
       { id: "quandoMudou", text: "Quando isso começou a mudar?", when: "semDuracao", covers: "mudanca" },
-      { id: "carga", text: "Quantas horas a mais você tem feito, mais ou menos?", when: "mencionouTrabalho", covers: "carga" },
+      { id: "carga", text: "Quantas horas a mais você anda fazendo, mais ou menos?", when: "mencionouTrabalho", covers: "carga" },
       { id: "pausa", text: "Você consegue parar e descansar durante o dia?", when: "sempre", covers: "pausa" },
       { id: "chefia", text: "Como está com a chefia e com os colegas?", when: "sempre", covers: "chefia" },
       { id: "oQueFaltaria", text: "O que você precisaria ter para dar conta?", when: "sempre", covers: "necessidade" },
