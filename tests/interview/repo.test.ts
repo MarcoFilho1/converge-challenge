@@ -45,7 +45,7 @@ describe("repositório da entrevista", () => {
 
     const state = createState(FIXTURES.prioridade, { mode: "live", nowMs: 1000 });
     const { id } = await repo.createInterview({ runId: run.id, token: "tok-3", state, profile: "helena" });
-    await repo.saveSummary(id, { dificuldades_relatadas: [], impacto_no_trabalho: [], fatores_do_trabalho: [], barreiras_atendimento: [], sinais_de_alerta: { risco: false, origem: [] }, pontos_para_avaliacao: [], nao_respondido: [], duracao_min: 1, turnos: 1 });
+    await repo.saveSummary(id, { dificuldades_relatadas: [], impacto_no_trabalho: [], fatores_do_trabalho: [], barreiras_atendimento: [], sinais_de_alerta: { risco: false, origem: [] }, pontos_para_avaliacao: [], nao_respondido: [], avisos: [], duracao_min: 1, turnos: 1 });
     expect((await repo.getSummary(id))?.turnos).toBe(1);
     expect((await repo.listByRun(run.id)).map((i) => i.id)).toEqual([id]);
 
