@@ -11,6 +11,9 @@ for (const k of Object.keys(process.env)) {
   if (/^(FEATHERLESS_API_KEY|ELEVENLABS_API_KEY|AI_GATEWAY_API_KEY)/.test(k)) delete process.env[k];
 }
 process.env.WHATSAPP_DRY_RUN = "true";
+// Telegram nunca é chamado de verdade nos testes.
+delete process.env.TELEGRAM_BOT_TOKEN;
+process.env.TELEGRAM_DRY_RUN = "true";
 // Entrada aberta só nos testes que ligam de propósito.
 delete process.env.OPEN_ENTRY;
 delete process.env.AI_EMBEDDINGS;

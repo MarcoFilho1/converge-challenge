@@ -83,3 +83,10 @@ export async function resetConnection(): Promise<ConnectionStatusPayload> {
   }
   return fetchConnection();
 }
+
+/** Ensaio da queda: o WhatsApp passa a contar como fora do ar (o celular continua conectado). */
+export async function setWhatsappRehearsal(down: boolean): Promise<{ down: boolean }> {
+  const { setWhatsappSimulatedDown, whatsappSimulatedDown } = await import("@/lib/channels/status");
+  setWhatsappSimulatedDown(down);
+  return { down: whatsappSimulatedDown() };
+}

@@ -7,7 +7,8 @@ import { contacts, questionnaireRuns } from "@/db/schema";
 import { parseContactsCsv } from "@/lib/contacts/csv";
 import { seedDemoDatabaseIfEmpty } from "@/lib/contacts/query";
 import { startRun } from "@/lib/engine/engine";
-import { EvolutionError, sendText } from "@/lib/whatsapp/evolution";
+import { EvolutionError } from "@/lib/whatsapp/evolution";
+import { sendToPerson } from "@/lib/channels/send";
 import { toE164 } from "@/lib/whatsapp/phone";
 
 export interface ContactActionResult {
@@ -120,8 +121,9 @@ export async function sendQuestionnaire(contactIds: string[]): Promise<ContactAc
 
       const { runId, outbound } = await startRun(contact.id);
       try {
+        // WhatsApp primeiro; quem tem o Telegram ligado recebe pela reserva se o WhatsApp estiver fora.
         for (const msg of outbound) {
-          await sendText(contact.phoneE164, msg);
+          await sendToPerson(contact.phoneE164, msg, { prefer: "last", runId });
         }
         sentCount++;
       } catch (err) {
@@ -134,7 +136,9 @@ export async function sendQuestionnaire(contactIds: string[]): Promise<ContactAc
         const errMsg =
           err instanceof EvolutionError
             ? err.message
-            : "Falha ao enviar mensagem pelo WhatsApp.";
+            : err instanceof Error
+              ? err.message
+              : "Falha ao enviar mensagem pelo WhatsApp.";
         failed.push({ id: contact.name, message: errMsg });
       }
     } catch (err) {
@@ -180,12 +184,12 @@ export async function sendReminder(contactIds: string[]): Promise<ContactActionR
 
       const doctorName = process.env.DOCTOR_NAME || "Dra. Ana Lima";
       const reminderText = `Olá, ${contact.name.split(" ")[0]}. Lembrete do Consultório NR-7 (${doctorName}): quando puder, responda à última pergunta para concluir seu acompanhamento periódico. Você pode digitar PARAR a qualquer momento.`;
-      await sendText(contact.phoneE164, reminderText);
+      await sendToPerson(contact.phoneE164, reminderText, { prefer: "last" });
       sentCount++;
     } catch (err) {
       failed.push({
         id,
-        message: err instanceof EvolutionError ? err.message : "Falha ao enviar lembrete.",
+        message: err instanceof Error ? err.message : "Falha ao enviar lembrete.",
       });
     }
   }

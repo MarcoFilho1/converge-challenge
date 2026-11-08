@@ -141,6 +141,22 @@ pnpm entrevista:convite --fixture prioridade   # imprime um link /entrevista/<to
 
 O passo a passo completo, inclusive como testar no celular (o microfone exige HTTPS), está em [docs/entrevista-como-ver.md](docs/entrevista-como-ver.md).
 
+### Ligar a reserva do Telegram
+
+Se o WhatsApp cair, o atendimento continua pelo Telegram, com o mesmo motor e o mesmo caso.
+
+```bash
+# .env: TELEGRAM_BOT_TOKEN (do @BotFather) e TELEGRAM_BOT_USERNAME
+pnpm telegram:db   # cria a tabela que liga cada conversa do Telegram a uma pessoa
+pnpm dev           # o servidor passa a ler o bot sozinho (sem túnel); só um servidor por token
+```
+
+- **Entrada dos participantes:** `/entrar` oferece o WhatsApp. Quem escolhe o Telegram vê um aviso antes; se o WhatsApp cair, a página troca sozinha. O cartaz para projetar ou pôr no slide fica em `/entrar/cartaz` (QR principal + QR direto do Telegram). Os QR usam `PUBLIC_APP_URL`.
+- **No Telegram:** "Já comecei pelo WhatsApp" compartilha o número e continua o mesmo caso (aceita celular com e sem o 9); "Começar agora" entra só pelo Telegram.
+- **Envio com reserva:** respostas, convites, lembretes e o aviso da médica tentam o WhatsApp; se ele falhar ou estiver fora, vão pelo Telegram de quem o ligou. Cada troca fica no rastro (Medição).
+- **Ensaio:** na tela Canais, "Ensaiar queda do WhatsApp" faz o sistema agir como se o WhatsApp tivesse caído, sem desconectar o celular. O painel mostra uma faixa com o link do QR.
+- **Médica:** para receber os avisos pelo Telegram quando o WhatsApp cair, ela abre o bot e compartilha o número de `DOCTOR_WHATSAPP`.
+
 ## Variáveis de ambiente
 
 Veja `.env.example`. As principais:
@@ -169,6 +185,10 @@ Veja `.env.example`. As principais:
 | `ELEVENLABS_API_KEY`, `ELEVENLABS_API_KEY_2`…, `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL` | Voz da Helena na ElevenLabs; chaves extras entram quando a cota acaba |
 | `INTERVIEW_MODE` | `live` (gera reações novas) ou `cache_only` (só falas gravadas) |
 | `INTERVIEW_PUBLIC_URL` | Endereço usado nos convites da entrevista |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | Bot do Telegram, a reserva do WhatsApp |
+| `TELEGRAM_POLLING` | `false` desliga o leitor do bot neste servidor (só um servidor pode ler cada token) |
+| `PUBLIC_APP_URL` | Endereço público usado nos QR codes de entrada; vazio usa `INTERVIEW_PUBLIC_URL` |
+| `WHATSAPP_PUBLIC_NUMBER` | Número do bot do WhatsApp, para o link de entrada se a Evolution não informar |
 
 ## Comandos
 
@@ -186,6 +206,7 @@ Veja `.env.example`. As principais:
 | `pnpm obs:db` | Cria só a tabela do rastro do agente (`agent_events`); em banco que já tinha a tabela, acrescenta o id da mensagem do WhatsApp (`wa_message_id`) |
 | `pnpm whatsapp:db` | Acrescenta as colunas do questionário em linguagem natural (áudio marcado, origem e trecho de cada resposta, confirmação pendente) |
 | `pnpm entrevista:db` | Cria só as tabelas da entrevista |
+| `pnpm telegram:db` | Cria só a tabela do Telegram (`telegram_links`) |
 | `pnpm entrevista:convite` | Cria um convite de entrevista e imprime o link |
 | `pnpm voz:pregerar` | Gera o áudio das falas fixas da Helena |
 | `pnpm voz:medir` | Mede a latência da voz e grava em `docs/medicoes-voz.md` |

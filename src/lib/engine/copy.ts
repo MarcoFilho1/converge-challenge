@@ -55,6 +55,7 @@ export const copy = {
   stopped: `Tudo bem, paramos por aqui. O que você já respondeu vai para ${doctor()}. Se quiser retomar, escreva CONTINUAR.\nEm emergência, 192. Para conversar a qualquer hora, 188 (CVV).`,
   resumed: "Obrigado por voltar. Vamos continuar de onde paramos.",
   alreadyRunning: "Você já está no meio do questionário. Esta é a pergunta atual:",
+  channelLinked: "Pronto, encontrei seu atendimento. Vamos continuar de onde você parou.",
   closing: () =>
     [
       "Pronto, terminamos. Muito obrigado pelo seu tempo.",

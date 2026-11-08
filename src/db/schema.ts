@@ -227,6 +227,22 @@ export const doctorNotices = pgTable(
 );
 export type DoctorNotice = typeof doctorNotices.$inferSelect;
 
+/**
+ * Telegram, a reserva do WhatsApp: liga cada conversa do bot a uma pessoa.
+ * person_key é o telefone (quem compartilhou o número; o mesmo caso do WhatsApp continua)
+ * ou "tg:<chat>" (quem começou direto pelo Telegram, sem número).
+ */
+export const telegramLinks = pgTable(
+  "telegram_links",
+  {
+    chatId: text("chat_id").primaryKey(),
+    personKey: text("person_key").notNull(),
+    linkedAt: timestamp("linked_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("telegram_links_person_idx").on(t.personKey)],
+);
+export type TelegramLink = typeof telegramLinks.$inferSelect;
+
 export type Contact = typeof contacts.$inferSelect;
 export type QuestionnaireRun = typeof questionnaireRuns.$inferSelect;
 export type Message = typeof messages.$inferSelect;

@@ -11,6 +11,8 @@ vi.mock("@/lib/engine/engine", () => ({ handleIncoming: (...a: unknown[]) => han
 vi.mock("@/lib/whatsapp/evolution", () => ({ sendText: (...a: unknown[]) => sendText(...a), getMediaBase64: (...a: unknown[]) => getMediaBase64(...a) }));
 vi.mock("@/lib/voice/transcribe-message", () => ({ transcribeAudio: (...a: unknown[]) => transcribeAudio(...a) }));
 vi.mock("@/lib/whatsapp/session", () => ({ saveConnectionState: (...a: unknown[]) => saveConnectionState(...a) }));
+// Sem Telegram ligado: este teste cobre só o WhatsApp (a reserva tem testes próprios em tests/channels).
+vi.mock("@/lib/telegram/links", () => ({ chatForPerson: async () => null, isTelegramOnlyKey: (k: string) => k.startsWith("tg:") }));
 const recordEvent = vi.fn();
 vi.mock("@/lib/obs/events", () => ({ recordEvent: (...a: unknown[]) => recordEvent(...a) }));
 const markDelivery = vi.fn();
@@ -104,6 +106,17 @@ describe("POST /api/webhook/whatsapp", () => {
       expect(handleIncoming).not.toHaveBeenCalled();
     } finally {
       env.NODE_ENV = previous;
+    }
+  });
+
+  it("ensaio de queda ligado: o WhatsApp não responde ninguém", async () => {
+    const { setWhatsappSimulatedDown } = await import("@/lib/channels/status");
+    setWhatsappSimulatedDown(true);
+    try {
+      await post(body(false, "SIM1"));
+      expect(handleIncoming).not.toHaveBeenCalled();
+    } finally {
+      setWhatsappSimulatedDown(false);
     }
   });
 

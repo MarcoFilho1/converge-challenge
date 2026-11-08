@@ -68,6 +68,24 @@ function AgentJourney() {
   </section>;
 }
 
+/** Teste como colaborador: no computador, QR para abrir no celular; no celular, o botão. */
+function TryIt() {
+  const [qr, setQr] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    import("qrcode").then(QRCode => QRCode.toString(`${window.location.origin}/entrar`, { type: "svg", margin: 1, color: { dark: "#24363B", light: "#FFFFFF" } })).then(svg => { if (alive) setQr(svg); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+  return <section className="lp-privacy lp-try" id="testar" aria-labelledby="try-title">
+    <p className="lp-eyebrow">TESTE AGORA</p>
+    <div className="lp-sectionHeading"><h2 id="try-title">Responda como um colaborador.<br /><em>Pelo seu celular.</em></h2><p>O questionário chega pelo WhatsApp, o canal principal. Se o WhatsApp estiver fora do ar, o atendimento continua pelo Telegram, a reserva.</p></div>
+    <div className="lp-tryRow">
+      {qr && <div className="lp-tryQr" role="img" aria-label="QR code para abrir o teste no celular" dangerouslySetInnerHTML={{ __html: qr }} />}
+      <div><p className="lp-tryText">No computador, leia o QR code com a câmera do celular. No celular, toque no botão.</p><Link className="lp-button" href="/entrar">Começar o teste <span aria-hidden="true">↗</span></Link></div>
+    </div>
+  </section>;
+}
+
 export function LandingPage() {
   const root = useRef<HTMLDivElement>(null);
   const [topic, setTopic] = useState(0);
@@ -131,7 +149,7 @@ export function LandingPage() {
   }, []);
   return <div className={scrolled ? "lp lp-scrolled" : "lp"} ref={root} id="inicio">
     <a className="lp-skip" href="#conteudo">Ir para o conteúdo</a>
-    <header className="lp-header"><Brand /><button className="lp-menu" aria-expanded={menuOpen} aria-controls="landing-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "Fechar ×" : "Menu ☰"}</button><nav id="landing-navigation" className={menuOpen ? "lp-nav lp-navOpen" : "lp-nav"} aria-label="Navegação principal"><a href="#prevencao" onClick={() => setMenuOpen(false)}>A plataforma</a><a href="#como-funciona" onClick={() => setMenuOpen(false)}>Como funciona</a><a href="#privacidade" onClick={() => setMenuOpen(false)}>Privacidade</a><Link href="/login" className="lp-login">Entrar <span aria-hidden="true">↗</span></Link></nav></header>
+    <header className="lp-header"><Brand /><button className="lp-menu" aria-expanded={menuOpen} aria-controls="landing-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "Fechar ×" : "Menu ☰"}</button><nav id="landing-navigation" className={menuOpen ? "lp-nav lp-navOpen" : "lp-nav"} aria-label="Navegação principal"><a href="#prevencao" onClick={() => setMenuOpen(false)}>A plataforma</a><a href="#como-funciona" onClick={() => setMenuOpen(false)}>Como funciona</a><a href="#privacidade" onClick={() => setMenuOpen(false)}>Privacidade</a><a href="#testar" onClick={() => setMenuOpen(false)}>Testar agora</a><Link href="/login" className="lp-login">Entrar <span aria-hidden="true">↗</span></Link></nav></header>
     <main id="conteudo">
       <section className="lp-hero" aria-labelledby="hero-title"><h1 id="hero-title">Cuidar antes que<br /><em>o problema cresça.</em></h1><div className="lp-heroBottom"><p>A Praevenius apoia o médico do trabalho na identificação precoce de sinais de adoecimento e ajuda empresas a organizar a prevenção. O objetivo é evitar agravamentos e reduzir o impacto dos afastamentos.</p><a className="lp-button" href="#evidencias">Conheça a Praevenius <span aria-hidden="true">↘</span></a></div></section>
       <section className="lp-privacy lp-evidence" id="evidencias" aria-labelledby="evidence-title">
@@ -165,6 +183,7 @@ export function LandingPage() {
           <article><span>PRIORIDADE DE CUIDADO</span><h3>Atenção aos sinais de risco.</h3><p>A trilha clínica utiliza regras específicas para interromper a coleta e priorizar o acompanhamento humano quando identifica sinais de crise.</p></article>
         </div>
       </section>
+      <TryIt />
       <section className="lp-final" aria-labelledby="final-title"><h2 id="final-title">Mais escuta.<br /><em>Mais espaço para cuidar.</em></h2><Link className="lp-button" href="/login">Acessar a plataforma <span aria-hidden="true">↗</span></Link></section>
     </main><footer className="lp-footer"><Brand /><span>Bem-estar no trabalho, com pessoas no centro.</span><a href="#conteudo">Voltar ao topo ↑</a></footer>
   </div>;
