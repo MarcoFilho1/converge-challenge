@@ -1,11 +1,19 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth/session";
 
-export default async function RootPage() {
+/** Lê o cookie dentro de <Suspense>: com cacheComponents, cookies() fora dele quebra o next build. */
+async function RedirectByAuth() {
   const cookieStore = await cookies();
-  if (isAuthenticated(cookieStore)) {
-    redirect("/fila");
-  }
-  redirect("/login");
+  redirect(isAuthenticated(cookieStore) ? "/fila" : "/login");
+  return null;
+}
+
+export default function RootPage() {
+  return (
+    <Suspense fallback={null}>
+      <RedirectByAuth />
+    </Suspense>
+  );
 }

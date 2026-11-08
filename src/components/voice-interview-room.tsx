@@ -99,6 +99,8 @@ export function VoiceInterviewRoom({
   const spokenDetectedRef = useRef<boolean>(false);
   const silenceStartRef = useRef<number | null>(null);
   const submitAudioRef = useRef<((blob: Blob, durationMs: number) => void) | null>(null);
+  /** Encerrar e Pular param o gravador sem enviar o que estava sendo gravado. */
+  const discardRecordingRef = useRef(false);
 
   const stopMediaResources = useCallback(() => {
     if (rafRef.current !== null) {
@@ -194,6 +196,10 @@ export function VoiceInterviewRoom({
       };
 
       recorder.onstop = () => {
+        if (discardRecordingRef.current) {
+          discardRecordingRef.current = false;
+          return;
+        }
         const duration = Math.round(performance.now() - recordStartRef.current);
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType || "audio/webm",
@@ -526,7 +532,7 @@ export function VoiceInterviewRoom({
         }
         if (res.status >= 500) {
           setConnectionError(true);
-          setRetryAction(() => () => handleSendAudioTurn(blob, durationMs));
+          setRetryAction(() => () => submitAudioRef.current?.(blob, durationMs));
           setVoiceState("inativo");
           return;
         }
@@ -596,6 +602,7 @@ export function VoiceInterviewRoom({
   };
 
   const handleSkip = async () => {
+    discardRecordingRef.current = mediaRecorderRef.current?.state === "recording";
     stopMediaResources();
     setConnectionError(false);
     setVoiceState("pensando");
@@ -621,6 +628,7 @@ export function VoiceInterviewRoom({
   };
 
   const handleStop = async () => {
+    discardRecordingRef.current = mediaRecorderRef.current?.state === "recording";
     stopMediaResources();
     setConnectionError(false);
     setVoiceState("pensando");
