@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { DemoGuide } from "@/components/demo-guide";
 import { getPublicChannels } from "@/lib/channels/status";
+import { entryQrSvg } from "@/lib/channels/qr";
 
 export const metadata = {
   title: "Iniciar a demo · Praevenius",
@@ -10,7 +11,9 @@ export const metadata = {
 
 async function Guide() {
   await connection();
-  return <DemoGuide channels={await getPublicChannels()} />;
+  // O QR sai pronto do servidor: não depende de nada carregar no navegador de quem avalia.
+  const [channels, qr] = await Promise.all([getPublicChannels(), entryQrSvg()]);
+  return <DemoGuide channels={channels} qr={qr} />;
 }
 
 export default function DemoPage() {

@@ -9,3 +9,9 @@ export const telegramDirectUrl = () => {
   const username = process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/, "") || "PraeveniusBot";
   return `https://t.me/${username}?start=entrar`;
 };
+
+/** QR da página de entrada (/entrar) no endereço público, para o roteiro da demo. */
+export async function entryQrSvg(): Promise<string> {
+  const { publicBaseUrl } = await import("./public");
+  return qrSvg(`${publicBaseUrl()}/entrar`);
+}
