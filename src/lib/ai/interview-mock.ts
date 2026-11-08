@@ -1,8 +1,8 @@
 import { normalizeText } from "@/lib/crisis/detect";
 import { BLOCK_LABELS, type InterviewSummary } from "@/lib/interview/contract";
 import { formatOrigin } from "@/lib/interview/origin";
-import type { BlockId, Finding, FindingTheme, Turn } from "@/lib/interview/types";
-import type { FindingDraft, InterviewAi } from "./interview";
+import type { BlockId, Finding, FindingTheme } from "@/lib/interview/types";
+import type { InterviewAi } from "./interview";
 
 const DURATION = /\b(ha|faz|desde|tem) (uns |umas |mais de |quase |cerca de )?(\d+|um|uma|dois|duas|tres|alguns|algumas|varios|varias|muito|pouco)?\s?(dia|dias|semana|semanas|mes|meses|ano|anos|tempo|[a-z]+)\b/;
 const STOP = /\b(quero parar|parar|encerrar|chega|nao quero mais falar|nao quero continuar)\b/;
