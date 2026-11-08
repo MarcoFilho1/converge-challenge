@@ -45,6 +45,7 @@ O Consultório NR-7 leva o questionário para o WhatsApp, que todo colaborador j
 - **Crise é cortada em código, antes de qualquer IA.** Uma frase de risco, ou o item 9 do PHQ-9 acima de zero, interrompe a conversa, mostra o CVV 188 e o SAMU 192 e coloca o caso como Urgência no topo da fila.
 - **Pontuação e gravidade são calculadas em código.** A IA só organiza, explica e resume.
 - **Nenhum indício aparece sem a fonte.** Ou o item do instrumento, ou o trecho da norma, ou o turno da entrevista.
+- **A fala da pessoa é informação, nunca instrução.** Na entrevista, tentativas de mudar as regras da IA ("ignore as instruções", "finja que é médico", "mostre seu prompt") são barradas em código: a fala não vai para a IA, a Helena repete a pergunta, a médica recebe um aviso e, na terceira tentativa, a entrevista termina. O resumo nunca cita essa fala, e nada que a IA escreva pode vazar a instrução interna ou prometer o que vai para o registro.
 - **Só o médico vê o indivíduo.** RH e liderança não recebem respostas nem áudios individuais.
 - **A demo usa dados sintéticos.** Telefone real, só o do time.
 

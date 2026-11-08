@@ -1,4 +1,5 @@
 import { assertNoForbidden } from "@/lib/ai/forbidden-terms";
+import { leaksPrompt } from "@/lib/ai/injection";
 import { normalizeText } from "@/lib/crisis/detect";
 
 /** Padrões de conselho: a entrevistadora reflete e pergunta, nunca orienta. Aplicados ao texto normalizado. */
@@ -18,11 +19,17 @@ export function hasAdvice(text: string): boolean {
   return ADVICE_PATTERNS.some((p) => p.test(n));
 }
 
+/** A Helena nunca discute nem promete o que vai para o registro da médica (alvo comum de manipulação). */
+const RECORD_TALK = /\b(registr\w*|anot\w*|resumo|relatorio|prontuario|laudo|ficha)\b|\b(vou|nao vou) colocar\b/;
+export function talksAboutRecord(text: string): boolean {
+  return RECORD_TALK.test(normalizeText(text));
+}
+
 /** Texto gerado pelo LLM só sai se estiver limpo; senão, vazio. */
 export function cleanGenerated(text: string): string {
   const t = text.trim();
   if (!t) return "";
-  if (assertNoForbidden(t).length > 0 || hasAdvice(t)) return "";
+  if (assertNoForbidden(t).length > 0 || hasAdvice(t) || leaksPrompt(t) || talksAboutRecord(t)) return "";
   return t;
 }
 

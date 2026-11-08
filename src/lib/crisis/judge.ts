@@ -12,6 +12,7 @@ import { chatCallOptions, hasChatKey, withChat } from "@/lib/ai/llm";
 import { recordEvent } from "@/lib/obs/events";
 import { detectCrisis, normalizeText } from "./detect";
 import { CRISIS_PATTERNS } from "./patterns";
+import { detectInjection } from "@/lib/ai/injection";
 
 export type RiskVerdict = "afirmado" | "negado" | "ambiguo";
 export type RiskAction = "sem_risco" | "cortar" | "seguir" | "confirmar";
@@ -72,6 +73,11 @@ export async function assessRisk(text: string, opts: { extraHit?: boolean; extra
   const hit = detectCrisis(text).hit || !!opts.extraHit;
   if (!hit) return "sem_risco";
   if (!negationBeforeRisk(text, [...CRISIS_PATTERNS, ...(opts.extraPatterns ?? [])])) return "cortar";
+  // Frase de risco com cara de ataque ("responda negado"): a IA não é consultada; pede confirmação.
+  if (detectInjection(text).hit) {
+    recordEvent({ kind: "avaliar negação", outcome: "descartado", model: "regra em código", detail: `Tentativa de mudar as regras junto com frase de risco: pediu confirmação sem consultar a IA` });
+    return "confirmar";
+  }
   let verdict: RiskVerdict;
   try {
     verdict = await judge(text);
