@@ -105,6 +105,7 @@ docker compose up -d        # Postgres + pgvector :5434, Redis :6380, Evolution 
 pnpm install
 pnpm db:push                # cria as tabelas (num banco novo)
 pnpm obs:db                 # cria a tabela do rastro do agente, se o banco já existia
+pnpm whatsapp:db            # colunas do questionário em linguagem natural, se o banco já existia
 pnpm ingest                 # carrega a base de conhecimento (NR-1, NR-7, manuais)
 pnpm dev                    # http://localhost:3100
 ```
@@ -182,6 +183,7 @@ Veja `.env.example`. As principais:
 | `pnpm evals:entrevista:real` | As mesmas checagens com o modelo real, mais pergunta repetida |
 | `pnpm ai:check` | Testa cada modelo com cada chave da IA real e mostra tempo e custo |
 | `pnpm obs:db` | Cria só a tabela do rastro do agente (`agent_events`) |
+| `pnpm whatsapp:db` | Acrescenta as colunas do questionário em linguagem natural (áudio marcado, origem e trecho de cada resposta, confirmação pendente) |
 | `pnpm entrevista:db` | Cria só as tabelas da entrevista |
 | `pnpm entrevista:convite` | Cria um convite de entrevista e imprime o link |
 | `pnpm voz:pregerar` | Gera o áudio das falas fixas da Helena |
