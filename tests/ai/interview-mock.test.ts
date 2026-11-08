@@ -33,7 +33,7 @@ describe("mock extractFindings", () => {
 describe("mock phraseAck", () => {
   it("devolve frase curta e limpa", async () => {
     const ack = await ai.phraseAck({ lastText: "cansaço", findings: [{ tema: "sintoma", texto: "cansaço", duracao: null, intensidade: null, mencionaTrabalho: false, pediuParar: false }], probeText: probe });
-    expect(ack).toBe("Entendi.");
+    expect(["Hmm, entendi.", "Certo.", "Sei.", "Entendi, obrigada por me contar.", "Hum, faz sentido."]).toContain(ack);
     expect(assertNoForbidden(ack)).toEqual([]);
     expect(hasAdvice(ack)).toBe(false);
     expect(await ai.phraseAck({ lastText: "", findings: [], probeText: probe })).toBe("Certo.");

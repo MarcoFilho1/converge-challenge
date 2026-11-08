@@ -94,3 +94,8 @@ export function URGENCY_SPEECH(medico: string): string {
 
 /** Consentimento negado. */
 export const DECLINE_SPEECH = "Tudo bem, obrigada. Nada foi registrado. Se mudar de ideia, é só abrir o link de novo.";
+
+/** Resposta fixa quando a pessoa pergunta "você entendeu?" no fim da fala. */
+export const ASKED_ACK = "Entendi sim, não se preocupa.";
+/** Prefixo quando a pessoa pede para repetir e a segunda forma já foi usada. */
+export const REPEAT_ASK_PREFIX = "Claro. ";

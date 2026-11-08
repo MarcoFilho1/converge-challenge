@@ -121,7 +121,7 @@ describe("motor de turnos", () => {
     let r = await start();
     r = await speak(r.state, "pode");
     r = await speak(r.state, "cansaço há três meses");
-    expect(r.say.text.startsWith("Entendi. ")).toBe(true);
+    expect(r.say.text).toMatch(/^(Hmm, entendi\.|Certo\.|Sei\.|Entendi, obrigada por me contar\.|Hum, faz sentido\.) /);
     expect(r.say.cacheKey).toBeNull();
   });
 

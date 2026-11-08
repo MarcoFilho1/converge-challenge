@@ -8,7 +8,7 @@ import { pushSchemaToTestDb, truncateAll } from "../helpers/db";
 import { createInterviewMock } from "@/lib/ai/interview-mock";
 import { createState, isFinal, step, type InterviewState } from "@/lib/interview/engine";
 import { FIXTURES } from "@/lib/interview/fixtures";
-import { REPEAT_PREFIX } from "@/lib/interview/protocol";
+import { BLOCKS, REPEAT_PREFIX } from "@/lib/interview/protocol";
 import { buildSummary, validateSummary } from "@/lib/interview/summary";
 import { VoiceUnavailable, type VoiceProvider } from "@/lib/voice/types";
 
@@ -67,8 +67,9 @@ describe("I5: repetição usa a pergunta fixa, não o acolhimento", () => {
     let r = await startAt();
     r = await speak(r.state, "pode");
     r = await speak(r.state, "um cansaço grande");
-    expect(r.say.text.startsWith("Entendi. ")).toBe(true);
-    const probeOnly = r.say.text.replace(/^Entendi\. /, "");
+    const probeOnly = BLOCKS.saude.probes.find((p) => p.id === r.say.probeId)!.text;
+    expect(r.say.text.endsWith(probeOnly)).toBe(true);
+    expect(r.say.text).not.toBe(probeOnly);
     const fakeAck = { ...r.state, turns: r.state.turns.map((t, i) => (i === r.state.turns.length - 1 ? { ...t, text: "Entendi, o cansaço é grande. " + probeOnly } : t)) };
     const rep = await speak(fakeAck, "");
     expect(rep.say.text).toBe(REPEAT_PREFIX + probeOnly);
@@ -95,7 +96,7 @@ describe("serviço: lock, transação, STT fora", () => {
   beforeAll(() => pushSchemaToTestDb());
   beforeEach(async () => truncateAll());
 
-  const wav16k = () => { const b = Buffer.alloc(100); b.write("RIFF", 0); b.write("WAVE", 8); b.writeUInt16LE(1, 22); b.writeUInt32LE(16000, 24); return b; };
+  const wav16k = () => { const b = Buffer.alloc(100); b.write("RIFF", 0); b.write("WAVE", 8); b.writeUInt16LE(1, 22); b.writeUInt32LE(16000, 24); for (let i = 44; i + 1 < b.length; i += 2) b.writeInt16LE(i % 4 ? 3000 : -3000, i); return b; };
 
   async function svcWith(voice: VoiceProvider, root = mkdtempSync(join(tmpdir(), "ent-"))) {
     const { createInterviewService } = await import("@/lib/interview/service");

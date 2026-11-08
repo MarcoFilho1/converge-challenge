@@ -123,6 +123,7 @@ describe("serviço da entrevista", () => {
     // áudio da pessoa já em wav 16k passa sem ffmpeg
     const wav16k = Buffer.alloc(100);
     wav16k.write("RIFF", 0); wav16k.write("WAVE", 8); wav16k.writeUInt16LE(1, 22); wav16k.writeUInt32LE(16000, 24);
+    for (let i = 44; i + 1 < wav16k.length; i += 2) wav16k.writeInt16LE(i % 4 ? 3000 : -3000, i); // som, não silêncio
     const t = await svc2.turn(tok2, { audio: { buffer: wav16k, mime: "audio/wav" }, clientMs: 2500 });
     expect(t.heard).toBe("cansaço há dois meses");
     expect(await svc2.personAudioPath(i2.id, 1)).toBeTruthy();

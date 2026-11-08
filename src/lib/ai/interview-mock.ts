@@ -23,6 +23,8 @@ const THEMES: [FindingTheme, RegExp][] = [
   ["barreira", /\b(nao tenho tempo|caro|dinheiro|nao sei onde|medo|vergonha|empresa saber|achei que passava)\b/],
 ];
 const WORK = /\b(trabalho|servico|empresa|chefe|meta|prazo|turno|escala|fechamento|hora extra|horas extras|equipe|cliente)\b/;
+/** Sinais de escuta falados; nenhum avalia nem aconselha. */
+const ACKS = ["Hmm, entendi.", "Certo.", "Sei.", "Entendi, obrigada por me contar.", "Hum, faz sentido."];
 const DEFAULT_THEME: Partial<Record<BlockId, FindingTheme>> = { saude: "sintoma", trabalho: "carga", barreiras: "barreira" };
 
 function durationOf(normalized: string, original: string): string | null {
@@ -52,8 +54,11 @@ export function createInterviewMock(): InterviewAi {
       ];
     },
 
-    async phraseAck({ findings }) {
-      return findings.length > 0 ? "Entendi." : "Certo.";
+    async phraseAck({ lastText, findings }) {
+      if (findings.length === 0) return "Certo.";
+      // varia como numa conversa; escolha determinística pelo texto para os testes serem estáveis
+      const sum = [...lastText].reduce((a, c) => a + c.charCodeAt(0), 0);
+      return ACKS[sum % ACKS.length];
     },
 
     async summarize({ turns, findings, skipped }) {

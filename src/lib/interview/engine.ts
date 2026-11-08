@@ -5,8 +5,8 @@
 import type { InterviewAi } from "@/lib/ai/interview";
 import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
 import { buildAgenda, type Agenda } from "./agenda";
-import { cleanGenerated, extraCrisis } from "./filters";
-import { BLOCKS, CRISIS_SPEECH, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
+import { askedHelena, asksRepeat, cleanGenerated, extraCrisis } from "./filters";
+import { ASKED_ACK, BLOCKS, CRISIS_SPEECH, REPEAT_ASK_PREFIX, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
 import { fechamentoIndex, selectNext } from "./select";
 import type { Aviso, BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
 
@@ -197,7 +197,7 @@ async function advance(ctx: Ctx, lastText: string, newFindings: Finding[]) {
   }
 
   const wantsAck = state.mode === "live" && fromBlock !== "abertura" && blockId !== "seguranca";
-  const ack = wantsAck ? cleanGenerated(await ctx.ai.phraseAck({ lastText, findings: newFindings, probeText })) : "";
+  const ack = !wantsAck ? "" : askedHelena(lastText) ? ASKED_ACK : cleanGenerated(await ctx.ai.phraseAck({ lastText, findings: newFindings, probeText }));
   const text = [ack, probeText].filter(Boolean).join(" ");
   const cacheKey = ack ? null : `${blockId}:${probeId ?? "base"}`;
   return aiTurn({ ...ctx, state }, { text, probeId, blockId, cacheKey, final: false, crisis: false }, "running");
@@ -244,6 +244,14 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
     return moveOn(ctx, s);
   }
   s = { ...s, repeatCount: 0 };
+
+  if (blockId !== "abertura" && asksRepeat(text)) {
+    const firstTime = (s.rephraseCount ?? 0) === 0 && q.rephrase;
+    s = { ...s, rephraseCount: 1 };
+    const say = firstTime ? q.rephrase! : REPEAT_ASK_PREFIX + q.text;
+    const key = firstTime ? `${blockId}:${state.currentProbeId ?? "base"}:rephrase` : `${blockId}:${state.currentProbeId ?? "base"}:claro`;
+    return aiTurn({ ...ctx, state: s }, { text: say, probeId: state.currentProbeId, blockId, cacheKey: key, final: false, crisis: false }, "running");
+  }
 
   const evasive = blockId === "seguranca" ? !safetyClearlyNo(text) : blockId !== "abertura" && isEvasive(text);
   if (evasive) {

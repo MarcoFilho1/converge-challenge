@@ -39,3 +39,18 @@ export function extraCrisis(text: string): boolean {
   const n = normalizeText(text);
   return EXTRA_CRISIS_PATTERNS.some((p) => p.test(n));
 }
+
+const stripPunct = (t: string) => normalizeText(t).replace(/[.,!?;:…"“”()\-]+/g, " ").replace(/\s+/g, " ").trim();
+
+/** A pessoa terminou a fala perguntando algo para a Helena ("…, você entendeu?", "…, sabe?"). */
+export function askedHelena(text: string): boolean {
+  if (!text.trim().endsWith("?")) return false;
+  return /(voce entendeu|entendeu|sabe|faz sentido|ta bom|ta|ne|certo|consegui explicar|deu pra entender|ficou claro|me entende)$/.test(stripPunct(text));
+}
+
+/** Pedido de repetir ou esclarecer a pergunta ("pode repetir?", "como assim?"). Só falas curtas. */
+export function asksRepeat(text: string): boolean {
+  const n = stripPunct(text);
+  if (n.split(" ").length > 8) return false;
+  return /\b(pode repetir|repete|repetir a pergunta|como assim|nao entendi|o que voce quer dizer|nao ouvi|fala de novo)\b/.test(n);
+}

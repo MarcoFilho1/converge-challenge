@@ -1,7 +1,7 @@
 /** Pré-gera o áudio de todas as falas fixas do protocolo com a voz configurada. Uso: pnpm voz:pregerar */
 import "./_env";
 import { getVoice, getOrGenerate, voiceProfileName } from "@/lib/voice";
-import { BLOCKS, CRISIS_SPEECH, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "@/lib/interview/protocol";
+import { BLOCKS, REPEAT_ASK_PREFIX, CRISIS_SPEECH, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "@/lib/interview/protocol";
 import type { BlockId } from "@/lib/interview/types";
 
 async function main() {
@@ -14,9 +14,11 @@ async function main() {
     const id = b.id as BlockId;
     items.push({ key: `${id}:base`, text: renderText(b.base, vars) });
     if (b.rephrase) items.push({ key: `${id}:base:rephrase`, text: b.rephrase });
+    items.push({ key: `${id}:base:claro`, text: REPEAT_ASK_PREFIX + renderText(b.base, vars) });
     for (const p of b.probes) {
       items.push({ key: `${id}:${p.id}`, text: p.text });
       items.push({ key: `${id}:${p.id}:rephrase`, text: p.rephrase });
+      items.push({ key: `${id}:${p.id}:claro`, text: REPEAT_ASK_PREFIX + p.text });
       items.push({ key: `${id}:repeat:${p.id}`, text: REPEAT_PREFIX + p.text });
     }
     items.push({ key: `${id}:repeat:base`, text: REPEAT_PREFIX + renderText(b.base, vars) });

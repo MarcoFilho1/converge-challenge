@@ -29,6 +29,18 @@ export class AudioInvalid extends Error { name = "AudioInvalid"; }
 /** Voicebox não transcreveu: a tela deve cair para o modo texto. Nenhum turno é gravado. */
 export class SttUnavailable extends Error { name = "SttUnavailable"; }
 
+/** Pico do wav 16-bit abaixo de ~-44 dBFS = silêncio. */
+export function isSilent(wav: Buffer, threshold = 200): boolean {
+  const dataAt = wav.indexOf("data", 12);
+  const start = dataAt >= 0 ? dataAt + 8 : 44;
+  let peak = 0;
+  for (let i = start; i + 1 < wav.length; i += 2) {
+    const v = Math.abs(wav.readInt16LE(i));
+    if (v > peak) { peak = v; if (peak >= threshold) return false; }
+  }
+  return true;
+}
+
 export type ServiceDeps = {
   voice?: VoiceProvider;
   ai?: InterviewAi;
@@ -204,7 +216,8 @@ export function createInterviewService(deps: ServiceDeps = {}) {
           throw new AudioInvalid(err instanceof Error ? err.message : "audio_invalido");
         }
         try {
-          text = (await voice.stt(wav, "audio/wav")).text;
+          // áudio mudo: o Whisper inventa texto ("E aí E aí"); trata como "não ouvi" sem transcrever
+          text = isSilent(wav) ? "" : (await voice.stt(wav, "audio/wav")).text;
         } catch (err) {
           if (err instanceof VoiceUnavailable) throw new SttUnavailable(err.message);
           throw err;
