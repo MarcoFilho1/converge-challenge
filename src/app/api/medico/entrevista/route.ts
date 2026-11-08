@@ -3,8 +3,6 @@ import { errorResponse, json } from "@/lib/interview/http";
 import { FIXTURES, type FixtureName } from "@/lib/interview/fixtures";
 import { getInterviewService } from "@/lib/interview/service";
 
-export const runtime = "nodejs";
-
 /** Cria o convite para a entrevista: {runId} (caso real) ou {fixture} (dados sintéticos, dev/demo). */
 export async function POST(req: Request) {
   const denied = requireDoctor(req);

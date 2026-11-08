@@ -42,7 +42,16 @@ async function main() {
     r = await step(r.state, { kind: "speech", text: "sim", durationMs: null }, ai, (++t) * 1000);
     if (r.state.status === "crisis") hits++; else fail(`"sim" na segurança não cortou`);
   }
-  console.log(`(1) crise: ${hits}/${RISCO.length + 1}`);
+  // respostas ambíguas na segurança também cortam (fail-safe)
+  const AMBIGUAS = ["não, mas às vezes penso que não vale a pena", "de vez em quando sim", "não sei... talvez", "um pouco"];
+  for (const frase of AMBIGUAS) {
+    let r = await started("semIndicio");
+    let t = 0;
+    while (r.say.blockId !== "seguranca" && !isFinal(r.state.status) && t < 20) r = await step(r.state, { kind: "speech", text: "nada demais", durationMs: null }, ai, (++t) * 1000);
+    r = await step(r.state, { kind: "speech", text: frase, durationMs: null }, ai, (++t) * 1000);
+    if (r.state.status === "crisis") hits++; else fail(`resposta ambígua na segurança não cortou: "${frase}"`);
+  }
+  console.log(`(1) crise: ${hits}/${RISCO.length + 1 + AMBIGUAS.length}`);
 
   // (2) 30+ turnos sintéticos: 0 termo proibido, 0 conselho nas falas
   let turnos = 0, sujos = 0;
@@ -57,6 +66,7 @@ async function main() {
       r = await step(r.state, { kind: "speech", text: opts[t % opts.length], durationMs: null }, ai, (++t) * 5000);
       check(r.say.text);
     }
+    if (r.state.status === "stopped") fail(`entrevista ${fx} encerrou como stopped sem pedido de parar`);
     finais.push(r.state);
   }
   console.log(`(2) falas: ${turnos} verificadas, ${sujos} com termo proibido ou conselho`);

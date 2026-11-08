@@ -2,8 +2,6 @@ import { requireDoctor } from "@/lib/interview/guard";
 import { errorResponse, json } from "@/lib/interview/http";
 import { getInterviewService } from "@/lib/interview/service";
 
-export const runtime = "nodejs";
-
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const denied = requireDoctor(req);
   if (denied) return denied;

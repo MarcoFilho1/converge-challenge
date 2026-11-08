@@ -3,7 +3,7 @@
  * Cada turno é uma requisição; o estado inteiro vive em interviews.state (jsonb) com lock otimista.
  */
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getInterviewAi, type InterviewAi } from "@/lib/ai/interview";
 import { scoreRun } from "@/lib/instruments";
@@ -26,6 +26,8 @@ import type { BlockId } from "./types";
 export class InterviewNotFound extends Error { name = "InterviewNotFound"; }
 export class InterviewConflict extends Error { name = "InterviewConflict"; }
 export class AudioInvalid extends Error { name = "AudioInvalid"; }
+/** Voicebox não transcreveu: a tela deve cair para o modo texto. Nenhum turno é gravado. */
+export class SttUnavailable extends Error { name = "SttUnavailable"; }
 
 export type ServiceDeps = {
   voice?: VoiceProvider;
@@ -87,7 +89,7 @@ export function createInterviewService(deps: ServiceDeps = {}) {
       if (!out) return { url: null, voice: "browser", path: null };
       const dir = join(dataRoot, "entrevistas", row.id);
       mkdirSync(dir, { recursive: true });
-      const path = join(dir, `ai-${turnIdx}.wav`);
+      const path = join(dir, `ai-${turnIdx}-${randomBytes(4).toString("hex")}.wav`);
       writeFileSync(path, out.audio);
       return { url: `/api/entrevista/${row.token}/fala/${turnIdx}`, voice: "live", path };
     } catch (err) {
@@ -96,25 +98,31 @@ export function createInterviewService(deps: ServiceDeps = {}) {
     }
   }
 
-  /** Aplica um evento, persiste turnos e estado, gera o áudio e monta a resposta do contrato. */
+  /**
+   * Aplica um evento. Ordem: motor → transação (lock otimista + turnos + urgência) → só então áudio da IA.
+   * Quem perde a corrida não gera TTS nem deixa arquivo; o banco nunca fica com estado e turnos divergentes.
+   */
   async function apply(row: InterviewRow, event: InterviewEvent, personAudioPath: string | null, heard: string | null): Promise<TurnResponse> {
     const before = stateOf(row);
     const nowMs = now();
     const { state, say } = await step(before, event, ai, nowMs);
-
-    // turnos novos = tudo além do que já existia
     const newTurns = state.turns.slice(before.turns.length);
     const aiTurnIdx = state.turns.length - 1;
-    const audio = await aiAudio(row, say, aiTurnIdx);
 
-    const ok = await repo.saveState(row.id, state, before.turns.length);
-    if (!ok) throw new InterviewConflict("estado_invalido");
-    for (const t of newTurns) {
-      const audioPath = t.speaker === "person" ? personAudioPath : t.idx === aiTurnIdx ? audio.path : null;
-      await repo.insertTurn(row.id, { ...t, audioPath });
+    try {
+      await repo.transaction(async (tx) => {
+        const ok = await repo.saveState(row.id, state, before.turns.length, tx);
+        if (!ok) throw new InterviewConflict("estado_invalido");
+        for (const t of newTurns) await repo.insertTurn(row.id, { ...t, audioPath: t.speaker === "person" ? personAudioPath : null }, tx);
+        if (state.status === "crisis" && row.runId) await repo.markRunUrgency(row.runId, tx);
+      });
+    } catch (err) {
+      if (personAudioPath) rmSync(personAudioPath, { force: true });
+      throw err;
     }
 
-    if (state.status === "crisis" && row.runId) await repo.markRunUrgency(row.runId);
+    const audio = await aiAudio(row, say, aiTurnIdx);
+    if (audio.path) await repo.setTurnAudio(row.id, aiTurnIdx, audio.path);
     if (isFinal(state.status)) await repo.saveSummary(row.id, await buildSummary(state, ai));
 
     const resp: TurnResponse = {
@@ -195,16 +203,16 @@ export function createInterviewService(deps: ServiceDeps = {}) {
         } catch (err) {
           throw new AudioInvalid(err instanceof Error ? err.message : "audio_invalido");
         }
-        const dir = join(dataRoot, "entrevistas", row.id);
-        mkdirSync(dir, { recursive: true });
-        audioPath = join(dir, `${stateOf(row).turns.length}.wav`);
-        writeFileSync(audioPath, wav);
         try {
           text = (await voice.stt(wav, "audio/wav")).text;
         } catch (err) {
-          if (!(err instanceof VoiceUnavailable)) throw err;
-          text = "";
+          if (err instanceof VoiceUnavailable) throw new SttUnavailable(err.message);
+          throw err;
         }
+        const dir = join(dataRoot, "entrevistas", row.id);
+        mkdirSync(dir, { recursive: true });
+        audioPath = join(dir, `${stateOf(row).turns.length}-${randomBytes(4).toString("hex")}.wav`);
+        writeFileSync(audioPath, wav);
       }
       return apply(row, { kind: "speech", text, durationMs: input.clientMs ?? null }, audioPath, text);
     },

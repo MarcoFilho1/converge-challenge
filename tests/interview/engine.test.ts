@@ -129,7 +129,7 @@ describe("motor de turnos", () => {
     let r = await start();
     let n = 0;
     while (!isFinal(r.state.status) && n < 20) {
-      r = await speak(r.state, `resposta ${n}`);
+      r = await speak(r.state, r.say.blockId === "seguranca" ? "não" : `resposta ${n}`);
       n++;
     }
     expect(personTurns(r.state)).toBeLessThanOrEqual(12);

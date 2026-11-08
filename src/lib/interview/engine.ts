@@ -12,7 +12,15 @@ import type { BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./
 
 export const MAX_PERSON_TURNS = 12;
 export const MAX_DURATION_MS = 15 * 60_000;
-const SAFETY_YES = /^(sim|tive|ja tive|as vezes|um pouco|acho que sim)\b/;
+/** Segurança é fail-safe: só segue como "não" a negação clara; qualquer dúvida vira crise (falso positivo é aceitável). */
+const SAFETY_NO = /^(nao|nunca|nada disso|de jeito nenhum|jamais)\b/;
+const SAFETY_DOUBT = /\b(mas|as vezes|sim|talvez|nao sei|vale a pena|de vez em quando|tive|tenho|penso|pensei|pensando|um pouco|acho)\b/;
+export const SAFETY_UNANSWERED = "pergunta de segurança não respondida";
+
+function safetyClearlyNo(text: string): boolean {
+  const n = normalizeText(text);
+  return SAFETY_NO.test(n) && !SAFETY_DOUBT.test(n);
+}
 
 export type InterviewMode = "live" | "cache_only";
 
@@ -98,6 +106,10 @@ function currentBlockId(state: InterviewState): BlockId {
 /** Ao sair de um domínio sem nenhum achado, ele vira "não respondido". */
 function leaveBlock(state: InterviewState, blockId: BlockId): InterviewState {
   const def = BLOCKS[blockId];
+  if (blockId === "seguranca") {
+    const answered = state.turns.some((t) => t.speaker === "person" && t.blockId === "seguranca" && normalizeText(t.text).length >= 2);
+    return answered || state.skipped.includes("seguranca") ? state : { ...state, skipped: [...state.skipped, "seguranca"] };
+  }
   if (def.probes.length === 0) return state;
   const hasFindings = state.findings.some((f) => f.blockId === blockId);
   return hasFindings || state.skipped.includes(blockId) ? state : { ...state, skipped: [...state.skipped, blockId] };
@@ -175,12 +187,12 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
   let s = pushTurn(state, { speaker: "person", text, blockId, probeId: state.currentProbeId, startedMs: nowMs - state.startedMs, durationMs: event.durationMs });
 
   if (detectCrisis(text).hit || extraCrisis(text)) return crisis({ ...ctx, state: s });
-  if (blockId === "seguranca" && SAFETY_YES.test(normalizeText(text))) return crisis({ ...ctx, state: s });
+  if (blockId === "seguranca" && normalizeText(text).length >= 2 && !safetyClearlyNo(text)) return crisis({ ...ctx, state: s });
 
   if (normalizeText(text).length < 2) {
     if (s.repeatCount === 0) {
-      const last = state.turns.at(-1);
-      const probe = last?.text.replace(/^Entendi\. |^Certo\. /, "") ?? renderText(BLOCKS[blockId].base, s.vars);
+      // a fonte da verdade é a sonda atual, nunca o texto falado (que pode ter acolhimento gerado)
+      const probe = BLOCKS[blockId].probes.find((p) => p.id === state.currentProbeId)?.text ?? renderText(BLOCKS[blockId].base, s.vars);
       s = { ...s, repeatCount: 1 };
       return aiTurn({ ...ctx, state: s }, { text: REPEAT_PREFIX + probe, probeId: state.currentProbeId, blockId, cacheKey: `${blockId}:repeat:${state.currentProbeId ?? "base"}`, final: false, crisis: false }, "running");
     }

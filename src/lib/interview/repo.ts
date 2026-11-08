@@ -6,6 +6,13 @@ import type { InterviewSummary } from "./contract";
 import type { InterviewState } from "./engine";
 import type { Turn } from "./types";
 
+/** db ou uma transação aberta com db.transaction. */
+export type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export function transaction<T>(fn: (tx: Executor) => Promise<T>): Promise<T> {
+  return db.transaction((tx) => fn(tx));
+}
+
 export async function createInterview(v: { runId: string | null; token: string; state: InterviewState; profile: string | null }): Promise<InterviewRow> {
   const [row] = await db
     .insert(interviews)
@@ -25,8 +32,8 @@ export async function getInterview(id: string): Promise<InterviewRow | null> {
 }
 
 /** Lock otimista: só grava se o estado salvo ainda tem `expectedTurns` turnos. */
-export async function saveState(id: string, state: InterviewState, expectedTurns: number): Promise<boolean> {
-  const rows = await db
+export async function saveState(id: string, state: InterviewState, expectedTurns: number, ex: Executor = db): Promise<boolean> {
+  const rows = await ex
     .update(interviews)
     .set({
       state,
@@ -39,8 +46,8 @@ export async function saveState(id: string, state: InterviewState, expectedTurns
   return rows.length === 1;
 }
 
-export async function insertTurn(interviewId: string, turn: Turn & { audioPath?: string | null }) {
-  const [row] = await db
+export async function insertTurn(interviewId: string, turn: Turn & { audioPath?: string | null }, ex: Executor = db) {
+  const [row] = await ex
     .insert(interviewTurns)
     .values({ interviewId, idx: turn.idx, speaker: turn.speaker, text: turn.text, blockId: turn.blockId, probeId: turn.probeId, audioPath: turn.audioPath ?? null, startedMs: turn.startedMs, durationMs: turn.durationMs })
     .returning();
@@ -69,6 +76,10 @@ export async function listByRun(runId: string): Promise<InterviewRow[]> {
   return db.select().from(interviews).where(eq(interviews.runId, runId)).orderBy(desc(interviews.createdAt));
 }
 
-export async function markRunUrgency(runId: string) {
-  await db.update(questionnaireRuns).set({ severity: "urgency" }).where(eq(questionnaireRuns.id, runId));
+export async function markRunUrgency(runId: string, ex: Executor = db) {
+  await ex.update(questionnaireRuns).set({ severity: "urgency" }).where(eq(questionnaireRuns.id, runId));
+}
+
+export async function setTurnAudio(interviewId: string, idx: number, audioPath: string) {
+  await db.update(interviewTurns).set({ audioPath }).where(and(eq(interviewTurns.interviewId, interviewId), eq(interviewTurns.idx, idx)));
 }

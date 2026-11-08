@@ -31,7 +31,7 @@ describe("padrões extras de crise", () => {
 describe("formatOrigin", () => {
   it("formata turno e minuto", () => {
     expect(
-      formatOrigin({ idx: 3, speaker: "person", text: "x", blockId: "saude", probeId: null, startedMs: 72000, durationMs: null }),
+      formatOrigin({ idx: 3, startedMs: 72000 }),
     ).toBe("turno 3 · 01:12");
   });
 });

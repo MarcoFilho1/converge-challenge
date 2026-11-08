@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { AudioInvalid, InterviewConflict, InterviewNotFound } from "./service";
+import { AudioInvalid, InterviewConflict, InterviewNotFound, SttUnavailable } from "./service";
 
 export const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
 
@@ -12,6 +12,7 @@ export function errorResponse(err: unknown): Response {
   if (err instanceof InterviewNotFound) return json({ error: "token_invalido" }, 404);
   if (err instanceof InterviewConflict) return json({ error: "estado_invalido" }, 409);
   if (err instanceof AudioInvalid) return json({ error: "audio_invalido" }, 400);
+  if (err instanceof SttUnavailable) return json({ error: "stt_indisponivel" }, 503);
   console.error("[entrevista] erro inesperado", err);
   return json({ error: "erro_interno" }, 500);
 }

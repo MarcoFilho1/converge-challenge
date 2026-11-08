@@ -1,11 +1,19 @@
 import { normalizeText } from "@/lib/crisis/detect";
 import { BLOCK_LABELS, type InterviewSummary } from "@/lib/interview/contract";
 import { formatOrigin } from "@/lib/interview/origin";
+import { SAFETY_UNANSWERED } from "@/lib/interview/engine";
 import type { BlockId, Finding, FindingTheme } from "@/lib/interview/types";
 import type { InterviewAi } from "./interview";
 
 const DURATION = /\b(ha|faz|desde|tem) (uns |umas |mais de |quase |cerca de )?(\d+|um|uma|dois|duas|tres|alguns|algumas|varios|varias|muito|pouco)?\s?(dia|dias|semana|semanas|mes|meses|ano|anos|tempo|[a-z]+)\b/;
-const STOP = /\b(quero parar|parar|encerrar|chega|nao quero mais falar|nao quero continuar)\b/;
+/** Só intenção clara de encerrar; "não consigo parar" ou "quando chega o fechamento" NÃO contam. */
+const STOP: RegExp[] = [
+  /^(eu )?(quero|prefiro|vamos|pode|podemos|preciso|gostaria de) (parar|encerrar)\b/,
+  /\b(quero|prefiro) (parar|encerrar)\b/,
+  /\bnao quero (mais )?(falar|continuar)\b/,
+  /\bchega por hoje\b/,
+  /^(parar|encerrar|chega|para)[.!]?$/,
+];
 const THEMES: [FindingTheme, RegExp][] = [
   ["chefia", /\b(chefe|chefia|gerente|supervisor|supervisora|coordenador|coordenadora|colegas?)\b/],
   ["carga", /\b(hora extra|horas extras|ate tarde|meta|metas|prazo|prazos|fechamento|sobrecarga|muita coisa|demanda)\b/],
@@ -39,7 +47,7 @@ export function createInterviewMock(): InterviewAi {
           duracao: durationOf(n, original),
           intensidade: /\b(muito|demais|forte|insuportavel)\b/.test(n) ? "forte" : null,
           mencionaTrabalho: WORK.test(n),
-          pediuParar: STOP.test(n),
+          pediuParar: STOP.some((re) => re.test(n)),
         },
       ];
     },
@@ -66,7 +74,7 @@ export function createInterviewMock(): InterviewAi {
         barreiras_atendimento: is("barreira").map(cited),
         sinais_de_alerta: { risco: false, origem: [] },
         pontos_para_avaliacao: is("procurou", "tratamento").map(cited),
-        nao_respondido: skipped.map((b) => BLOCK_LABELS[b]),
+        nao_respondido: skipped.map((b) => (b === "seguranca" ? SAFETY_UNANSWERED : BLOCK_LABELS[b])),
         duracao_min: last ? Math.round(((last.startedMs + (last.durationMs ?? 0)) / 60000) * 10) / 10 : 0,
         turnos: personTurns.length,
       };

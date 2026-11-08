@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { InterviewAi } from "@/lib/ai/interview";
 import { assertNoForbidden } from "@/lib/ai/forbidden-terms";
 import { InterviewSummary as SummarySchema, type InterviewSummary } from "./contract";
-import type { InterviewState } from "./engine";
+import { SAFETY_UNANSWERED, type InterviewState } from "./engine";
 import { formatOrigin } from "./origin";
 import type { Turn } from "./types";
 
@@ -44,7 +44,11 @@ export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
     impacto_no_trabalho: clean(loose.impacto_no_trabalho),
     fatores_do_trabalho: clean(loose.fatores_do_trabalho),
     barreiras_atendimento: clean(loose.barreiras_atendimento),
-    sinais_de_alerta: { risco: loose.sinais_de_alerta.risco, origem: origins(loose.sinais_de_alerta.origem) },
+    // risco sem origem válida é alucinação: cai para false (crise real é forçada em buildSummary)
+    sinais_de_alerta: (() => {
+      const o = origins(loose.sinais_de_alerta.origem);
+      return { risco: loose.sinais_de_alerta.risco && o.length > 0, origem: o };
+    })(),
     pontos_para_avaliacao: clean(loose.pontos_para_avaliacao),
     nao_respondido: loose.nao_respondido.filter((t) => assertNoForbidden(t).length === 0),
     duracao_min: Math.round((durationMs / 60_000) * 10) / 10,
@@ -55,6 +59,9 @@ export function validateSummary(raw: unknown, turns: Turn[]): InterviewSummary {
 export async function buildSummary(state: InterviewState, ai: InterviewAi): Promise<InterviewSummary> {
   const raw = await ai.summarize({ turns: state.turns, findings: state.findings, agenda: state.agenda, skipped: state.skipped });
   const summary = validateSummary(raw, state.turns);
+  if (state.skipped.includes("seguranca") && !summary.nao_respondido.includes(SAFETY_UNANSWERED)) {
+    summary.nao_respondido = [SAFETY_UNANSWERED, ...summary.nao_respondido.filter((x) => x !== "Uma pergunta importante")];
+  }
   if (state.status === "crisis") {
     const lastPerson = [...state.turns].reverse().find((t) => t.speaker === "person");
     summary.sinais_de_alerta = { risco: true, origem: lastPerson ? [{ turnIdx: lastPerson.idx, label: formatOrigin(lastPerson) }] : [] };

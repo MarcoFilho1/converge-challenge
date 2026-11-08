@@ -6,7 +6,7 @@ process.env.INTERVIEW_PUBLIC_URL = "http://localhost:3100";
 process.env.VOICE_PROVIDER = "none";
 
 const COOKIE = { cookie: "session=ok" };
-const P = (params: Record<string, string>) => ({ params: Promise.resolve(params) });
+const P = <T,>(params: T) => ({ params: Promise.resolve(params) });
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   new Request("http://x", { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
 const get = (headers: Record<string, string> = {}) => new Request("http://x", { headers });
@@ -28,7 +28,7 @@ describe("rotas do médico", () => {
     const { GET } = await import("@/app/api/medico/entrevista/[id]/route");
     const { GET: list } = await import("@/app/api/medico/caso/[runId]/entrevistas/route");
     const { GET: audio } = await import("@/app/api/medico/entrevista/[id]/audio/[idx]/route");
-    expect((await POST(post({ fixture: "atencao" }), {} as never)).status).toBe(401);
+    expect((await POST(post({ fixture: "atencao" }))).status).toBe(401);
     expect((await GET(get(), P({ id: "x" }))).status).toBe(401);
     expect((await list(get(), P({ runId: "x" }))).status).toBe(401);
     expect((await audio(get(), P({ id: "x", idx: "1" }))).status).toBe(401);
@@ -38,7 +38,7 @@ describe("rotas do médico", () => {
     const { POST } = await import("@/app/api/medico/entrevista/route");
     const { GET } = await import("@/app/api/medico/entrevista/[id]/route");
     const { GET: audio } = await import("@/app/api/medico/entrevista/[id]/audio/[idx]/route");
-    const created = await POST(post({ fixture: "atencao" }, COOKIE), {} as never);
+    const created = await POST(post({ fixture: "atencao" }, COOKIE));
     expect(created.status).toBe(200);
     const item = InterviewListItem.parse(await created.json());
 
@@ -67,12 +67,12 @@ describe("rotas do médico", () => {
     const { POST } = await import("@/app/api/medico/entrevista/route");
     const { GET: list } = await import("@/app/api/medico/caso/[runId]/entrevistas/route");
     expect(await (await list(get(COOKIE), P({ runId: run.id }))).json()).toEqual([]);
-    const created = await POST(post({ runId: run.id }, COOKIE), {} as never);
+    const created = await POST(post({ runId: run.id }, COOKIE));
     expect(created.status).toBe(200);
     const items = (await (await list(get(COOKIE), P({ runId: run.id }))).json()) as unknown[];
     expect(items).toHaveLength(1);
     InterviewListItem.parse(items[0]);
-    expect((await POST(post({}, COOKIE), {} as never)).status).toBe(400);
-    expect((await POST(post({ runId: "00000000-0000-0000-0000-000000000000" }, COOKIE), {} as never)).status).toBe(404);
+    expect((await POST(post({}, COOKIE))).status).toBe(400);
+    expect((await POST(post({ runId: "00000000-0000-0000-0000-000000000000" }, COOKIE))).status).toBe(404);
   });
 });
