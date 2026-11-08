@@ -18,6 +18,7 @@ export type EventInput = {
   runId?: string | null;
   interviewId?: string | null;
   answerId?: string | null;
+  waMessageId?: string | null;
 };
 
 const pending = new Set<Promise<void>>();
@@ -29,6 +30,7 @@ export function recordEvent(e: EventInput): void {
     runId: e.runId ?? ctx.runId ?? null,
     interviewId: e.interviewId ?? ctx.interviewId ?? null,
     answerId: e.answerId ?? ctx.answerId ?? null,
+    waMessageId: e.waMessageId ?? ctx.waMessageId ?? null,
     kind: e.kind,
     outcome: e.outcome,
     model: e.model ?? null,

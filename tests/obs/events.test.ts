@@ -82,3 +82,20 @@ describe("rastro do agente", () => {
     expect(c.trail?.map((e) => e.kind)).toContain("crise");
   });
 });
+
+describe("rastro por mensagem do WhatsApp", () => {
+  it("tudo o que a mensagem disparou leva o id dela, inclusive os indícios em segundo plano", async () => {
+    const { db } = await import("@/db/client");
+    const { contacts } = await import("@/db/schema");
+    const [c] = await db.insert(contacts).values({ name: "Obs Msg", phoneE164: PHONE }).returning();
+    const { startRun, handleIncoming, settleBackground } = await import("@/lib/engine/engine");
+    const { runId } = await startRun(c.id, { demoShort: true });
+    await handleIncoming({ phone: PHONE, text: "sim", waMessageId: "wa-consent" });
+    await handleIncoming({ phone: PHONE, text: "sim, fui trabalhar gripada", waMessageId: "wa-trunk" });
+    await settleBackground();
+    const rows = await eventsOf(runId);
+    const fromTrunk = rows.filter((r) => r.waMessageId === "wa-trunk");
+    expect(fromTrunk.map((r) => r.kind)).toEqual(expect.arrayContaining(["valor da resposta", "indício"]));
+    expect(rows.filter((r) => r.kind === "valor da resposta").every((r) => r.waMessageId === "wa-trunk")).toBe(true);
+  });
+});

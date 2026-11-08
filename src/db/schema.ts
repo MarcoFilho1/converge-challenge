@@ -195,6 +195,8 @@ export const agentEvents = pgTable(
     runId: uuid("run_id"),
     interviewId: uuid("interview_id"),
     answerId: uuid("answer_id"),
+    /** Id da mensagem do WhatsApp que disparou este passo (liga tudo o que uma mensagem causou). */
+    waMessageId: text("wa_message_id"),
     kind: text("kind").notNull(),
     outcome: text("outcome").notNull(),
     model: text("model"),
@@ -204,7 +206,7 @@ export const agentEvents = pgTable(
     latencyMs: integer("latency_ms"),
     detail: text("detail"),
   },
-  (t) => [index("agent_events_run_idx").on(t.runId), index("agent_events_interview_idx").on(t.interviewId), index("agent_events_created_idx").on(t.createdAt)],
+  (t) => [index("agent_events_run_idx").on(t.runId), index("agent_events_interview_idx").on(t.interviewId), index("agent_events_created_idx").on(t.createdAt), index("agent_events_wa_idx").on(t.waMessageId)],
 );
 export type AgentEvent = typeof agentEvents.$inferSelect;
 

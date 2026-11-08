@@ -15,6 +15,10 @@ export async function loadMetrics(): Promise<{ metrics: Metrics; since: string |
         latencyMs: agentEvents.latencyMs,
         runId: agentEvents.runId,
         interviewId: agentEvents.interviewId,
+        tokensIn: agentEvents.tokensIn,
+        tokensOut: agentEvents.tokensOut,
+        waMessageId: agentEvents.waMessageId,
+        detail: agentEvents.detail,
         createdAt: agentEvents.createdAt,
       })
       .from(agentEvents)
