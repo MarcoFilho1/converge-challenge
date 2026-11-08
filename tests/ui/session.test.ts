@@ -20,6 +20,8 @@ describe("sessão e proteção de rotas (T11 + M11)", () => {
     expect(isPublicPath("/api/webhook/whatsapp")).toBe(true);
     expect(isPublicPath("/entrevista/token-123")).toBe(true);
     expect(isPublicPath("/api/entrevista/token-123/turno")).toBe(true);
+    // Roteiro da demonstração para quem avalia: aberto, sem sessão da médica.
+    expect(isPublicPath("/demo")).toBe(true);
 
     expect(isPublicPath("/fila")).toBe(false);
     expect(isPublicPath("/conexao")).toBe(false);

@@ -30,7 +30,7 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<{ er
     </Link></header>
     <main className="mx-auto my-auto w-full max-w-[380px] py-14">
       <h1 className="mb-2 text-[30px] font-medium tracking-tight">Entrar</h1>
-      <p className="mb-8 text-[13px] text-[var(--muted)]">Acesso ao ambiente médico.</p>
+      <p className="mb-8 text-[13px] text-[var(--muted)]">Acesso ao ambiente médico. Está avaliando? <Link href="/demo" className="text-[var(--brand-deep)] underline underline-offset-4">Siga o roteiro da demonstração</Link>.</p>
       <Suspense fallback={null}><LoginErrorAlert searchParams={searchParams} /></Suspense>
           <form action={login} className="space-y-4">
             <div>
