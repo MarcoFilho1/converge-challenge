@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { notFound } from "next/navigation";
 import { db } from "@/db/client";
 import {
   answers,
@@ -13,9 +14,10 @@ import {
 } from "@/db/schema";
 import { RunSummarySchema, type RunSummary } from "@/lib/ai/types";
 import { TRUNK_YES } from "@/lib/instruments";
+import { clinicalSignal, toScoreChip } from "@/lib/case/score-chips";
+import type { InterviewDetail, InterviewListItem } from "@/lib/interview/contract";
 import {
   getSyntheticCaseDetail,
-  SYNTHETIC_INTERVIEW_DETAIL,
   SYNTHETIC_QUEUE_ROWS,
   type CaseDetailData,
   type CaseEvidenceItem,
@@ -38,9 +40,7 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
       .innerJoin(contacts, eq(questionnaireRuns.contactId, contacts.id))
       .where(eq(questionnaireRuns.id, runId));
 
-    if (!runRow) {
-      return getSyntheticCaseDetail(runId);
-    }
+    if (!runRow) notFound();
 
     const { run, contact } = runRow;
     const [runMessages, runScores, runAnswers, runEvidenceRows, [summaryRow]] = await Promise.all([
@@ -62,23 +62,9 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
       db.select().from(summaries).where(eq(summaries.runId, run.id)),
     ]);
 
-    const chips: QueueScoreChip[] = runScores.map((s) => ({
-      instrument: s.instrument,
-      dimension: s.dimension,
-      label:
-        s.instrument === "BAT12"
-          ? `BAT-12 (${s.dimension})`
-          : s.instrument === "PHQ9"
-            ? "PHQ-9"
-            : s.instrument === "GAD7"
-              ? "GAD-7"
-              : s.instrument,
-      value: Number(s.value.toFixed(s.instrument === "BAT12" ? 2 : 0)),
-      maxLabel: s.instrument === "BAT12" ? "/5" : s.instrument === "PHQ9" ? "/27" : s.instrument === "GAD7" ? "/21" : "/10",
-      cutoff: s.cutoff,
-      flagged: s.flagged,
-      complete: s.complete,
-    }));
+    const chips: QueueScoreChip[] = runScores
+      .map(toScoreChip)
+      .filter((c): c is QueueScoreChip => c !== null);
 
     const trunkAns = runAnswers.find((a) => a.itemCode === "TRUNK" || a.itemCode === "SPS6_TRUNK");
     const phq9Item9 = runAnswers.find((a) => a.itemCode === "PHQ9_9");
@@ -100,8 +86,8 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
     const parsedSummary = summaryRow?.json ? RunSummarySchema.safeParse(summaryRow.json) : null;
     const validSummary: RunSummary | null = parsedSummary?.success ? parsedSummary.data : null;
 
-    // Se o banco ainda não tem evidências/resumo (M4 RAG ainda não rodou), mostra um fallback explicativo
-    const fallbackDetail = getSyntheticCaseDetail("11111111-1111-4111-8111-111111111102");
+    // Caso real: nunca completar com dados sintéticos. Vazio aparece como vazio.
+    const { interviews, interviewDetail } = await loadInterviews(run.id);
 
     return {
       run: {
@@ -121,44 +107,41 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
         ruleTrace: {
           hasPresenteeismTrunk: trunkAns?.valueNumeric === TRUNK_YES,
           hasWorkImpairment: runScores.some((s) => s.instrument === "WPAI" && s.flagged),
-          hasClinicalSignal: runScores.some(
-            (s) => (s.instrument === "BAT12" || s.instrument === "PHQ9" || s.instrument === "GAD7") && s.flagged,
-          ),
+          hasClinicalSignal: clinicalSignal(runScores, run.demoShort),
           hasCrisis: run.status === "crisis" || (phq9Item9?.valueNumeric ?? 0) >= 1,
         },
-        scores: chips.length > 0 ? chips : fallbackDetail.run.scores,
-        hasVoiceInterview: true,
-        voiceInterviewToken: `entrevista-${run.id.slice(0, 8)}`,
+        scores: chips,
+        hasVoiceInterview: interviews.length > 0,
+        voiceInterviewToken: interviews[0]?.inviteUrl?.split("/").pop() ?? "",
       },
-      messages:
-        runMessages.length > 0
-          ? runMessages.map((m) => ({
-              id: m.id,
-              direction: m.direction,
-              text: m.text,
-              createdAt: m.createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-            }))
-          : fallbackDetail.messages,
-      evidence: mappedEvidence.length > 0 ? mappedEvidence : fallbackDetail.evidence,
-      summary: validSummary ?? fallbackDetail.summary,
-      interviews: [
-        {
-          id: SYNTHETIC_INTERVIEW_DETAIL.id,
-          status: "done",
-          startedAt: SYNTHETIC_INTERVIEW_DETAIL.startedAt,
-          durationMs: SYNTHETIC_INTERVIEW_DETAIL.durationMs,
-          hasSummary: true,
-          inviteUrl: `/entrevista/entrevista-${run.id.slice(0, 8)}`,
-        },
-      ],
-      interviewDetail: {
-        ...SYNTHETIC_INTERVIEW_DETAIL,
-        runId: run.id,
-        contact: { name: contact.name, sector: contact.sector ?? "Geral" },
-        severity: run.severity,
-      },
+      messages: runMessages.map((m) => ({
+        id: m.id,
+        direction: m.direction,
+        text: m.text,
+        createdAt: m.createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      })),
+      evidence: mappedEvidence,
+      summary: validSummary,
+      interviews,
+      interviewDetail,
     };
-  } catch {
-    return getSyntheticCaseDetail(runId);
+  } catch (err) {
+    // Sem fallback sintético para caso real: erro de verdade vira página de erro.
+    throw err;
+  }
+}
+
+/** Entrevistas reais do caso (serviço da entrevista). Sem tabelas ou sem entrevista: lista vazia. */
+async function loadInterviews(runId: string): Promise<{ interviews: InterviewListItem[]; interviewDetail: InterviewDetail | null }> {
+  try {
+    const { getInterviewService } = await import("@/lib/interview/service");
+    const service = getInterviewService();
+    const interviews = await service.listForRun(runId);
+    const withSummary = interviews.find((i) => i.hasSummary) ?? interviews[0];
+    const interviewDetail = withSummary ? await service.detail(withSummary.id) : null;
+    return { interviews, interviewDetail };
+  } catch (err) {
+    console.error("[caso] não consegui carregar entrevistas", err);
+    return { interviews: [], interviewDetail: null };
   }
 }

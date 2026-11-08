@@ -1,6 +1,7 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { listContactSeverities } from "@/lib/severity/contact";
+import { clinicalSignal, toScoreChip } from "@/lib/case/score-chips";
 import { answers, contacts, questionnaireRuns, scores, type Severity } from "@/db/schema";
 import { SYNTHETIC_QUEUE_ROWS, type QueueRow, type QueueScoreChip } from "@/lib/demo/fixtures";
 import { TRUNK_YES } from "@/lib/instruments";
@@ -11,65 +12,6 @@ const SEVERITY_RANK: Record<Severity, number> = {
   attention: 2,
   none: 3,
 };
-
-function formatScoreChip(s: {
-  instrument: string;
-  dimension: string;
-  value: number;
-  cutoff: number;
-  flagged: boolean;
-  complete: boolean;
-}): QueueScoreChip | null {
-  if (s.instrument === "WPAI" && s.dimension === "work_impairment") {
-    return {
-      instrument: s.instrument,
-      dimension: s.dimension,
-      label: "WPAI",
-      value: Number(s.value.toFixed(0)),
-      maxLabel: "/10",
-      cutoff: s.cutoff,
-      flagged: s.flagged,
-      complete: s.complete,
-    };
-  }
-  if (s.instrument === "BAT12" && s.dimension === "total") {
-    return {
-      instrument: s.instrument,
-      dimension: s.dimension,
-      label: "BAT-12",
-      value: Number(s.value.toFixed(2)),
-      maxLabel: "/5",
-      cutoff: s.cutoff,
-      flagged: s.flagged,
-      complete: s.complete,
-    };
-  }
-  if (s.instrument === "PHQ9" && s.dimension === "total") {
-    return {
-      instrument: s.instrument,
-      dimension: s.dimension,
-      label: "PHQ-9",
-      value: Number(s.value.toFixed(0)),
-      maxLabel: "/27",
-      cutoff: s.cutoff,
-      flagged: s.flagged,
-      complete: s.complete,
-    };
-  }
-  if (s.instrument === "GAD7" && s.dimension === "total") {
-    return {
-      instrument: s.instrument,
-      dimension: s.dimension,
-      label: "GAD-7",
-      value: Number(s.value.toFixed(0)),
-      maxLabel: "/21",
-      cutoff: s.cutoff,
-      flagged: s.flagged,
-      complete: s.complete,
-    };
-  }
-  return null;
-}
 
 export async function listQueue(): Promise<{ rows: QueueRow[]; isSyntheticFallback: boolean }> {
   try {
@@ -91,13 +33,25 @@ export async function listQueue(): Promise<{ rows: QueueRow[]; isSyntheticFallba
     }
 
     const runIds = dbRuns.map((r) => r.run.id);
+    // Etiqueta "entrevista Helena" só quando existe entrevista de verdade para o caso.
+    const interviewRuns = new Set<string>();
+    try {
+      const rowsI = await db.execute<{ run_id: string }>(sql`select distinct run_id from interviews where run_id is not null`);
+      for (const r of rowsI) interviewRuns.add(String(r.run_id));
+    } catch {
+      // Sem a tabela de entrevistas (frente ainda não integrada): nenhuma etiqueta.
+    }
     const allScores = await db.select().from(scores).where(inArray(scores.runId, runIds));
     const allAnswers = await db.select().from(answers).where(inArray(answers.runId, runIds));
 
     const rows: QueueRow[] = dbRuns.map(({ run, contact }) => {
       const runScores = allScores.filter((s) => s.runId === run.id);
       const runAnswers = allAnswers.filter((a) => a.runId === run.id);
-      const chips = runScores.map(formatScoreChip).filter((c): c is QueueScoreChip => c !== null);
+      // Na fila só os escores principais (os do COPSOQ ficam no Caso).
+      const chips = runScores
+        .filter((sc) => sc.instrument !== "COPSOQ")
+        .map(toScoreChip)
+        .filter((c): c is QueueScoreChip => c !== null);
 
       const trunkAns = runAnswers.find((a) => a.itemCode === "TRUNK" || a.itemCode === "SPS6_TRUNK");
       const phq9Item9 = runAnswers.find((a) => a.itemCode === "PHQ9_9");
@@ -106,9 +60,7 @@ export async function listQueue(): Promise<{ rows: QueueRow[]; isSyntheticFallba
       const hasWorkImpairment = runScores.some(
         (s) => (s.instrument === "WPAI" || s.instrument === "SPS6") && s.flagged,
       );
-      const hasClinicalSignal = runScores.some(
-        (s) => (s.instrument === "BAT12" || s.instrument === "PHQ9" || s.instrument === "GAD7") && s.flagged,
-      );
+      const hasClinicalSignal = clinicalSignal(runScores, run.demoShort);
       const hasCrisis = run.status === "crisis" || (phq9Item9?.valueNumeric ?? 0) >= 1;
 
       return {
@@ -132,8 +84,8 @@ export async function listQueue(): Promise<{ rows: QueueRow[]; isSyntheticFallba
           hasCrisis,
         },
         scores: chips,
-        hasVoiceInterview: run.severity === "priority" || run.severity === "attention",
-        voiceInterviewToken: `entrevista-${run.id.slice(0, 8)}`,
+        hasVoiceInterview: interviewRuns.has(run.id),
+        voiceInterviewToken: "",
       };
     });
 
