@@ -792,62 +792,70 @@ export function VoiceInterviewRoom({
           onSubmitText={handleSendTextTurn}
         />
       ) : (
-    <div className="min-h-dvh bg-[var(--bg)] text-[var(--ink)] flex flex-col justify-between px-4 py-5 sm:px-6 sm:py-8">
-
-      {/* Cabeçalho fino */}
-      <header className="w-full max-w-[440px] mx-auto flex items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
-        <span className="text-[13px] font-medium text-[var(--ink)] truncate">
-          Praevenius · {doctorRef}
-        </span>
-        <span className="tabular-nums text-[12px] text-[var(--muted)] shrink-0">
+    <div className="min-h-dvh bg-[var(--frame)] text-[var(--ink)] flex flex-col px-4 py-5 sm:px-8 sm:py-8">
+      {/* Marca, como no login e no painel */}
+      <header className="mx-auto flex w-full max-w-[480px] items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/praevenius-mark.png" alt="" width={28} height={28} className="h-7 w-7" />
+          <div className="leading-tight">
+            <span className="block text-[16px] font-semibold tracking-tight text-[var(--ink)]">praevenius</span>
+            <span className="block text-[12px] text-[var(--muted)]">Consultório NR-7 · {doctorRef}</span>
+          </div>
+        </div>
+        <span className="flex items-center gap-1.5 text-[12px] text-[var(--muted)]">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
           Sigilo médico
         </span>
       </header>
 
-      {/* Corpo central (uma coluna, mobile-first) */}
-      <main className="w-full max-w-[440px] mx-auto my-auto py-4 flex-1 flex flex-col justify-center">
+      <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col justify-center py-8">
         {/* ESTADO 1: CONSENTIMENTO */}
         {status === "consent" && (
           <section
             aria-labelledby="consent-heading"
-            className="bg-[var(--card)] border border-[var(--line)] rounded-[12px] p-5 sm:p-6 space-y-5"
+            className="enter rounded-[20px] border border-[var(--frame-line)] bg-[var(--card)] p-6 shadow-[var(--sheet-shadow)] sm:p-8"
           >
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-full bg-[var(--accent-soft)] border border-[var(--brand)]/25 flex items-center justify-center text-[var(--brand)] font-semibold text-[16px] shrink-0">
-                H
+            <div className="flex items-center gap-4">
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--peach)] text-[22px] font-semibold text-[var(--peach-ink)]"
+                aria-hidden="true"
+              >
+                {initialView.interviewer.name.slice(0, 1)}
               </div>
               <div>
                 <h1
                   id="consent-heading"
-                  className="text-[20px] font-semibold tracking-[-0.015em] text-[var(--ink)] leading-snug"
+                  className="text-[24px] font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]"
                 >
                   {initialView.interviewer.name}
                 </h1>
-                <p className="text-[13px] text-[var(--muted)]">
+                <p className="mt-0.5 text-[14px] text-[var(--muted)]">
                   trabalha com a {doctorRef}
                 </p>
               </div>
             </div>
 
-            <p className="text-[15px] leading-[1.55] text-[var(--ink-2)]">
+            <p className="mt-6 text-[16px] leading-[1.55] text-[var(--ink)]">
               Essa conversa leva uns {initialView.estimatedMinutes} minutos. Só a{" "}
-              <strong>{doctorRef}</strong> vai ouvir o que você disser. Você pode
+              <strong className="font-semibold">{doctorRef}</strong> vai ouvir o que você disser. Você pode
               pular qualquer pergunta ou parar quando quiser.
             </p>
 
-            <div className="bg-[var(--surface-subtle)] border border-[var(--line)] rounded-[8px] p-3.5 text-[13px] text-[var(--ink-2)] space-y-1.5">
-              <p>
-                <strong className="text-[var(--ink)]">Sigilo garantido:</strong>{" "}
-                RH e liderança não recebem seus áudios nem suas respostas individuais.
-              </p>
-            </div>
+            <p className="mt-5 rounded-[12px] bg-[var(--peach-soft)] px-4 py-3 text-[14px] leading-[1.5] text-[var(--peach-ink)]">
+              <strong className="font-semibold">Sigilo garantido:</strong>{" "}
+              RH e liderança não recebem seus áudios nem suas respostas individuais.
+            </p>
 
-            <div className="space-y-2.5 pt-2">
+            <div className="mt-7 flex flex-col gap-2.5">
               <button
                 type="button"
                 onClick={() => handleStart(true)}
                 disabled={voiceState === "pensando"}
-                className="w-full py-3 px-4 rounded-[8px] bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-semibold text-[15px] transition-colors disabled:opacity-60"
+                className="h-[46px] w-full cursor-pointer rounded-full bg-[var(--primary)] px-4 text-[15px] font-medium text-[#FFFFFF] shadow-[0_1px_2px_rgba(0,80,140,0.25)] transition-colors hover:bg-[var(--primary-hover)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-soft)] disabled:cursor-default disabled:opacity-60"
               >
                 {voiceState === "pensando"
                   ? "Helena está pensando..."
@@ -857,7 +865,7 @@ export function VoiceInterviewRoom({
                 type="button"
                 onClick={() => handleStart(false)}
                 disabled={voiceState === "pensando"}
-                className="w-full py-2.5 px-4 rounded-[8px] border border-[var(--line)] bg-transparent hover:bg-[var(--surface-subtle)] text-[var(--ink-2)] font-medium text-[14px] transition-colors"
+                className="h-[44px] w-full cursor-pointer rounded-full px-4 text-[14px] font-medium text-[var(--ink-2)] transition-colors hover:bg-[var(--raised)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-soft)] disabled:opacity-60"
               >
                 Prefiro não
               </button>
@@ -870,34 +878,40 @@ export function VoiceInterviewRoom({
           <section
             role="alert"
             aria-labelledby="crisis-heading"
-            className="bg-[var(--card)] border-2 border-[var(--danger-fg)] rounded-[12px] p-5 sm:p-6 space-y-5"
+            className="enter rounded-[20px] border border-[var(--sev-urgency-border)] bg-[var(--card)] p-6 shadow-[var(--sheet-shadow)] sm:p-8"
           >
             <h1
               id="crisis-heading"
-              className="text-[20px] font-semibold tracking-[-0.015em] text-[var(--ink)] leading-snug"
+              className="text-[22px] font-semibold leading-snug tracking-[-0.015em] text-[var(--ink)]"
             >
               Obrigada por contar. Você não precisa passar por isso sozinho(a).
             </h1>
 
-            <p className="text-[15px] leading-[1.55] text-[var(--ink-2)]">
-              A <strong>{doctorRef}</strong> foi avisada agora.
+            <p className="mt-3 text-[16px] leading-[1.55] text-[var(--ink)]">
+              A <strong className="font-semibold">{doctorRef}</strong> foi avisada agora.
             </p>
 
-            <div className="space-y-2.5 pt-1">
+            <div className="mt-6 flex flex-col gap-2.5">
               <a
                 href={`tel:${crisisInfo.cvv}`}
-                className="flex items-center justify-between w-full py-3.5 px-4 rounded-[8px] bg-[var(--danger-fg)] hover:opacity-95 text-white font-semibold text-[15px] transition-opacity"
+                className="flex items-center justify-between gap-4 rounded-[14px] bg-[var(--alert)] px-5 py-4 text-[#FFFFFF] transition-colors hover:bg-[var(--alert-ink)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--sev-urgency-border)]"
               >
-                <span>CVV 188 (Apoio emocional gratuito 24h)</span>
-                <span className="tabular-nums text-[16px]">CVV 188</span>
+                <span className="min-w-0">
+                  <span className="block text-[16px] font-semibold">Ligar para o CVV</span>
+                  <span className="block text-[13px] text-[#FBE3E1]">Apoio emocional, gratuito, 24 horas</span>
+                </span>
+                <span className="shrink-0 whitespace-nowrap text-[24px] font-semibold tabular-nums">{crisisInfo.cvv}</span>
               </a>
 
               <a
                 href={`tel:${crisisInfo.samu}`}
-                className="flex items-center justify-between w-full py-3 px-4 rounded-[8px] border border-[var(--danger-fg)] bg-[var(--danger-bg)] text-[var(--danger-fg)] font-semibold text-[15px]"
+                className="flex items-center justify-between gap-4 rounded-[14px] bg-[var(--sev-urgency-bg)] px-5 py-4 text-[var(--sev-urgency-ink)] transition-colors hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--sev-urgency-border)]"
               >
-                <span>SAMU 192 (Emergência médica 24h)</span>
-                <span className="tabular-nums text-[16px]">SAMU 192</span>
+                <span className="min-w-0">
+                  <span className="block text-[16px] font-semibold">Ligar para o SAMU</span>
+                  <span className="block text-[13px]">Emergência médica, 24 horas</span>
+                </span>
+                <span className="shrink-0 whitespace-nowrap text-[24px] font-semibold tabular-nums">{crisisInfo.samu}</span>
               </a>
             </div>
           </section>
@@ -907,30 +921,36 @@ export function VoiceInterviewRoom({
         {(status === "done" || status === "stopped") && (
           <section
             aria-labelledby="done-heading"
-            className="bg-[var(--card)] border border-[var(--line)] rounded-[12px] p-5 sm:p-6 space-y-4"
+            className="enter rounded-[20px] border border-[var(--frame-line)] bg-[var(--card)] p-6 shadow-[var(--sheet-shadow)] sm:p-8"
           >
+            <div
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--peach)] text-[22px] font-semibold text-[var(--peach-ink)]"
+              aria-hidden="true"
+            >
+              {initialView.interviewer.name.slice(0, 1)}
+            </div>
             <h1
               id="done-heading"
-              className="text-[20px] font-semibold tracking-[-0.015em] text-[var(--ink)] leading-snug"
+              className="mt-5 text-[24px] font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]"
             >
               Obrigada por conversar.
             </h1>
 
-            <p className="text-[15px] leading-[1.55] text-[var(--ink-2)]">
-              O que você contou vai só para a <strong>{doctorRef}</strong>. Nada
+            <p className="mt-3 text-[16px] leading-[1.55] text-[var(--ink)]">
+              O que você contou vai só para a <strong className="font-semibold">{doctorRef}</strong>. Nada
               vai para a empresa.
             </p>
 
-            <div className="bg-[var(--surface-subtle)] border border-[var(--line)] rounded-[8px] p-3.5 text-[13px] text-[var(--ink-2)]">
-              Se precisar conversar a qualquer hora, ligue{" "}
+            <p className="mt-5 rounded-[12px] bg-[var(--peach-soft)] px-4 py-3 text-[14px] leading-[1.5] text-[var(--peach-ink)]">
+              Se precisar conversar a qualquer hora, ligue para o{" "}
               <a
                 href="tel:188"
-                className="font-semibold text-[var(--alert-ink)] underline"
+                className="font-semibold text-[var(--alert-ink)] underline underline-offset-2"
               >
                 CVV 188
               </a>{" "}
               (gratuito, 24h).
-            </div>
+            </p>
 
             <button
               type="button"
@@ -939,7 +959,7 @@ export function VoiceInterviewRoom({
                   window.close();
                 }
               }}
-              className="w-full py-2.5 px-4 rounded-[8px] border border-[var(--line)] bg-[var(--surface-subtle)] hover:bg-[var(--bg)] text-[var(--ink)] font-medium text-[14px] transition-colors"
+              className="mt-7 h-[44px] w-full cursor-pointer rounded-full border border-[var(--control)] bg-[#FFFFFF] px-4 text-[14px] font-medium text-[var(--ink)] transition-colors hover:bg-[var(--raised)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--brand-soft)]"
             >
               Fechar
             </button>
@@ -948,7 +968,7 @@ export function VoiceInterviewRoom({
       </main>
 
       {/* Rodapé de confidencialidade */}
-      <footer className="w-full max-w-[440px] mx-auto pt-3 border-t border-[var(--line)] flex items-center justify-between text-[12px] text-[var(--muted)]">
+      <footer className="mx-auto flex w-full max-w-[480px] items-center justify-between text-[12px] text-[var(--muted)]">
         <span>Sigilo médico · PCMSO NR-7</span>
         <span className="tabular-nums">CVV 188 · SAMU 192</span>
       </footer>
