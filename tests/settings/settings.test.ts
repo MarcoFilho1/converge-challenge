@@ -67,30 +67,35 @@ describe("as configurações mudam o que o sistema faz", () => {
     await startRun(c.id, { demoShort: true });
     let k = 0;
     let last;
-    for (const t of ["1", ...answers]) last = await handleIncoming({ phone, text: t, waMessageId: `cfg-${phone}-${k++}` });
+    for (const t of ["sim", ...answers]) last = await handleIncoming({ phone, text: t, waMessageId: `cfg-${phone}-${k++}` });
     return last!;
   }
 
   it("convite automático desligado: nem quem precisa recebe o convite", async () => {
     const { saveSettings } = await import("@/lib/settings");
     await saveSettings({ autoInvite: false });
-    const last = await demoRun("5581944440001", ["1", "7", "4", "2", "2", "0", "4", "metas"]);
+    const last = await demoRun("5581944440001", ["sim", "7", "com frequência", "mais da metade dos dias", "mais da metade dos dias", "nunca", "sempre", "as metas dobraram"]);
     expect(last.outbound.join(" ")).not.toMatch(/Helena/);
   });
 
   it("entrevista para todos ligada: quem está bem também é convidado", async () => {
     const { saveSettings } = await import("@/lib/settings");
     await saveSettings({ inviteAll: true });
-    const last = await demoRun("5581944440002", ["2", "0", "1", "0", "0", "0", "1", "tudo bem"]);
+    const last = await demoRun("5581944440002", ["não", "0", "nunca", "nenhuma vez", "nenhuma vez", "nunca", "raramente", "tudo tranquilo"]);
     expect(last.outbound.join(" ")).toMatch(/demonstração/i);
   });
 
-  it("limite digitado muda quem é convidado (sem indício e índice 75: convida com limite 80)", async () => {
+  it("limite digitado muda quem é convidado (sem indício e índice 74: convida com limite 80)", async () => {
     const { saveSettings } = await import("@/lib/settings");
     await saveSettings({ inviteThreshold: 80 });
-    const last = await demoRun("5581944440003", ["1", "0", "1", "0", "0", "0", "1", "tudo bem"]);
+    const last = await demoRun("5581944440003", ["não", "2", "raramente", "vários dias", "vários dias", "nenhuma vez", "às vezes", "nada de mais"]);
     expect(last.outbound.join(" ")).toMatch(/Helena/);
     expect(last.outbound.join(" ")).not.toMatch(/demonstração/i);
+  });
+
+  it("as mesmas respostas com o limite padrão 70: índice 74 não convida", async () => {
+    const last = await demoRun("5581944440004", ["não", "2", "raramente", "vários dias", "vários dias", "nenhuma vez", "às vezes", "nada de mais"]);
+    expect(last.outbound.join(" ")).not.toMatch(/Helena/);
   });
 
   it("aviso também ao participante (demo): quem fez a entrevista recebe o aviso que iria para a médica", async () => {
