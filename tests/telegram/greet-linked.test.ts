@@ -25,7 +25,8 @@ describe("pessoa que liga o Telegram no meio do questionário", () => {
     const c = await contact();
     const { startRun, handleIncoming, greetLinked } = await import("@/lib/engine/engine");
     await startRun(c.id, { demoShort: true });
-    const consent = await handleIncoming({ phone: PHONE, text: "1", waMessageId: id() });
+    // "sim" aceita no motor atual e no de linguagem natural.
+    const consent = await handleIncoming({ phone: PHONE, text: "sim", waMessageId: id() });
     const currentQuestion = consent.outbound[consent.outbound.length - 1];
 
     const greet = await greetLinked({ phone: PHONE });
@@ -46,10 +47,11 @@ describe("pessoa que liga o Telegram no meio do questionário", () => {
   it("ainda no consentimento: repete o pedido de aceite", async () => {
     const c = await contact();
     const { startRun, greetLinked } = await import("@/lib/engine/engine");
+    const { copy } = await import("@/lib/engine/copy");
     await startRun(c.id, { demoShort: true });
     const greet = await greetLinked({ phone: PHONE });
     expect(greet.event).toBe("consent_repeat");
-    expect(greet.outbound[1]).toMatch(/responda 1/);
+    expect(greet.outbound[1]).toBe(copy.consentRepeat);
   });
 
   it("sem cadastro e com entrada aberta: vira colaborador e recebe o consentimento", async () => {
