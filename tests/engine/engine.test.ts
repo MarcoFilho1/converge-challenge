@@ -191,7 +191,7 @@ describe("convite automático para a entrevista", () => {
   }
 
   it("índice abaixo do limite: o agente manda o link da Helena junto com o encerramento", async () => {
-    const { runId, last } = await runDemo(["2", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
+    const { runId, last } = await runDemo(["1", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
     expect(last.event).toBe("finished");
     expect(last.outbound).toHaveLength(2);
     expect(last.outbound[1]).toMatch(/Helena/);
@@ -201,13 +201,13 @@ describe("convite automático para a entrevista", () => {
   });
 
   it("sem indício e índice alto: só o encerramento, sem convite", async () => {
-    const { runId, last } = await runDemo(["1", "0", "1", "0", "0", "0", "1", "tudo tranquilo"]);
+    const { runId, last } = await runDemo(["2", "0", "1", "0", "0", "0", "1", "tudo tranquilo"]);
     expect(last.outbound).toHaveLength(1);
     expect(await interviewsOf(runId)).toHaveLength(0);
   });
 
   it("crise pelo item 9: nada de convite, só a mensagem de segurança", async () => {
-    const { runId, last } = await runDemo(["2", "4", "3", "1", "1", "1"]);
+    const { runId, last } = await runDemo(["1", "4", "3", "1", "1", "1"]);
     expect(last.event).toBe("crisis");
     expect(await interviewsOf(runId)).toHaveLength(0);
   });
@@ -215,7 +215,7 @@ describe("convite automático para a entrevista", () => {
   it("INTERVIEW_AUTO_INVITE=false desliga o convite", async () => {
     process.env.INTERVIEW_AUTO_INVITE = "false";
     try {
-      const { runId, last } = await runDemo(["2", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
+      const { runId, last } = await runDemo(["1", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
       expect(last.outbound).toHaveLength(1);
       expect(await interviewsOf(runId)).toHaveLength(0);
     } finally {
@@ -300,7 +300,7 @@ describe("frase de risco com negação", () => {
     try {
       const runId = await startDemo();
       let last;
-      for (const t of ["2", "7", "4", "2", "2", "não, nunca pensei em me ferir"]) last = await say(t);
+      for (const t of ["1", "7", "4", "2", "2", "não, nunca pensei em me ferir"]) last = await say(t);
       expect(last!.event).toBe("answer");
       const a = (await answersOf(runId)).find((x) => x.itemCode === "PHQ9_9");
       expect(a?.valueNumeric).toBe(0);

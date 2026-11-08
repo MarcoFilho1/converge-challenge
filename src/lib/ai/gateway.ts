@@ -3,7 +3,7 @@ import { z } from "zod";
 import { CLASSIFY_SYSTEM, INTERPRET_SYSTEM, SUMMARY_SYSTEM } from "./prompts";
 import { ClassificationSchema, RunSummarySchema, type AiProvider } from "./types";
 import { createMockProvider } from "./mock";
-import { chatCallOptions, withChat } from "./llm";
+import { chatCallOptions, featherlessEmbed, featherlessKeys, withChat } from "./llm";
 import { recordEvent } from "@/lib/obs/events";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 
@@ -27,8 +27,12 @@ export function createGatewayProvider(): AiProvider {
   return {
     // Sem fallback: misturar vetores reais e simulados no mesmo índice estragaria a busca.
     async embed(texts) {
-      // Sem AI Gateway (ex.: só Featherless), os vetores continuam locais, no mesmo espaço do índice já gravado.
-      if (!process.env.AI_GATEWAY_API_KEY) return local.embed(texts);
+      // Sem AI Gateway: Qwen3 Embedding da Featherless se AI_EMBEDDINGS=featherless (a base precisa ser reingerida
+      // com o mesmo modelo); senão vetores locais, no mesmo espaço do índice já gravado.
+      if (!process.env.AI_GATEWAY_API_KEY) {
+        if (process.env.AI_EMBEDDINGS === "featherless" && featherlessKeys().length > 0) return featherlessEmbed(texts, EMBEDDING_DIMENSIONS);
+        return local.embed(texts);
+      }
       const { embeddings } = await embedMany({ model: gateway.embeddingModel(embeddingModel()), values: texts });
       const wrong = embeddings.find((e) => e.length !== EMBEDDING_DIMENSIONS);
       if (wrong) {

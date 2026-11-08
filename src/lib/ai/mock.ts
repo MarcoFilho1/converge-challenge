@@ -46,6 +46,7 @@ function interpretLocal(item: Item, text: string): number | null {
   if (!scale) return null;
   const normalized = normalizeText(text);
   const numberMatch = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)(?=\s|$|[.!?])/);
+  if (numberMatch && item.choices) return item.choices[numberMatch[1]] ?? null;
   if (numberMatch) {
     const value = Number(numberMatch[1].replace(",", "."));
     return value >= scale.min && value <= scale.max ? value : null;

@@ -51,3 +51,11 @@ describe("ingestão e busca", () => {
     expect(after).toBe(before);
   });
 });
+
+describe("instrução da busca para o Qwen3 Embedding", () => {
+  it("com vetores da Featherless, a pergunta de busca vai com a instrução; com vetores locais, vai como está", async () => {
+    const { queryForEmbedding } = await import("@/lib/rag/search");
+    expect(queryForEmbedding("não consigo dormir", { AI_EMBEDDINGS: "featherless" })).toMatch(/^Instruct: [^\n]*\nQuery: não consigo dormir$/);
+    expect(queryForEmbedding("não consigo dormir", {})).toBe("não consigo dormir");
+  });
+});

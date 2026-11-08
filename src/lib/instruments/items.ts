@@ -41,7 +41,9 @@ const trunk: Item = {
   instruction: "Pensando no último mês:",
   text: "NOS ÚLTIMOS 30 DIAS, você esteve presente no trabalho apesar de apresentar algum problema de saúde ou algum sinal ou sintoma de adoecimento?",
   scale: { min: 1, max: 2, higherIsWorse: true, labels: ["não", "sim"] },
-  scaleLine: "1 não · 2 sim",
+  // Mesma ordem do consentimento (1 = sim). O valor gravado segue o instrumento: 2 = sim.
+  scaleLine: "1 sim · 2 não",
+  choices: { "1": 2, "2": 1 },
 };
 
 const wpaiQ5: Item = {
@@ -203,6 +205,17 @@ export const DEMO_ITEMS: Item[] = [
   { ...copsoq2A, part: "Parte 3 de 3 · Seu trabalho" },
   open1,
 ];
+
+/** Linhas de apoio por item. A pergunta sobre se ferir (PHQ9_9) fica sem linha, de propósito. */
+const HELP: Record<string, string> = {
+  TRUNK: "Por exemplo: dor, gripe, dor de cabeça, cansaço forte, ansiedade, tristeza ou insônia.",
+  WPAI_Q5: "Em resumo: de 0 a 10, quanto a sua saúde atrapalhou o seu trabalho nos últimos 7 dias.",
+  BAT_1: "Ou seja: com a cabeça cansada, sem energia para pensar e se concentrar.",
+  PHQ9_2: "Ou seja: se sentir triste, desanimado/a ou sem esperança.",
+};
+for (const item of [...FULL_ITEMS, ...DEMO_ITEMS]) {
+  if (HELP[item.code]) item.help = HELP[item.code];
+}
 
 export function getItems(demoShort: boolean): Item[] {
   return demoShort ? DEMO_ITEMS : FULL_ITEMS;

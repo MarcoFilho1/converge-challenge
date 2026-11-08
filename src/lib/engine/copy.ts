@@ -56,6 +56,7 @@ export function formatItem(item: Item): string {
   if (item.part) lines.push(`_${item.part}_`);
   if (item.instruction) lines.push(item.instruction);
   lines.push(`*${item.text}*`);
+  if (item.help) lines.push(`(${item.help})`);
   if (item.scaleLine) lines.push(item.scaleLine);
   return lines.join("\n");
 }
