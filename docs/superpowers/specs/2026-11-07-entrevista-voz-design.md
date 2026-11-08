@@ -181,5 +181,5 @@ O Marco pediu ao agente Antigravity #2 (Maestro) que construa as telas (M5 do m�
 
 ## 8. Decisões do Marco (7/11, 22h30)
 1. **Chave do AI Gateway**: a providenciar pelo Marco; até lá o motor roda em mock. O código fica pronto para os dois modos.
-2. **Voz criada por descrição** (Qwen VoiceDesign no Voicebox), sem clonar ninguém. Entrevistadora: Helena. Descrição inicial (minha): "mulher brasileira, 35 a 45 anos, voz calma e acolhedora, ritmo pausado, sem sotaque marcado". Plano B: preset pt do Qwen CustomVoice ou Kokoro.
+2. **Voz criada, sem clonar ninguém.** Decisão do Marco: voz por descrição (Qwen VoiceDesign). **Achado na instalação (7/11, 23h40):** a versão lançada do Voicebox (0.5.0, abril/2026) ainda não tem o VoiceDesign nem a rota síncrona `/v1/audio/speech`; só o código-fonte mais novo tem. As vozes prontas do Qwen CustomVoice são chinês, inglês, japonês e coreano. **Usei o preset em português `pf_dora` do Kokoro** (engine mais rápido, 82M, voz feminina pt) num perfil chamado "Helena". Quando sair uma versão do Voicebox com VoiceDesign, trocar o perfil é só criar outro e mudar `VOICEBOX_PROFILE_ID`. TTS no cliente segue o fluxo assíncrono `/generate` → `/history/{id}` → `/audio/{id}`.
 3. **Onde o médico vê**: aba "Entrevista" em `/caso/[runId]`, construída pelo Antigravity #2 (seção 5.12).

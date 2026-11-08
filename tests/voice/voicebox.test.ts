@@ -9,20 +9,34 @@ function fakeFetch(handler: (url: string, init: RequestInit) => Response): typeo
 }
 
 describe("cliente Voicebox", () => {
-  it("tts chama /v1/audio/speech com voz, formato wav e devolve o áudio", async () => {
-    let seen: { url: string; body: unknown } | null = null;
+  it("tts cria a geração, espera completar e baixa o áudio", async () => {
+    const calls: { url: string; body: unknown }[] = [];
+    let polls = 0;
     const vb = createVoicebox({
-      url: "http://vb:1", profileId: "helena-id", language: "pt",
+      url: "http://vb:1", profileId: "helena-id", language: "pt", engine: "kokoro", pollMs: 1,
       fetchImpl: fakeFetch((url, init) => {
-        seen = { url, body: JSON.parse(String(init.body)) };
-        return new Response(wav, { status: 200, headers: { "content-type": "audio/wav" } });
+        calls.push({ url, body: init.body ? JSON.parse(String(init.body)) : null });
+        if (url.endsWith("/generate")) return new Response(JSON.stringify({ id: "g1", status: "generating" }), { status: 200, headers: { "content-type": "application/json" } });
+        if (url.endsWith("/history/g1")) return new Response(JSON.stringify({ id: "g1", status: ++polls < 2 ? "generating" : "completed" }), { status: 200, headers: { "content-type": "application/json" } });
+        if (url.endsWith("/audio/g1")) return new Response(wav, { status: 200, headers: { "content-type": "audio/wav" } });
+        return new Response("?", { status: 404 });
       }),
     });
     const out = await vb.tts("Oi, eu sou a Helena.");
     expect(out?.mime).toBe("audio/wav");
     expect(Buffer.from(out!.audio).subarray(0, 4).toString()).toBe("RIFF");
-    expect(seen!.url).toBe("http://vb:1/v1/audio/speech");
-    expect(seen!.body).toMatchObject({ input: "Oi, eu sou a Helena.", voice: "helena-id", response_format: "wav" });
+    expect(calls[0].url).toBe("http://vb:1/generate");
+    expect(calls[0].body).toMatchObject({ profile_id: "helena-id", text: "Oi, eu sou a Helena.", language: "pt", engine: "kokoro" });
+    expect(polls).toBe(2);
+    expect(calls.at(-1)!.url).toBe("http://vb:1/audio/g1");
+  });
+
+  it("geração que falha lança VoiceUnavailable", async () => {
+    const vb = createVoicebox({ url: "http://vb:1", profileId: "x", language: "pt", pollMs: 1, fetchImpl: fakeFetch((url) =>
+      url.endsWith("/generate")
+        ? new Response(JSON.stringify({ id: "g2", status: "generating" }), { status: 200 })
+        : new Response(JSON.stringify({ id: "g2", status: "failed", error: "sem modelo" }), { status: 200 })) });
+    await expect(vb.tts("oi")).rejects.toBeInstanceOf(VoiceUnavailable);
   });
 
   it("tts com erro 500 lança VoiceUnavailable", async () => {
