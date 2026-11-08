@@ -103,7 +103,8 @@ Precisa de Docker, Node 20+ e pnpm.
 cp .env.example .env
 docker compose up -d        # Postgres + pgvector :5434, Redis :6380, Evolution API :8082
 pnpm install
-pnpm db:push                # cria as tabelas
+pnpm db:push                # cria as tabelas (num banco novo)
+pnpm obs:db                 # cria a tabela do rastro do agente, se o banco já existia
 pnpm ingest                 # carrega a base de conhecimento (NR-1, NR-7, manuais)
 pnpm dev                    # http://localhost:3100
 ```
@@ -112,13 +113,18 @@ O login é de demonstração: qualquer e-mail e senha entram. A IA começa em mo
 
 ### Ligar a IA real
 
+A IA real roda pela Featherless, com troca automática de chave e de modelo: chave sem crédito sai da fila; modelo lento ou fora do ar passa para o reserva.
+
 ```bash
-# 1. preencha AI_GATEWAY_API_KEY no .env
-pnpm ai:check      # confere embeddings (1536 dimensões) e chat em menos de um minuto
-# 2. troque AI_PROVIDER=mock por AI_PROVIDER=gateway no .env
-pnpm ingest        # refaz os vetores da base com o modelo real
-pnpm evals         # confere origem, termos e crise com a IA real
+# 1. no .env: AI_PROVIDER=featherless e FEATHERLESS_API_KEY_1 (e _2, _3… como reserva)
+pnpm ai:check      # testa cada modelo com cada chave e mostra tempo e custo
+# 2. busca semântica (opcional, recomendado): AI_EMBEDDINGS=featherless no .env
+pnpm ingest        # refaz os vetores da base com o Qwen3 Embedding
+pnpm evals                    # origem, termos proibidos e crise
+pnpm evals:entrevista:real    # entrevistas com o modelo real: fala limpa, sem pergunta repetida, crise cortando
 ```
+
+`AI_PROVIDER=gateway` com `AI_GATEWAY_API_KEY` continua funcionando, pelo Vercel AI Gateway.
 
 ### Ligar a voz
 
@@ -143,13 +149,22 @@ Veja `.env.example`. As principais:
 | `EVOLUTION_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE` | Evolution API, que conecta o celular do consultório ao WhatsApp |
 | `WEBHOOK_SECRET`, `APP_PUBLIC_URL` | Webhook que recebe as mensagens; a URL precisa ser alcançável pelo contêiner da Evolution |
 | `WHATSAPP_DRY_RUN` | `true` não envia nada de verdade (bom para testar sem celular) |
-| `AI_PROVIDER` | `mock` (padrão) ou `gateway` |
-| `AI_GATEWAY_API_KEY`, `AI_CHAT_MODEL`, `AI_EMBEDDING_MODEL` | Chave e modelos da IA real |
+| `AI_PROVIDER` | `mock` (padrão), `featherless` ou `gateway` |
+| `FEATHERLESS_API_KEY_1`, `_2`… | Chaves da Featherless, em ordem; a próxima entra quando uma fica sem crédito |
+| `AI_CHAT_MODEL`, `AI_CHAT_MODEL_FALLBACK` | Modelo principal (resumos, indícios) e reserva |
+| `AI_FAST_MODEL`, `AI_FAST_MODEL_FALLBACK` | Modelo das tarefas no meio da conversa e reserva |
+| `AI_FAST_TIMEOUT_MS`, `AI_FAST_BUDGET_MS`, `AI_CALL_TIMEOUT_MS` | Limites de tempo: tentativa rápida, teto da tarefa rápida, resumos |
+| `AI_EMBEDDINGS` | `local` (padrão) ou `featherless` (Qwen3 Embedding; rode `pnpm ingest` ao trocar) |
+| `AI_GATEWAY_API_KEY`, `AI_EMBEDDING_MODEL` | Vercel AI Gateway, se usado |
+| `OPEN_ENTRY` | `true`: quem mandar mensagem para o bot vira colaborador na hora (demo) |
+| `INTERVIEW_AUTO_INVITE`, `INTERVIEW_INVITE_THRESHOLD` | Convite automático para a entrevista e limite do índice de bem-estar (padrão 70) |
+| `INTERVIEW_IDLE_MIN` | Minutos sem fala até a entrevista parada ser encerrada com resumo |
+| `DOCTOR_WHATSAPP` | WhatsApp do médico: recebe nome e link do caso quando cada entrevista termina |
 | `DEMO_SHORT` | `true` usa o questionário curto da demo (8 itens) |
 | `DOCTOR_NAME` | Nome do médico que aparece para o colaborador |
 | `VOICE_PROVIDER` | `none`, `voicebox` ou `elevenlabs` |
 | `VOICEBOX_URL`, `VOICEBOX_PROFILE_ID`, `VOICEBOX_ENGINE`, `VOICEBOX_STT_MODEL` | Voicebox local (fala e/ou escuta) |
-| `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL` | Voz da Helena na ElevenLabs |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_API_KEY_2`…, `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL` | Voz da Helena na ElevenLabs; chaves extras entram quando a cota acaba |
 | `INTERVIEW_MODE` | `live` (gera reações novas) ou `cache_only` (só falas gravadas) |
 | `INTERVIEW_PUBLIC_URL` | Endereço usado nos convites da entrevista |
 
@@ -164,22 +179,24 @@ Veja `.env.example`. As principais:
 | `pnpm ingest` | Carrega e vetoriza a base de conhecimento de `knowledge/` |
 | `pnpm evals` | Checagens de segurança do questionário: origem, termos proibidos e crise |
 | `pnpm evals:entrevista` | Checagens da entrevista: crise 100%, nenhum termo proibido ou conselho, nenhum resumo sem origem |
-| `pnpm ai:check` | Confere se a chave da IA real funciona |
+| `pnpm evals:entrevista:real` | As mesmas checagens com o modelo real, mais pergunta repetida |
+| `pnpm ai:check` | Testa cada modelo com cada chave da IA real e mostra tempo e custo |
+| `pnpm obs:db` | Cria só a tabela do rastro do agente (`agent_events`) |
 | `pnpm entrevista:db` | Cria só as tabelas da entrevista |
 | `pnpm entrevista:convite` | Cria um convite de entrevista e imprime o link |
 | `pnpm voz:pregerar` | Gera o áudio das falas fixas da Helena |
 | `pnpm voz:medir` | Mede a latência da voz e grava em `docs/medicoes-voz.md` |
-| `pnpm voz:cota` | Mostra os créditos que restam na ElevenLabs |
+| `pnpm voz:cota` | Mostra os créditos que restam em cada chave da ElevenLabs |
 
 ## Stack
 
-Next.js 16 (App Router), React 19, TypeScript, Tailwind 4, Drizzle ORM com Postgres e pgvector, Redis, Evolution API (WhatsApp) em Docker, AI SDK, zod e Vitest. Voz com ElevenLabs e Voicebox (Whisper).
+Next.js 16 (App Router), React 19, TypeScript, Tailwind 4, Drizzle ORM com Postgres e pgvector, Redis, Evolution API (WhatsApp) em Docker, AI SDK 7, zod e Vitest. IA pela Featherless (Kimi K2, Qwen3 30B, DeepSeek V3; vetores com Qwen3 Embedding 8B). Voz com ElevenLabs e Voicebox (Whisper).
 
 ## Estrutura
 
 ```
 src/
-  app/(app)/          telas do médico: fila, caso, contatos, conexão
+  app/(app)/          telas do médico: fila, caso, contatos, conexão, medição
   app/entrevista/     sala da entrevista do colaborador
   app/api/            rotas do médico, da entrevista e o webhook do WhatsApp
   lib/instruments/    itens, pontuação e gravidade
@@ -188,6 +205,9 @@ src/
   lib/interview/      motor da entrevista: pauta, filtros, resumo com origem
   lib/voice/          fala e escuta (ElevenLabs, Voicebox)
   lib/rag/, evidence/ base de conhecimento e indícios com fonte
+  lib/ai/             provedores de IA, troca de chave e modelo, prompts
+  lib/obs/            rastro do agente e métricas da página Medição
+  lib/case/           resumo da pessoa, frase do caso, escores
 knowledge/            documentos de origem (normas e manuais)
 evals/, scripts/      checagens de segurança e utilitários
 ```
