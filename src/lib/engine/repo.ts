@@ -91,11 +91,15 @@ export async function getAnswerRows(runId: string) {
   return db.select().from(answers).where(eq(answers.runId, runId));
 }
 
-export async function upsertAnswer(runId: string, item: Item, rawText: string, value: number | null) {
+/** Como a resposta foi entendida e de qual mensagem veio (aparece no Caso para o médico). */
+export type AnswerMeta = { source?: "ia" | "ia_confirmada" | "regra" | "aberta" | null; quote?: string | null; messageId?: string | null };
+
+export async function upsertAnswer(runId: string, item: Item, rawText: string, value: number | null, meta: AnswerMeta = {}) {
+  const extra = { source: meta.source ?? null, quote: meta.quote ?? null, messageId: meta.messageId ?? null };
   const [row] = await db
     .insert(answers)
-    .values({ runId, instrument: item.instrument, itemCode: item.code, rawText, valueNumeric: value })
-    .onConflictDoUpdate({ target: [answers.runId, answers.itemCode], set: { rawText, valueNumeric: value } })
+    .values({ runId, instrument: item.instrument, itemCode: item.code, rawText, valueNumeric: value, ...extra })
+    .onConflictDoUpdate({ target: [answers.runId, answers.itemCode], set: { rawText, valueNumeric: value, ...extra } })
     .returning();
   return row;
 }
@@ -104,7 +108,7 @@ export async function copyAnswers(fromRunId: string, toRunId: string) {
   const rows = await getAnswerRows(fromRunId);
   if (rows.length === 0) return;
   await db.insert(answers).values(
-    rows.map((r) => ({ runId: toRunId, instrument: r.instrument, itemCode: r.itemCode, rawText: r.rawText, valueNumeric: r.valueNumeric })),
+    rows.map((r) => ({ runId: toRunId, instrument: r.instrument, itemCode: r.itemCode, rawText: r.rawText, valueNumeric: r.valueNumeric, source: r.source, quote: r.quote, messageId: r.messageId })),
   );
 }
 

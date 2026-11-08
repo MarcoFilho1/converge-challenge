@@ -4,7 +4,7 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type ObsContext = { runId?: string | null; interviewId?: string | null; answerId?: string | null };
+export type ObsContext = { runId?: string | null; interviewId?: string | null; answerId?: string | null; waMessageId?: string | null };
 
 const storage = new AsyncLocalStorage<ObsContext>();
 

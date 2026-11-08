@@ -11,6 +11,10 @@ vi.mock("@/lib/engine/engine", () => ({ handleIncoming: (...a: unknown[]) => han
 vi.mock("@/lib/whatsapp/evolution", () => ({ sendText: (...a: unknown[]) => sendText(...a), getMediaBase64: (...a: unknown[]) => getMediaBase64(...a) }));
 vi.mock("@/lib/voice/transcribe-message", () => ({ transcribeAudio: (...a: unknown[]) => transcribeAudio(...a) }));
 vi.mock("@/lib/whatsapp/session", () => ({ saveConnectionState: (...a: unknown[]) => saveConnectionState(...a) }));
+// Sem Telegram ligado: este teste cobre só o WhatsApp (a reserva tem testes próprios em tests/channels).
+vi.mock("@/lib/telegram/links", () => ({ chatForPerson: async () => null, isTelegramOnlyKey: (k: string) => k.startsWith("tg:") }));
+const recordEvent = vi.fn();
+vi.mock("@/lib/obs/events", () => ({ recordEvent: (...a: unknown[]) => recordEvent(...a) }));
 const markDelivery = vi.fn();
 vi.mock("@/lib/engine/repo", () => ({ markDelivery: (...a: unknown[]) => markDelivery(...a) }));
 
@@ -39,6 +43,7 @@ beforeEach(() => {
   getMediaBase64.mockReset();
   sendText.mockReset();
   saveConnectionState.mockReset();
+  recordEvent.mockReset();
 });
 
 describe("POST /api/webhook/whatsapp", () => {
@@ -104,6 +109,17 @@ describe("POST /api/webhook/whatsapp", () => {
     }
   });
 
+  it("ensaio de queda ligado: o WhatsApp não responde ninguém", async () => {
+    const { setWhatsappSimulatedDown } = await import("@/lib/channels/status");
+    setWhatsappSimulatedDown(true);
+    try {
+      await post(body(false, "SIM1"));
+      expect(handleIncoming).not.toHaveBeenCalled();
+    } finally {
+      setWhatsappSimulatedDown(false);
+    }
+  });
+
   it("grava o estado da conexão", async () => {
     await post({ event: "connection.update", instance: "consultorio", data: { state: "open" } });
     expect(saveConnectionState).toHaveBeenCalledWith("open");
@@ -147,5 +163,33 @@ describe("POST /api/webhook/whatsapp", () => {
     await post({ event: "messages.upsert", data: { key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "ST1" }, message: { stickerMessage: {} } } });
     expect(handleMedia).toHaveBeenCalledWith({ phone: "5581999990001", waMessageId: "ST1", media: "figurinha" });
     expect(sendText).toHaveBeenCalledWith("5581999990001", "só leio texto");
+  });
+});
+
+describe("tempo de resposta no rastro", () => {
+  it("cada mensagem atendida grava quanto a pessoa esperou, ligada ao id dela", async () => {
+    handleIncoming.mockResolvedValue({ outbound: ["a", "b"], outboundIds: [], runId: "r1", event: "answer" });
+    sendText.mockResolvedValue({ waMessageId: "w" });
+    await post(body(false, "MSG-1"));
+    const ev = recordEvent.mock.calls.map((c) => c[0]).find((e) => e.kind === "resposta no WhatsApp");
+    expect(ev).toMatchObject({ outcome: "ok", runId: "r1", waMessageId: "MSG-1" });
+    expect(typeof ev.latencyMs).toBe("number");
+    expect(ev.detail).toMatch(/texto · 2 mensagens enviadas · resposta gravada/);
+  });
+
+  it("duplicata e número desconhecido não contam como resposta", async () => {
+    handleIncoming.mockResolvedValue({ outbound: [], outboundIds: [], runId: null, event: "duplicate" });
+    await post(body(false, "MSG-2"));
+    expect(recordEvent.mock.calls.map((c) => c[0].kind)).not.toContain("resposta no WhatsApp");
+  });
+
+  it("áudio: a transcrição e a resposta levam o id da mensagem", async () => {
+    transcribeAudio.mockResolvedValue({ text: "sim", ms: 900 });
+    handleIncoming.mockResolvedValue({ outbound: ["a"], outboundIds: [], runId: "r1", event: "answer" });
+    sendText.mockResolvedValue({ waMessageId: "w" });
+    await post({ event: "messages.upsert", data: { key: { remoteJid: "5581999990001@s.whatsapp.net", fromMe: false, id: "AUD-1" }, message: { audioMessage: { mimetype: "audio/ogg" }, base64: "AAAA" } } });
+    const kinds = recordEvent.mock.calls.map((c) => c[0]).filter((e) => e.waMessageId === "AUD-1").map((e) => e.kind);
+    expect(kinds).toEqual(["transcrição do áudio", "resposta no WhatsApp"]);
+    expect(recordEvent.mock.calls.map((c) => c[0]).find((e) => e.kind === "resposta no WhatsApp").detail).toMatch(/^áudio/);
   });
 });

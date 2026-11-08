@@ -1,6 +1,8 @@
 import { handleIncoming, handleMedia, type EngineResult } from "@/lib/engine/engine";
 import { markDelivery } from "@/lib/engine/repo";
-import { getMediaBase64, sendText } from "@/lib/whatsapp/evolution";
+import { getMediaBase64 } from "@/lib/whatsapp/evolution";
+import { sendToPerson } from "@/lib/channels/send";
+import { whatsappSimulatedDown } from "@/lib/channels/status";
 import { transcribeAudio } from "@/lib/voice/transcribe-message";
 import { parseWebhook } from "@/lib/whatsapp/parse-webhook";
 import { saveConnectionState } from "@/lib/whatsapp/session";
@@ -8,29 +10,16 @@ import { recordEvent } from "@/lib/obs/events";
 
 const ok = () => Response.json({ ok: true });
 
-const SEND_ATTEMPTS = 3;
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Envia com retentativa. Devolve o id do WhatsApp ou null se todas as tentativas falharem. */
-async function sendWithRetry(phone: string, text: string): Promise<string | null> {
-  const delay = Number(process.env.SEND_RETRY_DELAY_MS ?? 1500);
-  for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
-    try {
-      const { waMessageId } = await sendText(phone, text);
-      return waMessageId ?? "sem-id";
-    } catch (err) {
-      console.error(`[webhook] envio falhou (tentativa ${attempt}/${SEND_ATTEMPTS}) para ${phone}`, err);
-      if (attempt < SEND_ATTEMPTS) await wait(delay * attempt);
-    }
-  }
-  return null;
-}
-
 /** Envia cada resposta do motor em ordem e registra a entrega. */
 async function deliver(phone: string, result: EngineResult) {
   for (let i = 0; i < result.outbound.length; i++) {
-    const waId = await sendWithRetry(phone, result.outbound[i]);
-    if (!waId) recordEvent({ kind: "envio", outcome: "erro", runId: result.runId, detail: `Mensagem ${i + 1} não entregue no WhatsApp depois de ${SEND_ATTEMPTS} tentativas` });
+    // WhatsApp primeiro (a pessoa escreveu por ele); se falhar e ela tiver o Telegram ligado, vai pela reserva.
+    let waId: string | null = null;
+    try {
+      waId = (await sendToPerson(phone, result.outbound[i], { prefer: "whatsapp", runId: result.runId })).messageId;
+    } catch {
+      recordEvent({ kind: "envio", outcome: "erro", runId: result.runId, detail: `Mensagem ${i + 1} não entregue no WhatsApp depois de 3 tentativas` });
+    }
     const messageId = result.outboundIds?.[i];
     if (!messageId) continue;
     try {
@@ -39,6 +28,42 @@ async function deliver(phone: string, result: EngineResult) {
       console.error("[webhook] não consegui registrar a entrega", e);
     }
   }
+}
+
+/** O que o bot fez com a mensagem, em palavras (aparece no rastro do Caso). */
+const REPLY_LABEL: Partial<Record<EngineResult["event"], string>> = {
+  answer: "resposta gravada",
+  confirm: "pediu confirmação",
+  repeat: "pediu de novo com as opções",
+  doubt: "explicou a pergunta",
+  corrected: "corrigiu a resposta anterior",
+  consent_ok: "aceitou participar",
+  consent_repeat: "pediu sim ou não para começar",
+  declined: "recusou participar",
+  stopped: "parou o questionário",
+  crisis: "crise: CVV 188 e SAMU 192 enviados",
+  crisis_confirm: "pediu confirmação de risco",
+  crisis_denied: "negou risco e seguiu",
+  finished: "terminou o questionário",
+  resumed: "retomou o questionário",
+  joined: "entrou pela entrada aberta",
+  already_running: "repetiu a pergunta atual",
+  no_active_run: "sem questionário ativo",
+  media: "mídia que o bot não lê",
+};
+
+/** Quanto a pessoa esperou, do webhook chegar até a última resposta sair. Duplicata e número desconhecido não contam. */
+function recordReply(waMessageId: string, result: EngineResult, startedMs: number, via: "texto" | "áudio" | "mídia") {
+  if (result.event === "duplicate" || result.event === "ignored_unknown") return;
+  const n = result.outbound.length;
+  recordEvent({
+    kind: "resposta no WhatsApp",
+    outcome: "ok",
+    runId: result.runId,
+    waMessageId,
+    latencyMs: Date.now() - startedMs,
+    detail: `${via} · ${n} ${n === 1 ? "mensagem enviada" : "mensagens enviadas"} · ${REPLY_LABEL[result.event] ?? result.event}`,
+  });
 }
 
 /** Áudio do WhatsApp → texto pelo Whisper. null se não deu: o motor pede para escrever e registra no rastro. */
@@ -73,23 +98,31 @@ export async function POST(request: Request) {
     return ok();
   }
 
+  const startedMs = Date.now();
   const parsed = parseWebhook(body);
+  // Ensaio de queda ligado na Conexão: o WhatsApp se comporta como fora do ar e não responde ninguém.
+  if (parsed.kind !== "connection" && whatsappSimulatedDown()) return ok();
   try {
     if (parsed.kind === "connection") {
       await saveConnectionState(parsed.state);
     } else if (parsed.kind === "message" && !parsed.fromMe) {
-      await deliver(parsed.phone, await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId, name: parsed.name }));
+      const result = await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId, name: parsed.name });
+      await deliver(parsed.phone, result);
+      recordReply(parsed.waMessageId, result, startedMs, "texto");
     } else if (parsed.kind === "audio" && !parsed.fromMe) {
       const heard = await transcribe(parsed.waMessageId, parsed.base64, parsed.mime);
       const result = heard
         ? await handleIncoming({ phone: parsed.phone, text: heard.text, waMessageId: parsed.waMessageId, viaAudio: true, name: parsed.name })
         : await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: "áudio sem transcrição" });
       if (heard && result.event !== "duplicate" && result.event !== "ignored_unknown") {
-        recordEvent({ kind: "transcrição do áudio", outcome: "ok", model: "Whisper (Voicebox)", runId: result.runId, latencyMs: heard.ms, detail: `“${heard.text.slice(0, 160)}”` });
+        recordEvent({ kind: "transcrição do áudio", outcome: "ok", model: "Whisper (Voicebox)", runId: result.runId, waMessageId: parsed.waMessageId, latencyMs: heard.ms, detail: `“${heard.text.slice(0, 160)}”` });
       }
       await deliver(parsed.phone, result);
+      recordReply(parsed.waMessageId, result, startedMs, "áudio");
     } else if (parsed.kind === "media" && !parsed.fromMe) {
-      await deliver(parsed.phone, await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: parsed.media }));
+      const result = await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: parsed.media });
+      await deliver(parsed.phone, result);
+      recordReply(parsed.waMessageId, result, startedMs, "mídia");
     }
   } catch (err) {
     console.error("[webhook] erro ao processar mensagem", err);
