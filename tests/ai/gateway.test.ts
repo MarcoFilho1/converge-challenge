@@ -92,3 +92,40 @@ describe("provedor gateway", () => {
     expect(out.trechos[0].chunkId).toBe("c1");
   });
 });
+
+describe("busca semântica com o Qwen3 Embedding da Featherless", () => {
+  const vec = (n: number) => new Array(n).fill(0.01);
+
+  it("AI_EMBEDDINGS=featherless: pede 1536 dimensões ao Qwen3 Embedding e devolve os vetores", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "k1");
+    vi.stubEnv("AI_EMBEDDINGS", "featherless");
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [{ embedding: vec(1536) }, { embedding: vec(1536) }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    const out = await createGatewayProvider().embed(["cansaço", "metas"]);
+    expect(out).toHaveLength(2);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.featherless.ai/v1/embeddings");
+    expect(JSON.parse(String(init.body))).toMatchObject({ model: "Qwen/Qwen3-Embedding-8B", dimensions: 1536, input: ["cansaço", "metas"] });
+    expect(embedMany).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("chave sem crédito passa para a próxima; dimensão errada é recusada", async () => {
+    vi.stubEnv("FEATHERLESS_API_KEY_1", "k1");
+    vi.stubEnv("FEATHERLESS_API_KEY_2", "k2");
+    vi.stubEnv("AI_EMBEDDINGS", "featherless");
+    const used: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_u: string, init: RequestInit) => {
+      const key = (init.headers as Record<string, string>).Authorization;
+      used.push(key);
+      return key.endsWith("k1") ? new Response('{"error":{"message":"Insufficient credits"}}', { status: 402 }) : new Response(JSON.stringify({ data: [{ embedding: vec(1536) }] }), { status: 200 });
+    }));
+    const { createGatewayProvider } = await import("@/lib/ai/gateway");
+    expect((await createGatewayProvider().embed(["x"]))[0]).toHaveLength(1536);
+    expect(used).toEqual(["Bearer k1", "Bearer k2"]);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ data: [{ embedding: vec(1024) }] }), { status: 200 })));
+    await expect(createGatewayProvider().embed(["x"])).rejects.toThrow(/1536/);
+    vi.unstubAllGlobals();
+  });
+});

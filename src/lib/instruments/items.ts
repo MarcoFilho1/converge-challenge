@@ -206,6 +206,17 @@ export const DEMO_ITEMS: Item[] = [
   open1,
 ];
 
+/** Linhas de apoio por item. A pergunta sobre se ferir (PHQ9_9) fica sem linha, de propósito. */
+const HELP: Record<string, string> = {
+  TRUNK: "Por exemplo: dor, gripe, dor de cabeça, cansaço forte, ansiedade, tristeza ou insônia.",
+  WPAI_Q5: "Em resumo: de 0 a 10, quanto a sua saúde atrapalhou o seu trabalho nos últimos 7 dias.",
+  BAT_1: "Ou seja: com a cabeça cansada, sem energia para pensar e se concentrar.",
+  PHQ9_2: "Ou seja: se sentir triste, desanimado/a ou sem esperança.",
+};
+for (const item of [...FULL_ITEMS, ...DEMO_ITEMS]) {
+  if (HELP[item.code]) item.help = HELP[item.code];
+}
+
 export function getItems(demoShort: boolean): Item[] {
   return demoShort ? DEMO_ITEMS : FULL_ITEMS;
 }
