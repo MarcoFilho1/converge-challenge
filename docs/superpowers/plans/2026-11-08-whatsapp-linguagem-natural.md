@@ -262,6 +262,8 @@ export function judgeReading(item: Item, text: string, r: ReplyReading): Verdict
 
 ## Etapa 2 · Observabilidade e custo por mensagem (PR 2)
 
+> **Situação (08/11, 11h30):** feita. A tarefa 2.3 não precisou de estimativa, porque a Featherless devolve o custo de cada chamada (`usage.cost`). A ligação com a mensagem usa o id do WhatsApp (`agent_events.wa_message_id`).
+
 **Entrega:**
 - cada mensagem do WhatsApp tem, no rastro, tudo o que disparou (transcrição, leitura, juiz de crise, indícios, envio), com tempo e custo;
 - o tempo total entre receber e responder;

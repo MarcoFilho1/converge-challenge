@@ -18,6 +18,7 @@ export type EventInput = {
   runId?: string | null;
   interviewId?: string | null;
   answerId?: string | null;
+  waMessageId?: string | null;
 };
 
 const pending = new Set<Promise<void>>();
@@ -26,9 +27,12 @@ export function recordEvent(e: EventInput): void {
   if (process.env.OBS_DISABLED === "true") return;
   const ctx = obsContext();
   const row = {
+    // hora do passo, não da gravação (as gravações são em paralelo e podem chegar fora de ordem)
+    createdAt: new Date(),
     runId: e.runId ?? ctx.runId ?? null,
     interviewId: e.interviewId ?? ctx.interviewId ?? null,
     answerId: e.answerId ?? ctx.answerId ?? null,
+    waMessageId: e.waMessageId ?? ctx.waMessageId ?? null,
     kind: e.kind,
     outcome: e.outcome,
     model: e.model ?? null,

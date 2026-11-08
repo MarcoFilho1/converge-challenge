@@ -9,6 +9,27 @@ export type MetricEvent = {
   latencyMs: number | null;
   runId: string | null;
   interviewId: string | null;
+  tokensIn?: number | null;
+  tokensOut?: number | null;
+  waMessageId?: string | null;
+  detail?: string | null;
+};
+
+/** Mensagens do WhatsApp: quanto custam, quanto a pessoa espera e como as respostas foram lidas. Frações de 0 a 1. */
+export type WhatsappMetrics = {
+  messages: number;
+  audio: number;
+  transcriptionFailures: number;
+  aiCallsPerMessage: number | null;
+  costPerMessage: number | null;
+  replyP50Ms: number | null;
+  replyP95Ms: number | null;
+  /** respostas a itens lidas (IA ou regra local), sem contar os "sim" de confirmação */
+  readings: number;
+  firstTime: number | null;
+  confirmed: number | null;
+  rejected: number | null;
+  localRule: number | null;
 };
 
 export type StageMetric = { kind: string; calls: number; failures: number; fallbacks: number; p50Ms: number | null; p95Ms: number | null; costUsd: number };
@@ -22,7 +43,8 @@ export type Metrics = {
   costPerQuestionnaire: number | null;
   costPerInterview: number | null;
   stages: StageMetric[];
-  models: { model: string; calls: number; costUsd: number }[];
+  models: { model: string; calls: number; costUsd: number; tokensIn: number; tokensOut: number; usdPer1kTokens: number | null }[];
+  whatsapp: WhatsappMetrics;
 };
 
 const round = (n: number) => Math.round(n * 1e6) / 1e6;
@@ -65,12 +87,14 @@ export function computeMetrics(events: MetricEvent[]): Metrics {
     })
     .sort((a, b) => b.costUsd - a.costUsd || b.calls - a.calls);
 
-  const byModel = new Map<string, { calls: number; costUsd: number }>();
+  const byModel = new Map<string, { calls: number; costUsd: number; tokensIn: number; tokensOut: number }>();
   for (const e of events.filter(isModelCall)) {
     const name = modelName(e.model!);
-    const m = byModel.get(name) ?? { calls: 0, costUsd: 0 };
+    const m = byModel.get(name) ?? { calls: 0, costUsd: 0, tokensIn: 0, tokensOut: 0 };
     m.calls += 1;
     m.costUsd = round(m.costUsd + cost(e));
+    m.tokensIn += e.tokensIn ?? 0;
+    m.tokensOut += e.tokensOut ?? 0;
     byModel.set(name, m);
   }
 
@@ -82,6 +106,39 @@ export function computeMetrics(events: MetricEvent[]): Metrics {
     costPerQuestionnaire: qRuns.size ? round(qCost / qRuns.size) : null,
     costPerInterview: iIds.size ? round(iCost / iIds.size) : null,
     stages,
-    models: [...byModel.entries()].map(([model, v]) => ({ model, ...v })).sort((a, b) => b.costUsd - a.costUsd),
+    models: [...byModel.entries()]
+      .map(([model, v]) => {
+        const tokens = v.tokensIn + v.tokensOut;
+        return { model, ...v, usdPer1kTokens: tokens ? round((v.costUsd / tokens) * 1000) : null };
+      })
+      .sort((a, b) => b.costUsd - a.costUsd),
+    whatsapp: whatsappMetrics(events),
+  };
+}
+
+function whatsappMetrics(events: MetricEvent[]): WhatsappMetrics {
+  const replies = events.filter((e) => e.kind === "resposta no WhatsApp" && e.waMessageId);
+  const ids = new Set(replies.map((e) => e.waMessageId!));
+  const ofMessages = events.filter((e) => e.waMessageId && ids.has(e.waMessageId));
+  const n = ids.size;
+  const latencies = replies.filter((e) => e.latencyMs !== null).map((e) => e.latencyMs!);
+  // "Confirmou 8…" é o "sim" da pessoa, decidido em código: não é uma leitura nova
+  const readings = events.filter((e) => e.kind === "valor da resposta" && (e.model === "IA" || e.model === "regra local"));
+  const frac = (k: number) => (readings.length ? k / readings.length : null);
+  const asked = readings.filter((e) => e.detail?.includes("pediu confirmação")).length;
+  const rejected = readings.filter((e) => e.outcome === "descartado").length;
+  return {
+    messages: n,
+    audio: replies.filter((e) => e.detail?.startsWith("áudio")).length,
+    transcriptionFailures: events.filter((e) => e.kind === "transcrição do áudio" && e.outcome === "erro").length,
+    aiCallsPerMessage: n ? ofMessages.filter(isModelCall).length / n : null,
+    costPerMessage: n ? round(ofMessages.reduce((a, e) => a + (e.costUsd ?? 0), 0) / n) : null,
+    replyP50Ms: percentile(latencies, 50),
+    replyP95Ms: percentile(latencies, 95),
+    readings: readings.length,
+    firstTime: frac(readings.length - asked - rejected),
+    confirmed: frac(asked),
+    rejected: frac(rejected),
+    localRule: frac(readings.filter((e) => e.model === "regra local").length),
   };
 }

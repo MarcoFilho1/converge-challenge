@@ -1,6 +1,6 @@
 import { inviteThreshold, wellbeingIndex } from "@/lib/instruments";
 import { patientSummary } from "@/lib/case/patient-summary";
-import { asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db/client";
 import {
@@ -164,7 +164,18 @@ async function loadTrail(runId: string, interviewIds: string[]): Promise<TrailIt
     const where = interviewIds.length
       ? or(eq(agentEvents.runId, runId), inArray(agentEvents.interviewId, interviewIds))
       : eq(agentEvents.runId, runId);
-    const rows = await db.select().from(agentEvents).where(where).orderBy(asc(agentEvents.createdAt)).limit(400);
+    const [rows, inbound] = await Promise.all([
+      db.select().from(agentEvents).where(where).orderBy(asc(agentEvents.createdAt)).limit(400),
+      db.select({ waMessageId: messages.waMessageId, text: messages.text, viaAudio: messages.viaAudio, createdAt: messages.createdAt })
+        .from(messages)
+        .where(and(eq(messages.runId, runId), eq(messages.direction, "in"))),
+    ]);
+    // texto da mensagem que disparou cada passo, para o rastro agrupar por mensagem
+    const msgByWa = new Map(
+      inbound
+        .filter((m) => m.waMessageId)
+        .map((m) => [m.waMessageId!, { text: m.text, viaAudio: m.viaAudio, at: m.createdAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Recife" }) }]),
+    );
     return rows.map((e) => ({
       id: e.id,
       at: e.createdAt.toISOString(),
@@ -177,6 +188,8 @@ async function loadTrail(runId: string, interviewIds: string[]): Promise<TrailIt
       tokensOut: e.tokensOut,
       detail: e.detail,
       inInterview: !!e.interviewId,
+      waMessageId: e.waMessageId,
+      message: e.waMessageId ? (msgByWa.get(e.waMessageId) ?? null) : null,
     }));
   } catch (err) {
     console.warn("[caso] rastro indisponível", err instanceof Error ? err.message : err);

@@ -183,7 +183,7 @@ Veja `.env.example`. As principais:
 | `pnpm evals:entrevista` | Checagens da entrevista: crise 100%, nenhum termo proibido ou conselho, nenhum resumo sem origem |
 | `pnpm evals:entrevista:real` | As mesmas checagens com o modelo real, mais pergunta repetida |
 | `pnpm ai:check` | Testa cada modelo com cada chave da IA real e mostra tempo e custo |
-| `pnpm obs:db` | Cria só a tabela do rastro do agente (`agent_events`) |
+| `pnpm obs:db` | Cria só a tabela do rastro do agente (`agent_events`); em banco que já tinha a tabela, acrescenta o id da mensagem do WhatsApp (`wa_message_id`) |
 | `pnpm whatsapp:db` | Acrescenta as colunas do questionário em linguagem natural (áudio marcado, origem e trecho de cada resposta, confirmação pendente) |
 | `pnpm entrevista:db` | Cria só as tabelas da entrevista |
 | `pnpm entrevista:convite` | Cria um convite de entrevista e imprime o link |

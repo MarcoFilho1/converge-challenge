@@ -212,7 +212,8 @@ async function maybeInvite(runId: string, severity: Parameters<typeof shouldInvi
 }
 
 export function handleIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean; name?: string }): Promise<EngineResult> {
-  return serialize(input.phone, () => processIncoming(input));
+  // tudo o que esta mensagem disparar (leitura, crise, indícios em segundo plano) fica ligado ao id dela no rastro
+  return serialize(input.phone, () => withObsContext({ waMessageId: input.waMessageId || null }, () => processIncoming(input)));
 }
 
 /**
@@ -220,7 +221,7 @@ export function handleIncoming(input: { phone: string; text: string; waMessageId
  * questionário, a pergunta atual de novo. Número desconhecido não recebe resposta.
  */
 export function handleMedia(input: { phone: string; waMessageId: string; media: string }): Promise<EngineResult> {
-  return serialize(input.phone, async () => {
+  return serialize(input.phone, () => withObsContext({ waMessageId: input.waMessageId || null }, async () => {
     const none: EngineResult = { outbound: [], outboundIds: [], runId: null, event: "ignored_unknown" };
     const contact = await repo.findContactByPhone(input.phone);
     if (!contact) return none;
@@ -240,7 +241,7 @@ export function handleMedia(input: { phone: string; waMessageId: string; media: 
     recordEvent({ kind: failedAudio ? "transcrição do áudio" : "mídia", outcome: failedAudio ? "erro" : "descartado", runId: active?.id ?? null, detail: failedAudio ? "Não deu para transcrever o áudio; pediu para escrever" : `Recebeu ${input.media}; respondeu que só lê texto e áudio` });
     const outboundIds = await recordOut(contact.id, active?.id ?? null, outbound);
     return { outbound, outboundIds, runId: active?.id ?? null, event: "media" };
-  });
+  }));
 }
 
 async function processIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean; name?: string }): Promise<EngineResult> {

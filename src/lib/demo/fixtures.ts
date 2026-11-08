@@ -12,6 +12,10 @@ export interface TrailItem {
   tokensOut: number | null;
   detail: string | null;
   inInterview: boolean;
+  /** Mensagem do WhatsApp que disparou o passo (agrupa o rastro por mensagem). */
+  waMessageId?: string | null;
+  /** Texto da mensagem recebida, quando o passo veio de uma (só o primeiro passo do grupo precisa). */
+  message?: { text: string; viaAudio: boolean; at: string } | null;
 }
 import type { CaseState, RunStatus, Severity } from "@/db/schema";
 import type { RunSummary } from "@/lib/ai/types";

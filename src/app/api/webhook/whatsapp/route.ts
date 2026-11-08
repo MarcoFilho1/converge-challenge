@@ -41,6 +41,42 @@ async function deliver(phone: string, result: EngineResult) {
   }
 }
 
+/** O que o bot fez com a mensagem, em palavras (aparece no rastro do Caso). */
+const REPLY_LABEL: Partial<Record<EngineResult["event"], string>> = {
+  answer: "resposta gravada",
+  confirm: "pediu confirmação",
+  repeat: "pediu de novo com as opções",
+  doubt: "explicou a pergunta",
+  corrected: "corrigiu a resposta anterior",
+  consent_ok: "aceitou participar",
+  consent_repeat: "pediu sim ou não para começar",
+  declined: "recusou participar",
+  stopped: "parou o questionário",
+  crisis: "crise: CVV 188 e SAMU 192 enviados",
+  crisis_confirm: "pediu confirmação de risco",
+  crisis_denied: "negou risco e seguiu",
+  finished: "terminou o questionário",
+  resumed: "retomou o questionário",
+  joined: "entrou pela entrada aberta",
+  already_running: "repetiu a pergunta atual",
+  no_active_run: "sem questionário ativo",
+  media: "mídia que o bot não lê",
+};
+
+/** Quanto a pessoa esperou, do webhook chegar até a última resposta sair. Duplicata e número desconhecido não contam. */
+function recordReply(waMessageId: string, result: EngineResult, startedMs: number, via: "texto" | "áudio" | "mídia") {
+  if (result.event === "duplicate" || result.event === "ignored_unknown") return;
+  const n = result.outbound.length;
+  recordEvent({
+    kind: "resposta no WhatsApp",
+    outcome: "ok",
+    runId: result.runId,
+    waMessageId,
+    latencyMs: Date.now() - startedMs,
+    detail: `${via} · ${n} ${n === 1 ? "mensagem enviada" : "mensagens enviadas"} · ${REPLY_LABEL[result.event] ?? result.event}`,
+  });
+}
+
 /** Áudio do WhatsApp → texto pelo Whisper. null se não deu: o motor pede para escrever e registra no rastro. */
 async function transcribe(waMessageId: string, base64: string | null, mime: string): Promise<{ text: string; ms: number } | null> {
   const started = Date.now();
@@ -73,23 +109,29 @@ export async function POST(request: Request) {
     return ok();
   }
 
+  const startedMs = Date.now();
   const parsed = parseWebhook(body);
   try {
     if (parsed.kind === "connection") {
       await saveConnectionState(parsed.state);
     } else if (parsed.kind === "message" && !parsed.fromMe) {
-      await deliver(parsed.phone, await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId, name: parsed.name }));
+      const result = await handleIncoming({ phone: parsed.phone, text: parsed.text, waMessageId: parsed.waMessageId, name: parsed.name });
+      await deliver(parsed.phone, result);
+      recordReply(parsed.waMessageId, result, startedMs, "texto");
     } else if (parsed.kind === "audio" && !parsed.fromMe) {
       const heard = await transcribe(parsed.waMessageId, parsed.base64, parsed.mime);
       const result = heard
         ? await handleIncoming({ phone: parsed.phone, text: heard.text, waMessageId: parsed.waMessageId, viaAudio: true, name: parsed.name })
         : await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: "áudio sem transcrição" });
       if (heard && result.event !== "duplicate" && result.event !== "ignored_unknown") {
-        recordEvent({ kind: "transcrição do áudio", outcome: "ok", model: "Whisper (Voicebox)", runId: result.runId, latencyMs: heard.ms, detail: `“${heard.text.slice(0, 160)}”` });
+        recordEvent({ kind: "transcrição do áudio", outcome: "ok", model: "Whisper (Voicebox)", runId: result.runId, waMessageId: parsed.waMessageId, latencyMs: heard.ms, detail: `“${heard.text.slice(0, 160)}”` });
       }
       await deliver(parsed.phone, result);
+      recordReply(parsed.waMessageId, result, startedMs, "áudio");
     } else if (parsed.kind === "media" && !parsed.fromMe) {
-      await deliver(parsed.phone, await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: parsed.media }));
+      const result = await handleMedia({ phone: parsed.phone, waMessageId: parsed.waMessageId, media: parsed.media });
+      await deliver(parsed.phone, result);
+      recordReply(parsed.waMessageId, result, startedMs, "mídia");
     }
   } catch (err) {
     console.error("[webhook] erro ao processar mensagem", err);
