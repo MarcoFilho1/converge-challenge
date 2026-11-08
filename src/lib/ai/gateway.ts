@@ -114,7 +114,6 @@ export function createGatewayProvider(): AiProvider {
           }), "fast", "ler resposta");
           const allowed = new Set(input.upcoming.map((u) => u.code));
           const reading = { ...output, value: Number.isFinite(output.value) ? output.value : null, mentions: output.mentions.filter((c) => allowed.has(c)), source: "ia" as const };
-          recordEvent({ kind: "leitura da resposta", outcome: "ok", model: "IA", detail: `“${input.text.slice(0, 80)}” → ${reading.intent}${reading.value !== null ? ` ${reading.value}` : ""} (${reading.confidence})` });
           return reading;
         },
         async () => local,

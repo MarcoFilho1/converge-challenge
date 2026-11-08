@@ -5,6 +5,9 @@ import { assessRisk, isClearNo } from "@/lib/crisis/judge";
 import { computeSeverity, getItems, inviteThreshold, nextItemIndex, scoreRun, shouldInviteToInterview, wellbeingIndex } from "@/lib/instruments";
 import type { QuestionnaireRun } from "@/db/schema";
 import { copy, formatItem } from "./copy";
+import { judgeReading } from "./reading";
+import type { ReplyStage } from "@/lib/ai/types";
+import type { Item } from "@/lib/instruments/types";
 import * as repo from "./repo";
 import { withObsContext } from "@/lib/obs/context";
 import { recordEvent } from "@/lib/obs/events";
@@ -30,7 +33,10 @@ export type EngineEvent =
   | "crisis_confirm"
   | "crisis_denied"
   | "media"
-  | "joined";
+  | "joined"
+  | "doubt"
+  | "confirm"
+  | "corrected";
 
 export type EngineResult = {
   outbound: string[];
@@ -97,8 +103,9 @@ async function runHook(fn: (() => Promise<void>) | undefined) {
   }
 }
 
-const YES = new Set(["1", "sim", "s", "aceito", "sim, aceito", "aceitar", "ok"]);
-const NO = new Set(["2", "nao", "n", "nao quero", "nao quero participar"]);
+// Número não é atalho de opção: "1" e "2" não aceitam nem recusam. Fora destes, a IA lê a mensagem.
+const YES = new Set(["sim", "s", "aceito", "sim, aceito", "aceitar", "ok", "pode", "bora", "vamos", "claro", "isso", "isso mesmo"]);
+const NO = new Set(["nao", "n", "nao quero", "nao quero participar", "prefiro nao"]);
 const unknownNotified = new Set<string>();
 
 export async function startRun(
@@ -263,12 +270,12 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
     direction: "in",
     text,
     waMessageId: waMessageId || null,
+    viaAudio: !!input.viaAudio,
   });
   if (!inboundId) return none("duplicate");
 
   const reply = async (runId: string | null, event: EngineEvent, outbound: string[]): Promise<EngineResult> => {
-    // Resposta por áudio: o bot mostra primeiro o que entendeu, para a pessoa corrigir se ouviu errado.
-    if (input.viaAudio) outbound = [copy.heardAudio(text), ...outbound];
+    // Sem eco do áudio para a pessoa: a transcrição fica gravada (messages.via_audio) e o médico a vê marcada no Caso.
     const outboundIds = await recordOut(contact.id, runId, outbound);
     return { outbound, outboundIds, runId, event };
   };
@@ -372,18 +379,23 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
 
   const items = getItems(active.demoShort);
 
-  // 3. Consentimento.
+  // 3. Consentimento: sim/não por extenso; o resto a IA lê (aceite, recusa ou dúvida).
   if (active.status === "consent") {
-    if (YES.has(command)) {
+    let intent: "yes" | "no" | "doubt" | "other" = YES.has(command) ? "yes" : NO.has(command) ? "no" : "other";
+    if (intent === "other") {
+      const r = await readReply(active.id, "consent", null, null, [], text);
+      intent = r.intent === "yes" || r.intent === "no" || r.intent === "doubt" ? r.intent : "other";
+    }
+    if (intent === "yes") {
       const first = nextItemIndex(items, {}, 0);
       await repo.updateRun(active.id, { status: "in_progress", currentItem: first, consentedAt: new Date() });
       return reply(active.id, "consent_ok", [copy.opening, formatItem(items[first])]);
     }
-    if (NO.has(command)) {
+    if (intent === "no") {
       await repo.updateRun(active.id, { status: "stopped", finishedAt: new Date() });
       return reply(active.id, "declined", [copy.declined]);
     }
-    return reply(active.id, "consent_repeat", [copy.consentRepeat]);
+    return reply(active.id, "consent_repeat", [intent === "doubt" ? copy.consentDoubt : copy.consentRepeat]);
   }
 
   // 4. Resposta a um item.
@@ -391,36 +403,129 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   if (command === "continuar" || command === "comecar") {
     return reply(active.id, "already_running", [copy.alreadyRunning, formatItem(item)]);
   }
-  let value: number | null = null;
-  let rawText = text;
-  if (item.scale) {
-    value = await withObsContext({ runId: active.id }, () => getAi().interpretAnswer(item, text));
-    if (value === null && active.retryCount === 0) {
-      await repo.updateRun(active.id, { retryCount: 1 });
-      return reply(active.id, "repeat", [copy.repeat, formatItem(item)]);
+
+  const answersNow = await repo.getAnswers(active.id);
+  const previous = previousItem(items, answersNow, active.currentItem);
+
+  /** Grava a resposta do item atual, avança e manda a próxima pergunta (com frase de ligação se a fala já tocou nela). */
+  const saveAndAdvance = async (value: number | null, rawText: string, meta: repo.AnswerMeta, mentions: string[] = [], prefix: string[] = []): Promise<EngineResult> => {
+    const answerRow = await repo.upsertAnswer(active.id, item, rawText, value, { ...meta, messageId: inboundId });
+    if (hooks.onAnswer) inBackground(active.id, () => hooks.onAnswer!(answerRow.id));
+
+    const answers = await repo.getAnswers(active.id);
+    const next = nextItemIndex(items, answers, active.currentItem + 1);
+
+    // Item 9 do PHQ-9 positivo: mensagem de segurança e urgência (manual Pfizer p. 2).
+    if (item.code === "PHQ9_9" && value !== null && value >= 1) {
+      recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: active.id, detail: `Item 9 do PHQ-9 = ${value}. CVV 188 e SAMU 192 enviados` });
+      await repo.updateRun(active.id, { currentItem: next, pendingValue: null });
+      await finishRun({ ...active, currentItem: next }, "crisis");
+      return reply(active.id, "crisis", [CRISIS_REPLY]);
     }
-  } else if (command === "pular") {
-    rawText = "";
+
+    if (next < 0) {
+      const { invite } = await finishRun(active, "done");
+      return reply(active.id, "finished", [...prefix, copy.closing(), ...invite]);
+    }
+    await repo.updateRun(active.id, { currentItem: next, retryCount: 0, pendingValue: null });
+    const question = formatItem(items[next]);
+    const bridged = mentions.includes(items[next].code) ? `${copy.bridge}\n${question}` : question;
+    return reply(active.id, "answer", [...prefix, bridged]);
+  };
+
+  // 4a. Resposta aberta: grava como veio ("pular" grava vazio).
+  if (!item.scale) {
+    return saveAndAdvance(null, command === "pular" ? "" : text, { source: "aberta" });
   }
 
-  const answerRow = await repo.upsertAnswer(active.id, item, rawText, value);
-  if (hooks.onAnswer) inBackground(active.id, () => hooks.onAnswer!(answerRow.id));
-
-  const answers = await repo.getAnswers(active.id);
-  const next = nextItemIndex(items, answers, active.currentItem + 1);
-
-  // Item 9 do PHQ-9 positivo: mensagem de segurança e urgência (manual Pfizer p. 2).
-  if (item.code === "PHQ9_9" && value !== null && value >= 1) {
-    recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: active.id, detail: `Item 9 do PHQ-9 = ${value}. CVV 188 e SAMU 192 enviados` });
-    await repo.updateRun(active.id, { currentItem: next });
-    await finishRun({ ...active, currentItem: next }, "crisis");
-    return reply(active.id, "crisis", [CRISIS_REPLY]);
+  // 4b. Confirmação pendente ("Só para confirmar: vários dias?").
+  if (active.pendingValue !== null && active.pendingValue !== undefined) {
+    const pending = active.pendingValue;
+    let intent = YES.has(command) ? "yes" : NO.has(command) ? "no" : null;
+    if (!intent) intent = (await readReply(active.id, "confirm", item, previous, [], text)).intent;
+    await repo.updateRun(active.id, { pendingValue: null });
+    if (intent === "yes") {
+      recordEvent({ kind: "valor da resposta", outcome: "ok", model: "regra em código", runId: active.id, detail: `Confirmou ${pending} para ${item.code}` });
+      const firstText = (await repo.getAnswerRows(active.id)).find((a) => a.itemCode === item.code);
+      return saveAndAdvance(pending, firstText?.rawText ?? text, { source: "ia_confirmada", quote: firstText?.quote ?? null });
+    }
+    if (intent === "no") {
+      recordEvent({ kind: "leitura da resposta", outcome: "descartado", model: "regra em código", runId: active.id, detail: `Não confirmou o valor proposto (${pending}); perguntou de novo com as opções` });
+      return reply(active.id, "repeat", [copy.repeat(item)]);
+    }
+    // respondeu outra coisa: vale como resposta nova, lida abaixo
   }
 
-  if (next < 0) {
-    const { invite } = await finishRun(active, "done");
-    return reply(active.id, "finished", [copy.closing(), ...invite]);
+  // 4c. A IA lê; o código decide.
+  const upcoming = items.slice(active.currentItem + 1).filter((i) => i.scale).slice(0, 3).map((i) => ({ code: i.code, text: i.text }));
+  const reading = await readReply(active.id, "item", item, previous, upcoming, text);
+
+  if (reading.intent === "doubt") {
+    return reply(active.id, "doubt", [copy.doubt(item), formatItem(item)]);
   }
-  await repo.updateRun(active.id, { currentItem: next, retryCount: 0 });
-  return reply(active.id, "answer", [formatItem(items[next])]);
+  if (reading.intent === "stop" && reading.confidence === "alta") {
+    await finishRun(active, "stopped");
+    return reply(active.id, "stopped", [copy.stopped]);
+  }
+  if (reading.intent === "skip") {
+    recordEvent({ kind: "leitura da resposta", outcome: "ok", model: reading.source === "ia" ? "IA" : "regra local", runId: active.id, detail: `Preferiu não responder ${item.code}` });
+    return saveAndAdvance(null, text, { source: reading.source === "ia" ? "ia" : "regra" });
+  }
+  if (reading.intent === "correction" && previous?.scale) {
+    const v = judgeReading(previous, text, reading);
+    if (v.kind === "accept") {
+      await repo.upsertAnswer(active.id, previous, text, v.value, { source: v.source === "ia" ? "ia" : "regra", quote: v.quote, messageId: inboundId });
+      recordEvent({ kind: "leitura da resposta", outcome: "ok", model: "regra em código", runId: active.id, detail: `Corrigiu ${previous.code} para ${v.value}` });
+      if (previous.code === "PHQ9_9" && v.value >= 1) {
+        recordEvent({ kind: "crise", outcome: "ok", model: "regra em código", runId: active.id, detail: `Correção do item 9 do PHQ-9 para ${v.value}. CVV 188 e SAMU 192 enviados` });
+        await finishRun(active, "crisis");
+        return reply(active.id, "crisis", [CRISIS_REPLY]);
+      }
+      return reply(active.id, "corrected", [copy.corrected, formatItem(item)]);
+    }
+  }
+
+  const verdict = judgeReading(item, text, reading);
+  const by = reading.source === "ia" ? "IA" : "regra local";
+  recordEvent({
+    kind: "valor da resposta",
+    outcome: verdict.kind === "reject" ? "descartado" : "ok",
+    model: by,
+    runId: active.id,
+    detail:
+      verdict.kind === "accept"
+        ? `“${text.slice(0, 80)}” → ${verdict.value} (${by})`
+        : verdict.kind === "confirm"
+          ? `“${text.slice(0, 80)}” → ${verdict.value}? (${by}, pediu confirmação)`
+          : `“${text.slice(0, 80)}” → sem valor (${by}${reading.value !== null ? `; proposta ${reading.value} recusada pelo código` : ""})`,
+  });
+  if (verdict.kind === "accept") {
+    return saveAndAdvance(verdict.value, text, { source: verdict.source === "ia" ? "ia" : "regra", quote: verdict.quote }, reading.mentions);
+  }
+  if (verdict.kind === "confirm") {
+    // guarda a fala original sem valor até o "sim"
+    await repo.upsertAnswer(active.id, item, text, null, { source: null, quote: verdict.quote, messageId: inboundId });
+    await repo.updateRun(active.id, { pendingValue: verdict.value });
+    return reply(active.id, "confirm", [copy.confirm(item, verdict.value)]);
+  }
+  // não deu para ler: repete uma vez com as opções; na segunda, grava vazio e segue
+  if (active.retryCount === 0) {
+    await repo.updateRun(active.id, { retryCount: 1 });
+    return reply(active.id, "repeat", [copy.repeat(item)]);
+  }
+  return saveAndAdvance(null, text, { source: null });
 }
+
+/** Lê a mensagem com a IA (ou a regra local, se a IA não responder), dentro do rastro do questionário. */
+function readReply(runId: string, stage: ReplyStage, item: Item | null, previous: Item | null, upcoming: { code: string; text: string }[], text: string) {
+  return withObsContext({ runId }, () => getAi().readReply({ stage, item, previous, upcoming, text }));
+}
+
+/** Último item com escala já respondido antes do atual (o único que a pessoa pode corrigir). */
+function previousItem(items: Item[], answers: Record<string, number | null | undefined>, current: number): Item | null {
+  for (let i = current - 1; i >= 0; i--) {
+    if (answers[items[i].code] !== undefined) return items[i].scale ? items[i] : null;
+  }
+  return null;
+}
+

@@ -36,7 +36,7 @@ describe("Caso real nunca mostra dado sintético", () => {
     const [contact] = await db.insert(contacts).values({ name: "Pessoa Demo C", phoneE164: PHONE }).returning();
     const { startRun } = await import("@/lib/engine/engine");
     const { runId } = await startRun(contact.id, { demoShort: true });
-    for (const t of ["1", "sim", "6", "4", "2", "2", "0", "4", "metas"]) await say(t);
+    for (const t of ["sim", "sim", "6", "com frequência", "mais da metade dos dias", "mais da metade dos dias", "nunca", "sempre", "metas"]) await say(t);
     const { getCase } = await import("@/lib/case/query");
     const c = await getCase(runId);
     expect(c.run.severity).toBe("priority");

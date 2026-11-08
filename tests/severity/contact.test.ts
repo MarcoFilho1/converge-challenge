@@ -26,9 +26,9 @@ describe("gravidade por pessoa", () => {
     const c = await contact();
     const { startRun } = await import("@/lib/engine/engine");
     await startRun(c.id, { demoShort: true });
-    for (const t of ["1", "sim", "2"]) await say(t);
+    for (const t of ["sim", "sim", "2"]) await say(t);
     const crisis = await say("às vezes quero sumir");
-    for (const t of ["CONTINUAR", "1", "0", "0", "0", "0", "fim"]) await say(t);
+    for (const t of ["CONTINUAR", "nunca", "nenhuma vez", "nenhuma vez", "nunca", "nunca", "fim"]) await say(t);
 
     const { listContactSeverities } = await import("@/lib/severity/contact");
     const [row] = await listContactSeverities();
