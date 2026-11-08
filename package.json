@@ -21,7 +21,7 @@
     "evals:entrevista": "tsx evals/entrevista.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "3.0.87",
+    "@ai-sdk/openai-compatible": "3.0.85",
     "ai": "^7.0.164",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.5",
