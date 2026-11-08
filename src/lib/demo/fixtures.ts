@@ -399,7 +399,7 @@ export const SYNTHETIC_INTERVIEW_DETAIL: InterviewDetail = {
     {
       idx: 0,
       speaker: "ai",
-      text: "Oi, eu sou a Helena. Eu trabalho com a Dra. Ana Lima. Essa conversa leva uns dez minutos, e só ela vai ouvir o que você disser. Você pode pular qualquer pergunta ou parar quando quiser. O que você tem sentido nas últimas semanas?",
+      text: "Oi, eu sou a Helena. Eu trabalho com a Dra. Ana Lima. Essa conversa leva uns dez minutos, e só ela vai ouvir o que você disser. Você pode pular qualquer pergunta ou parar quando quiser. O que você anda sentindo nas últimas semanas?",
       blockId: "saude",
       startedMs: 0,
       durationMs: 11200,
@@ -533,6 +533,12 @@ export const SYNTHETIC_INTERVIEW_DETAIL: InterviewDetail = {
       },
     ],
     nao_respondido: ["Histórico de acompanhamento clínico prévio"],
+    avisos: [
+      {
+        texto: "Preferiu pular: “Faz algum acompanhamento ou tratamento hoje?”",
+        origem: [],
+      },
+    ],
     duracao_min: 8.3,
     turnos: 10,
   },

@@ -539,42 +539,84 @@ export function InterviewTab({
 
             {detail.summary ? (
               <div className="mt-3 space-y-3 text-[13px]">
-                {/* Sinais de alerta no topo */}
-                <div
-                  className="rounded-[6px] border p-3"
-                  style={{
-                    backgroundColor: detail.summary.sinais_de_alerta.risco
-                      ? "var(--sev-urgency-bg)"
-                      : "var(--sev-none-bg)",
-                    borderColor: detail.summary.sinais_de_alerta.risco
-                      ? "var(--sev-urgency-border)"
-                      : "var(--sev-none-border)",
-                    color: detail.summary.sinais_de_alerta.risco
-                      ? "var(--sev-urgency-ink)"
-                      : "var(--sev-none-ink)",
-                  }}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">
-                      Sinais de alerta:{" "}
-                      {detail.summary.sinais_de_alerta.risco
-                        ? "Sinal de risco imediato identificado"
-                        : "Sem menção de autolesão ou risco agudo"}
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                      {detail.summary.sinais_de_alerta.origem.map((o) => (
-                        <button
-                          key={o.turnIdx}
-                          type="button"
-                          onClick={() => scrollToTurn(o.turnIdx)}
-                          className="tabular-nums cursor-pointer rounded-[4px] border border-current px-1.5 py-0.5 text-[12px] font-medium hover:opacity-80"
+                {/* Sinais de alerta no topo. Pergunta de segurança sem resposta clara nunca aparece como "sem menção". */}
+                {(() => {
+                  const avisos = detail.summary.avisos ?? [];
+                  const risco = detail.summary.sinais_de_alerta.risco;
+                  const segurancaSemResposta = !risco && avisos.some((a) => /segurança/i.test(a.texto));
+                  const tone = risco ? "urgency" : segurancaSemResposta ? "attention" : "none";
+                  return (
+                    <>
+                      <div
+                        className="rounded-[6px] border p-3"
+                        style={{
+                          backgroundColor: `var(--sev-${tone}-bg)`,
+                          borderColor: `var(--sev-${tone}-border)`,
+                          color: `var(--sev-${tone}-ink)`,
+                        }}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-medium">
+                            Sinais de alerta:{" "}
+                            {risco
+                              ? "Sinal de risco imediato identificado"
+                              : segurancaSemResposta
+                                ? "Pergunta de segurança sem resposta clara (veja os avisos)"
+                                : "Sem menção de autolesão ou risco agudo"}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {detail.summary.sinais_de_alerta.origem.map((o) => (
+                              <button
+                                key={o.turnIdx}
+                                type="button"
+                                onClick={() => scrollToTurn(o.turnIdx)}
+                                className="tabular-nums cursor-pointer rounded-[4px] border border-current px-1.5 py-0.5 text-[12px] font-medium hover:opacity-80"
+                              >
+                                {o.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Avisos para a consulta: perguntas que a pessoa não quis responder, pulou ou deixou em silêncio */}
+                      {avisos.length > 0 && (
+                        <div
+                          className="rounded-[6px] border p-3"
+                          style={{
+                            backgroundColor: "var(--sev-attention-bg)",
+                            borderColor: "var(--sev-attention-border)",
+                            color: "var(--sev-attention-ink)",
+                          }}
                         >
-                          {o.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                          <h4 className="font-medium">Avisos para a consulta</h4>
+                          <p className="mt-0.5 text-[12px] opacity-80">
+                            A pessoa ouviu a pergunta de dois jeitos e não respondeu, pulou ou ficou em silêncio.
+                          </p>
+                          <ul className="mt-2 space-y-1.5">
+                            {avisos.map((a, i) => (
+                              <li key={i} className="flex flex-wrap items-start justify-between gap-2">
+                                <span className="min-w-0 flex-1">{a.texto}</span>
+                                <span className="flex flex-wrap gap-1">
+                                  {a.origem.map((o) => (
+                                    <button
+                                      key={o.turnIdx}
+                                      type="button"
+                                      onClick={() => scrollToTurn(o.turnIdx)}
+                                      className="tabular-nums cursor-pointer rounded-[4px] border border-current px-1.5 py-0.5 text-[12px] font-medium hover:opacity-80"
+                                    >
+                                      {o.label}
+                                    </button>
+                                  ))}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* 1. dificuldades_relatadas */}
                 <div className="rounded-[6px] border border-[var(--border)] bg-[var(--bg)] p-3">
