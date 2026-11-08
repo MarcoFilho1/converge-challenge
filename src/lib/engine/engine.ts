@@ -32,8 +32,16 @@ type Hooks = {
   onAnswer?: (answerId: string) => Promise<void>;
   onRunFinished?: (runId: string) => Promise<void>;
 };
-const hooks: Hooks = {};
-/** Ganchos opcionais (T9 registra o RAG e o resumo aqui). Erros nos ganchos nunca derrubam a conversa. */
+/** Por padrão: cada resposta ganha indícios com trecho (RAG) e cada questionário encerrado ganha resumo. */
+const hooks: Hooks = {
+  onAnswer: async (answerId) => {
+    await (await import("@/lib/evidence")).recordEvidence(answerId);
+  },
+  onRunFinished: async (runId) => {
+    await (await import("@/lib/evidence")).buildSummary(runId);
+  },
+};
+/** Troca os ganchos (testes ou outro pipeline). Erros nos ganchos nunca derrubam a conversa. */
 export function registerEngineHooks(h: Hooks) {
   Object.assign(hooks, h);
 }
