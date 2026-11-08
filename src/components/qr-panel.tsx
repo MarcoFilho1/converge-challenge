@@ -84,220 +84,110 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
         : null;
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho da página (regra app-screens §4.3: substantivo 22px, pergunta respondida abaixo, 1 ação primária) */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
+    <div className="max-w-[960px]">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow mb-1">Canal do consultório</p>
-          <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
-            Conexão do aparelho WhatsApp
-          </h1>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">WhatsApp do consultório</h1>
           <p className="mt-1 text-[14px] text-[var(--muted)]">
             {status.state === "open" && status.phone
-              ? `Aparelho conectado em ${formatPhoneBr(status.phone)} · Pronto para disparar questionários NR-7.`
-              : `Instância "${status.instanceName}" aguardando pareamento por QR Code · Atualização automática a cada 3 s.`}
+              ? `Conectado em ${formatPhoneBr(status.phone)}. Pronto para enviar questionários.`
+              : "Leia o QR Code com o celular do consultório para ligar o bot."}
           </p>
         </div>
-
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mono-code text-[12px] text-[var(--muted)]">
-            Atualizado às {status.updatedAt}
-          </span>
           <button
             type="button"
             onClick={handleRefresh}
             disabled={isPending}
-            className="h-[32px] cursor-pointer rounded-[6px] border border-[var(--control)] bg-[var(--card)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--raised)] disabled:opacity-60"
+            className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)] disabled:opacity-60"
           >
-            {isPending ? "Verificando…" : "Atualizar estado"}
+            {isPending ? "Verificando…" : "Atualizar"}
           </button>
           <button
             type="button"
             onClick={handleReset}
             disabled={isPending}
-            className="h-[32px] cursor-pointer rounded-[6px] border border-[var(--sev-urgency-border)] bg-[var(--sev-urgency-bg)] px-3 text-[13px] font-medium text-[var(--sev-urgency-ink)] hover:opacity-90 disabled:opacity-60"
+            className="h-[34px] cursor-pointer rounded-full px-3 text-[13px] text-[var(--muted)] hover:bg-[var(--raised)] hover:text-[var(--ink)] disabled:opacity-60"
           >
-            Nova sessão
+            Gerar novo QR Code
           </button>
-          <Link
-            href="/contatos"
-            className="inline-flex h-[32px] items-center rounded-[6px] bg-[var(--primary)] px-3.5 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)]"
-          >
-            Ir para contatos e disparo →
-          </Link>
-        </div>
-      </div>
-
-      {/* Faixa de indicadores técnicos da ponte Evolution API (dividida por fios de 1px) */}
-      <div className="grid grid-cols-1 divide-y divide-[var(--border)] rounded-[8px] border border-[var(--border)] bg-[var(--card)] sm:grid-cols-4 sm:divide-x sm:divide-y-0">
-        <div className="p-4">
-          <div className="text-[12px] text-[var(--muted)]">Estado da sessão</div>
-          <div className="mt-1.5 flex items-center gap-2">
-            <span
-              className="inline-flex items-center rounded-[4px] border px-2 py-0.5 text-[12px] font-medium"
-              style={{
-                backgroundColor: meta.bg,
-                color: meta.ink,
-                borderColor: meta.border,
-              }}
+          {status.state === "open" && (
+            <Link
+              href="/contatos"
+              className="inline-flex h-[36px] items-center rounded-full bg-[var(--primary)] px-5 text-[13px] font-medium text-[#FFFFFF] no-underline shadow-[0_1px_2px_rgba(0,80,140,0.25)] hover:bg-[var(--primary-hover)]"
             >
-              {meta.label}
-            </span>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <div className="text-[12px] text-[var(--muted)]">Número pareado</div>
-          <div className="mono-code mt-1 text-[20px] font-normal text-[var(--ink)]">
-            {status.phone ? formatPhoneBr(status.phone) : "—"}
-          </div>
-        </div>
-
-        <div className="p-4">
-          <div className="text-[12px] text-[var(--muted)]">Cadência segura anti-bloqueio</div>
-          <div className="mono-code mt-1 text-[20px] font-normal text-[var(--ink)]">
-            1.200 <span className="text-[13px] text-[var(--muted)]">ms / msg</span>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <div className="text-[12px] text-[var(--muted)]">Filtro de crise no webhook</div>
-          <div className="mono-code mt-1 text-[20px] font-normal text-[var(--ink)]">
-            100% <span className="text-[13px] text-[var(--muted)]">determinístico</span>
-          </div>
+              Ir para colaboradores
+            </Link>
+          )}
         </div>
       </div>
 
       {status.error && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-[var(--sev-attention-border)] bg-[var(--sev-attention-bg)] px-4 py-2.5 text-[13px] text-[var(--sev-attention-ink)]"
-        >
-          <span>
-            <strong>Aviso da ponte WhatsApp:</strong> {status.error}
-          </span>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="underline font-medium cursor-pointer"
-          >
-            Tentar novamente
+        <div role="status" className="mt-5 rounded-[10px] bg-[var(--sev-attention-bg)] px-4 py-3 text-[13px] text-[var(--sev-attention-ink)]">
+          {status.error}{" "}
+          <button type="button" onClick={handleRefresh} className="cursor-pointer font-medium underline">
+            Tentar de novo
           </button>
         </div>
       )}
 
-      {/* Duas colunas balanceadas (mesma altura de base, sem vazio): QR Code à esquerda + Roteiro operacional à direita */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 items-start">
-        <section className="rounded-[8px] border border-[var(--border)] bg-[var(--card)] p-5 lg:col-span-5">
-          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-            <h2 className="text-[16px] font-medium text-[var(--ink)]">
-              {status.state === "open" ? "Aparelho autenticado" : "Leitura do QR Code"}
-            </h2>
-            <span className="mono-code text-[12px] text-[var(--muted)]">
-              Baileys v2.3.7
+      <div className="mt-8 grid grid-cols-1 items-start gap-10 md:grid-cols-[280px_1fr]">
+        <div className="flex flex-col items-center rounded-[18px] bg-[var(--brand-soft)] p-6">
+          {status.state === "open" ? (
+            <div className="py-10 text-center">
+              <span
+                className="inline-flex items-center rounded-full px-3 py-1 text-[13px] font-medium"
+                style={{ backgroundColor: meta.bg, color: meta.ink }}
+              >
+                {meta.label}
+              </span>
+              <p className="mt-3 text-[15px] font-medium tabular-nums">{status.phone ? formatPhoneBr(status.phone) : "Aparelho vinculado"}</p>
+            </div>
+          ) : qrSrc ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={qrSrc} alt="QR Code para conectar o WhatsApp do consultório" className="h-[232px] w-[232px] rounded-[12px] bg-[#FFFFFF] p-2.5 shadow-[0_1px_2px_rgba(10,60,100,0.08),0_8px_20px_-10px_rgba(10,60,100,0.25)]" />
+          ) : (
+            <p className="py-16 text-center text-[13px] text-[var(--muted)]">Gerando o código…</p>
+          )}
+          {status.state !== "open" && (
+            <span className="mt-4 rounded-full px-3 py-1 text-[12px] font-medium" style={{ backgroundColor: meta.bg, color: meta.ink }}>
+              {meta.label}
             </span>
-          </div>
-
-          <div className="mt-4 flex flex-col items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-6">
-            {status.state === "open" ? (
-              <div className="py-8 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[var(--sev-none-border)] bg-[var(--sev-none-bg)] text-[var(--sev-none-ink)]">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M5 13L9 17L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <p className="mt-3 text-[15px] font-medium text-[var(--ink)]">
-                  Sessão ativa no consultório
-                </p>
-                <p className="mono-code mt-1 text-[13px] text-[var(--muted)]">
-                  {status.phone ? formatPhoneBr(status.phone) : "Aparelho vinculado"}
-                </p>
-              </div>
-            ) : qrSrc ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrSrc}
-                  alt="QR Code para conexão do WhatsApp do consultório"
-                  className="h-[224px] w-[224px] rounded-[6px] border border-[var(--border)] bg-[#FFFFFF] p-2"
-                />
-                <p className="mt-3 text-center text-[12px] text-[var(--muted)]">
-                  Aponte a câmera do WhatsApp para conectar o número do consultório.
-                </p>
-              </>
-            ) : (
-              <div className="flex flex-col items-center py-4 text-center">
-                {/* Grade geométrica representativa quando Evolution ainda está gerando o código */}
-                <svg
-                  width="180"
-                  height="180"
-                  viewBox="0 0 180 180"
-                  className="rounded-[6px] border border-[var(--border)] bg-[#FFFFFF] p-3"
-                  role="img"
-                  aria-label="Quadro de pareamento QR aguardando geração da instância"
-                >
-                  <rect x="14" y="14" width="42" height="42" fill="none" stroke="#24363B" strokeWidth="6" />
-                  <rect x="26" y="26" width="18" height="18" fill="#24363B" />
-                  <rect x="124" y="14" width="42" height="42" fill="none" stroke="#24363B" strokeWidth="6" />
-                  <rect x="136" y="26" width="18" height="18" fill="#24363B" />
-                  <rect x="14" y="124" width="42" height="42" fill="none" stroke="#24363B" strokeWidth="6" />
-                  <rect x="26" y="136" width="18" height="18" fill="#24363B" />
-                  <rect x="74" y="26" width="12" height="12" fill="#51646A" />
-                  <rect x="94" y="42" width="12" height="12" fill="#24363B" />
-                  <rect x="74" y="74" width="32" height="32" fill="none" stroke="#006EB8" strokeWidth="4" />
-                  <rect x="84" y="84" width="12" height="12" fill="#006EB8" />
-                  <rect x="124" y="86" width="14" height="14" fill="#51646A" />
-                  <rect x="86" y="128" width="14" height="14" fill="#24363B" />
-                  <rect x="124" y="124" width="28" height="28" fill="none" stroke="#51646A" strokeWidth="4" />
-                </svg>
-                <p className="mt-3 text-[13px] font-medium text-[var(--ink)]">
-                  Aguardando QR Code da Evolution API
-                </p>
-                <p className="mt-1 max-w-[34ch] text-[12px] text-[var(--muted)]">
-                  Clique em &ldquo;Nova sessão&rdquo; se o código não aparecer em alguns segundos.
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-[8px] border border-[var(--border)] bg-[var(--card)] p-5 lg:col-span-7">
-          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-            <h2 className="text-[16px] font-medium text-[var(--ink)]">
-              Como funciona a coleta pelo celular do consultório
-            </h2>
-            <span className="mono-code text-[12px] text-[var(--muted)]">
-              Porta 8082 → 3100
-            </span>
-          </div>
-
-          <p className="mt-3 text-[13px] leading-[20px] text-[var(--muted)]">
-            {meta.description}
+          )}
+          <p className="mt-2 text-[12px] text-[var(--brand-deep)]">
+            atualizado às <span className="tabular-nums">{status.updatedAt}</span>
           </p>
+        </div>
 
-          <dl className="mt-4 divide-y divide-[var(--rule)] border-t border-[var(--border)] text-[13px]">
-            <div className="flex items-center justify-between py-2.5">
-              <dt className="text-[var(--muted)]">Instância Evolution API</dt>
-              <dd className="mono-code font-medium text-[var(--ink)]">{status.instanceName}</dd>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <dt className="text-[var(--muted)]">Destino do Webhook (MESSAGES_UPSERT)</dt>
-              <dd className="mono-code text-[12px] text-[var(--ink)]">{status.webhookUrl}</dd>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <dt className="text-[var(--muted)]">Consentimento exigido na abertura</dt>
-              <dd className="font-medium text-[var(--ink)]">Resposta &ldquo;1 (Sim, aceito)&rdquo; antes do item 1</dd>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <dt className="text-[var(--muted)]">Comandos de controle do colaborador</dt>
-              <dd className="mono-code text-[12px] text-[var(--ink)]">PARAR · CONTINUAR · PULAR</dd>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <dt className="text-[var(--muted)]">Proteção contra duplicidade de mensagem</dt>
-              <dd className="text-[var(--ink)]">Índice único por <code className="mono-code">wa_message_id</code></dd>
-            </div>
-          </dl>
-        </section>
+        <div>
+          <h2 className="text-[15px] font-semibold">Como conectar</h2>
+          <ol className="mt-4 space-y-3.5 text-[14px]">
+            {[
+              "Abra o WhatsApp no celular do consultório.",
+              "Vá em Aparelhos conectados e toque em Conectar um aparelho.",
+              "Aponte a câmera para o código ao lado. A tela muda sozinha quando conectar.",
+            ].map((step, i) => (
+              <li key={step} className="flex items-start gap-3">
+                <span className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[var(--brand)] text-[12px] font-semibold tabular-nums text-[#FFFFFF]">
+                  {i + 1}
+                </span>
+                <span className="pt-0.5">{step}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 rounded-[12px] bg-[var(--peach-soft)] px-4 py-3 text-[14px] text-[var(--ink-2)]">
+            Depois de conectado, o bot pede consentimento antes da primeira pergunta e responde a PARAR e CONTINUAR. Frases de risco são tratadas em código, antes de qualquer IA.
+          </p>
+          <details className="mt-6 border-t border-[var(--rule)] pt-3">
+            <summary className="cursor-pointer text-[13px] font-medium text-[var(--muted)] hover:text-[var(--ink)]">Detalhes técnicos</summary>
+            <dl className="mt-3 space-y-2 text-[13px]">
+              <div className="flex justify-between gap-4"><dt className="text-[var(--muted)]">Instância</dt><dd>{status.instanceName}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-[var(--muted)]">Webhook</dt><dd className="break-all text-right">{status.webhookUrl}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-[var(--muted)]">Intervalo entre mensagens</dt><dd className="tabular-nums">1,2 s</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-[var(--muted)]">Mensagem repetida</dt><dd>ignorada pelo id do WhatsApp</dd></div>
+            </dl>
+          </details>
+        </div>
       </div>
     </div>
   );

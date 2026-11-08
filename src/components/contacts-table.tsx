@@ -11,7 +11,15 @@ import {
   type ContactActionResult,
 } from "@/app/(app)/contatos/actions";
 import { formatPhoneBr } from "@/components/ui/primitives";
-import { AvatarInitial, RunStatusText, SeverityBadge } from "@/components/ui/severity-badge";
+import { AvatarInitial, RunStatusText } from "@/components/ui/severity-badge";
+
+const SEV_DOT: Record<string, string> = {
+  urgency: "var(--alert)",
+  priority: "var(--sev-priority-dot)",
+  attention: "var(--sev-attention-dot)",
+  none: "var(--sev-none-ink)",
+};
+const SEV_LABEL: Record<string, string> = { urgency: "Urgência", priority: "Prioridade", attention: "Atenção", none: "Sem indício" };
 import type { ContactListRow } from "@/lib/contacts/query";
 
 type FilterKind = "all" | "active_or_pending" | "done" | "flagged";
@@ -32,6 +40,7 @@ export function ContactsTable({
   const [filter, setFilter] = useState<FilterKind>("all");
   const [search, setSearch] = useState("");
   const [csvDrawerOpen, setCsvDrawerOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [feedback, setFeedback] = useState<ContactActionResult | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -102,23 +111,20 @@ export function ContactsTable({
   };
 
   const filterCards: { id: FilterKind; label: string; count: number }[] = [
-    { id: "all", label: "Todos os colaboradores", count: totalCount },
-    { id: "active_or_pending", label: "Aguardando ou em curso", count: activeOrPendingCount },
-    { id: "done", label: "Questionário concluído", count: doneCount },
-    { id: "flagged", label: "Com indício ou urgência", count: flaggedCount },
+    { id: "all", label: "Todos", count: totalCount },
+    { id: "active_or_pending", label: "Aguardando resposta", count: activeOrPendingCount },
+    { id: "done", label: "Concluído", count: doneCount },
+    { id: "flagged", label: "Com indício", count: flaggedCount },
   ];
 
   return (
     <div className="space-y-6">
       {/* Título e ação primária */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow mb-1">Escuta pelo WhatsApp</p>
-          <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
-            Colaboradores e disparo NR-7
-          </h1>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">Colaboradores</h1>
           <p className="mt-1 text-[14px] text-[var(--muted)]">
-            {flaggedCount} de {totalCount} colaboradores apresentam indício ou urgência · Disparo individualizado via WhatsApp com consentimento prévio.
+            {totalCount} {totalCount === 1 ? "pessoa" : "pessoas"} · {flaggedCount} com indício. Selecione quem vai receber o questionário.
           </p>
         </div>
 
@@ -128,15 +134,22 @@ export function ContactsTable({
               type="button"
               onClick={handleSeedDb}
               disabled={isPending}
-              className="h-[32px] cursor-pointer rounded-[6px] border border-[var(--control)] bg-[var(--raised)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--active)]"
+              className="h-[32px] cursor-pointer rounded-full border border-[var(--control)] bg-[var(--raised)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--active)]"
             >
-              Gravar base sintética no Postgres
+              Carregar dados de demonstração
             </button>
           )}
           <button
             type="button"
+            onClick={() => setAddOpen((v) => !v)}
+            className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] bg-[var(--card)] px-4 text-[13px] font-medium text-[var(--ink)] hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)]"
+          >
+            {addOpen ? "Fechar cadastro" : "Adicionar colaborador"}
+          </button>
+          <button
+            type="button"
             onClick={() => setCsvDrawerOpen((v) => !v)}
-            className="h-[32px] cursor-pointer rounded-[6px] border border-[var(--control)] bg-[var(--card)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--raised)]"
+            className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] bg-[var(--card)] px-4 text-[13px] font-medium text-[var(--ink)] hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)]"
           >
             {csvDrawerOpen ? "Fechar importação CSV" : "Importar CSV"}
           </button>
@@ -144,7 +157,7 @@ export function ContactsTable({
             type="button"
             disabled={isPending || selectedIds.length === 0}
             onClick={() => handleSendQuestionnaire(selectedIds)}
-            className="h-[32px] cursor-pointer rounded-[6px] bg-[var(--primary)] px-3.5 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)] disabled:opacity-45"
+            className="h-[36px] cursor-pointer rounded-full bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] shadow-[0_1px_2px_rgba(0,80,140,0.25)] hover:bg-[var(--primary-hover)] disabled:opacity-45"
           >
             Enviar questionário ({selectedIds.length})
           </button>
@@ -184,8 +197,8 @@ export function ContactsTable({
         </div>
       )}
 
-      {/* Padrão list: Count cards that filter (taste-skill framed-sheet §5) */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Filtros como abas de texto */}
+      <nav className="flex flex-wrap gap-5 border-b border-[var(--border)]" aria-label="Filtrar colaboradores">
         {filterCards.map((c) => {
           const active = filter === c.id;
           return (
@@ -193,21 +206,23 @@ export function ContactsTable({
               key={c.id}
               type="button"
               onClick={() => setFilter(c.id)}
-              className="flex h-[61px] cursor-pointer flex-col justify-between rounded-[8px] border p-3 text-left transition-colors"
-              style={{
-                backgroundColor: active ? "var(--raised)" : "var(--card)",
-                borderColor: active ? "var(--brand)" : "var(--border)",
-                borderWidth: active ? "1.5px" : "1px",
-              }}
+              aria-pressed={active}
+              className={`-mb-px cursor-pointer border-b-2 pb-2.5 text-[13px] ${
+                active ? "border-[var(--brand)] font-semibold text-[var(--brand-deep)]" : "border-transparent text-[var(--muted)] hover:text-[var(--ink)]"
+              }`}
             >
-              <span className="text-[13px] text-[var(--muted)] truncate w-full">{c.label}</span>
-              <span className="mono-code text-[16px] font-semibold leading-none text-[var(--ink)]">
+              {c.label}{" "}
+              <span
+                className={`ml-0.5 rounded-full px-1.5 py-px text-[12px] tabular-nums ${
+                  active ? "bg-[var(--brand-soft)] text-[var(--brand-deep)]" : "bg-[var(--raised)] text-[var(--muted)]"
+                }`}
+              >
                 {c.count}
               </span>
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* Painel expansível de Importação CSV */}
       {csvDrawerOpen && (
@@ -264,14 +279,14 @@ export function ContactsTable({
                 <button
                   type="button"
                   onClick={() => setCsvDrawerOpen(false)}
-                  className="h-[34px] cursor-pointer rounded-[6px] border border-[var(--control)] bg-[#FFFFFF] px-3 text-[13px] text-[var(--ink)]"
+                  className="h-[34px] cursor-pointer rounded-full border border-[var(--control)] bg-[#FFFFFF] px-3 text-[13px] text-[var(--ink)]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="h-[34px] cursor-pointer rounded-[6px] bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF]"
+                  className="h-[34px] cursor-pointer rounded-full bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF]"
                 >
                   Processar CSV
                 </button>
@@ -281,8 +296,9 @@ export function ContactsTable({
         </section>
       )}
 
-      {/* Formulário enxuto em linha para cadastro individual rápido */}
-      <section className="rounded-[8px] border border-[var(--border)] bg-[var(--card)] p-4">
+      {/* Cadastro individual, aberto só quando pedido */}
+      {addOpen && (
+      <section className="rounded-[12px] bg-[var(--bg)] p-4">
         <h2 className="text-[14px] font-medium text-[var(--ink)] mb-3">
           Cadastrar colaborador individualmente
         </h2>
@@ -305,7 +321,7 @@ export function ContactsTable({
               type="text"
               required
               placeholder="Ex.: Patrícia Gomes"
-              className="h-[36px] w-full rounded-[6px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
+              className="h-[36px] w-full rounded-[8px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
             />
           </div>
 
@@ -319,7 +335,7 @@ export function ContactsTable({
               type="tel"
               required
               placeholder="(81) 99999-0000"
-              className="mono-code h-[36px] w-full rounded-[6px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
+              className="mono-code h-[36px] w-full rounded-[8px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
             />
           </div>
 
@@ -332,7 +348,7 @@ export function ContactsTable({
               name="sector"
               type="text"
               defaultValue="Atendimento"
-              className="h-[36px] w-full rounded-[6px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
+              className="h-[36px] w-full rounded-[8px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
             />
           </div>
 
@@ -345,7 +361,7 @@ export function ContactsTable({
               name="role"
               type="text"
               defaultValue="Analista"
-              className="h-[36px] w-full rounded-[6px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
+              className="h-[36px] w-full rounded-[8px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
             />
           </div>
 
@@ -353,16 +369,17 @@ export function ContactsTable({
             <button
               type="submit"
               disabled={isPending}
-              className="h-[36px] w-full cursor-pointer rounded-[6px] border border-[var(--control)] bg-[var(--raised)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--active)]"
+              className="h-[36px] w-full cursor-pointer rounded-full border border-[var(--control)] bg-[var(--raised)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--active)]"
             >
               + Adicionar
             </button>
           </div>
         </form>
       </section>
+      )}
 
       {/* Barra de busca e ações de lote + Tabela de contatos */}
-      <section className="rounded-[8px] border border-[var(--border)] bg-[var(--card)]">
+      <section>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="flex items-center gap-3">
             <label htmlFor="search-contacts" className="sr-only">
@@ -374,10 +391,10 @@ export function ContactsTable({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome, setor ou telefone…"
-              className="h-[32px] w-[260px] rounded-[6px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
+              className="h-[34px] w-[260px] rounded-[8px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[13px] text-[var(--ink)]"
             />
             <span className="text-[12px] text-[var(--muted)]">
-              Exibindo <strong className="mono-code text-[var(--ink)]">{filteredRows.length}</strong> de {totalCount}
+              Exibindo <strong className="tabular-nums text-[var(--ink)]">{filteredRows.length}</strong> de {totalCount}
             </span>
           </div>
 
@@ -386,17 +403,9 @@ export function ContactsTable({
               type="button"
               disabled={isPending || selectedIds.length === 0}
               onClick={() => handleSendReminder(selectedIds)}
-              className="h-[30px] cursor-pointer rounded-[6px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[12px] font-medium text-[var(--ink)] hover:bg-[var(--raised)] disabled:opacity-45"
+              className="h-[30px] cursor-pointer rounded-full border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[12px] font-medium text-[var(--ink)] hover:bg-[var(--raised)] disabled:opacity-45"
             >
               Enviar lembrete ({selectedIds.length})
-            </button>
-            <button
-              type="button"
-              disabled={isPending || selectedIds.length === 0}
-              onClick={() => handleSendQuestionnaire(selectedIds)}
-              className="h-[30px] cursor-pointer rounded-[6px] bg-[var(--primary)] px-3 text-[12px] font-medium text-[#FFFFFF] disabled:opacity-45"
-            >
-              Disparar selecionados
             </button>
           </div>
         </div>
@@ -435,9 +444,9 @@ export function ContactsTable({
                   return (
                     <tr
                       key={row.id}
-                      className="h-[52px] transition-colors"
+                      className={`h-[52px] transition-colors ${isSelected ? "" : "hover:bg-[var(--brand-tint)]"}`}
                       style={{
-                        backgroundColor: isSelected ? "var(--raised)" : "transparent",
+                        backgroundColor: isSelected ? "var(--brand-soft)" : undefined,
                       }}
                     >
                       <td className="pl-4 pr-2">
@@ -477,12 +486,22 @@ export function ContactsTable({
                       </td>
                       <td className="py-2 px-3">
                         {row.severity ? (
-                          <SeverityBadge severity={row.severity} />
+                          <span
+                            className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] ${row.severity === "none" ? "text-[var(--muted)]" : "rounded-full px-2.5 py-0.5 font-medium"}`}
+                            style={
+                              row.severity === "none"
+                                ? undefined
+                                : { background: `var(--sev-${row.severity}-bg)`, color: `var(--sev-${row.severity}-ink)` }
+                            }
+                          >
+                            <span className="inline-block h-2 w-2 rounded-full" style={{ background: SEV_DOT[row.severity] }} aria-hidden="true" />
+                            {SEV_LABEL[row.severity]}
+                          </span>
                         ) : (
                           <span className="text-[13px] text-[var(--muted)]" title="Ainda sem questionário concluído">—</span>
                         )}
                       </td>
-                      <td className="num mono-code py-2 px-3 text-[13px] text-[var(--muted)]">
+                      <td className="num tabular-nums py-2 px-3 text-[13px] text-[var(--muted)]">
                         {formatPhoneBr(row.phoneE164)}
                       </td>
                       <td className="py-2 pl-3 pr-4 text-right whitespace-nowrap">
@@ -491,14 +510,14 @@ export function ContactsTable({
                             type="button"
                             disabled={isPending}
                             onClick={() => handleSendQuestionnaire([row.id])}
-                            className="h-[28px] cursor-pointer rounded-[5px] border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[12px] font-medium text-[var(--ink)] hover:bg-[var(--raised)]"
+                            className="h-[28px] cursor-pointer rounded-full border border-[var(--control)] bg-[#FFFFFF] px-2.5 text-[12px] font-medium text-[var(--ink)] hover:bg-[var(--raised)]"
                           >
                             Disparar
                           </button>
                           {row.latestRunId && (
                             <Link
                               href={`/caso/${row.latestRunId}`}
-                              className="inline-flex h-[28px] items-center rounded-[5px] px-2 text-[12px] font-medium text-[var(--ink)] hover:underline"
+                              className="inline-flex h-[28px] items-center rounded-full px-2 text-[12px] font-medium text-[var(--ink)] hover:underline"
                             >
                               Caso →
                             </Link>

@@ -33,7 +33,9 @@ Diferente de pesquisas de clima genéricas ou chatbots terapêuticos não audit�
 
 ## Brand Commitments
 
-- Paleta ancorada em vermelho clínico como cor de marca e de urgência (`--brand: #B3261E`), superfícies em areia quente (`--bg: #FBF5F2`), cartões brancos (`--card: #FFFFFF`), tons pastéis de apoio (`--pastel-peach: #FBE3D6`, `--pastel-rose: #F8DEE3`), verde pastel exclusivo para `Sem indício` (`--pastel-green: #DDEFE3`), tinta escura (`--ink: #2B1D1B`) e secundário (`--muted: #7A6361`).
+- Marca **praevenius** (logo em azul e pêssego, decisão do Guilherme em 8/11/2026). Paleta: azul `#006EB8` para a ação principal, links e marca; pêssego `#FDD4BD` para destaques acolhedores; fundo `#F8FAF9`; superfícies brancas; texto grafite azulado `#24363B`.
+- Vermelho clínico (`--alert: #B3261E`) só para urgência, crise e escores acima do corte. Nunca como cor de marca.
+- Direção de interface "Prontuário em ordem" (escolhida pelo Marco em 8/11/2026): sem cor na moldura, uma ação azul por tela, gravidade como um ponto colorido, cada caso explicado por uma frase em português calculada em código, detalhe técnico dobrado.
 
 ## Evidence on Hand
 

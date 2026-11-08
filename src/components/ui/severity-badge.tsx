@@ -104,7 +104,7 @@ export function CaseStateChip({ state }: { state: CaseState }) {
   );
 }
 
-export function AvatarInitial({ name }: { name: string }) {
+export function AvatarInitial({ name, size = "sm" }: { name: string; size?: "sm" | "md" | "lg" }) {
   const parts = name.trim().split(/\s+/);
   const initials =
     parts.length >= 2
@@ -127,7 +127,9 @@ export function AvatarInitial({ name }: { name: string }) {
 
   return (
     <span
-      className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-[13px] font-medium select-none"
+      className={`inline-flex flex-none items-center justify-center rounded-full font-semibold select-none ${
+        size === "lg" ? "h-12 w-12 text-[16px]" : size === "md" ? "h-9 w-9 text-[13px]" : "h-7 w-7 text-[12px]"
+      }`}
       style={{ backgroundColor: color.bg, color: color.ink }}
       aria-hidden="true"
     >

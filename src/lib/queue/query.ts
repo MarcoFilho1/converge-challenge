@@ -47,9 +47,7 @@ export async function listQueue(): Promise<{ rows: QueueRow[]; isSyntheticFallba
     const rows: QueueRow[] = dbRuns.map(({ run, contact }) => {
       const runScores = allScores.filter((s) => s.runId === run.id);
       const runAnswers = allAnswers.filter((a) => a.runId === run.id);
-      // Na fila só os escores principais (os do COPSOQ ficam no Caso).
       const chips = runScores
-        .filter((sc) => sc.instrument !== "COPSOQ")
         .map(toScoreChip)
         .filter((c): c is QueueScoreChip => c !== null);
 
