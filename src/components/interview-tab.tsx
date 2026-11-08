@@ -9,7 +9,6 @@ import {
   type InterviewListItem,
   type InterviewStatus,
 } from "@/lib/interview/contract";
-import { SYNTHETIC_INTERVIEW_DETAIL } from "@/lib/demo/fixtures";
 
 function formatMs(ms: number): string {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -101,19 +100,12 @@ export function InterviewTab({
           setDetail(data);
           return;
         }
-      } catch {
-        // Fallback before merge
+      } catch (err) {
+        console.error("[entrevista] falha ao carregar detalhe", err);
       }
-      setDetail((prev) =>
-        prev ?? {
-          ...SYNTHETIC_INTERVIEW_DETAIL,
-          id: interviewId,
-          runId,
-          contact: { name: contactName, sector: "Atendimento" },
-        }
-      );
+      // Sem dado sintético num caso real: sem detalhe, a aba mostra só a lista.
     },
-    [contactName, runId]
+    []
   );
 
   // Sync list from GET /api/medico/caso/[runId]/entrevistas on mount
@@ -175,13 +167,7 @@ export function InterviewTab({
     });
   };
 
-  const handleLoadDemoTranscript = () => {
-    setDetail({
-      ...SYNTHETIC_INTERVIEW_DETAIL,
-      runId,
-      contact: { name: contactName, sector: "Atendimento" },
-    });
-  };
+
 
   const scrollToTurn = (turnIdx: number) => {
     setHighlightedTurnIdx(turnIdx);
@@ -271,13 +257,6 @@ export function InterviewTab({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleLoadDemoTranscript}
-              className="h-[34px] cursor-pointer rounded-[6px] border border-[var(--control)] bg-[var(--raised)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--active)]"
-            >
-              Carregar transcrição de exemplo
-            </button>
             <button
               type="button"
               disabled={isPending}
@@ -422,13 +401,6 @@ export function InterviewTab({
                 colaborador ou abra a sala para testar ao vivo.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleLoadDemoTranscript}
-              className="h-[32px] cursor-pointer rounded-[6px] border border-[var(--control)] bg-[var(--raised)] px-3 text-[13px] font-medium text-[var(--ink)]"
-            >
-              Simular entrevista concluída
-            </button>
           </div>
         </section>
       ) : (
