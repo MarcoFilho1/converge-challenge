@@ -236,6 +236,38 @@ export function handleMedia(input: { phone: string; waMessageId: string; media: 
   });
 }
 
+/**
+ * Pessoa acabou de ligar outro canal (Telegram, a reserva do WhatsApp): continua de onde parou,
+ * sem inventar mensagem dela na conversa. Quem não tem cadastro entra pela entrada aberta (OPEN_ENTRY).
+ */
+export function greetLinked(input: { phone: string; name?: string }): Promise<EngineResult> {
+  return serialize(input.phone, async () => {
+    const { phone } = input;
+    let contact = await repo.findContactByPhone(phone);
+    if (!contact && process.env.OPEN_ENTRY === "true") {
+      contact = await repo.createContact({ name: input.name || `Colaborador ${phone.slice(-4)}`, phoneE164: phone, sector: "Demo" });
+      if (contact) {
+        recordEvent({ kind: "entrada", outcome: "ok", model: "regra em código", detail: `Pessoa nova entrou pelo Telegram (${input.name ? "nome do perfil" : "sem nome no perfil"})` });
+        const started = await startRun(contact.id);
+        return { ...started, event: "joined" };
+      }
+    }
+    if (!contact) return { outbound: [copy.unknownNumber], outboundIds: [], runId: null, event: "ignored_unknown" };
+
+    const active = await repo.getActiveRun(contact.id);
+    const say = async (event: EngineEvent, outbound: string[]): Promise<EngineResult> => ({
+      outbound,
+      outboundIds: await recordOut(contact.id, active?.id ?? null, outbound),
+      runId: active?.id ?? null,
+      event,
+    });
+    if ((await repo.lastOutboundText(contact.id)) === copy.crisisConfirm) return say("crisis_confirm", [copy.channelLinked, copy.crisisConfirm]);
+    if (active?.status === "in_progress") return say("resumed", [copy.channelLinked, formatItem(getItems(active.demoShort)[active.currentItem])]);
+    if (active?.status === "consent") return say("consent_repeat", [copy.channelLinked, copy.consentRepeat]);
+    return say("no_active_run", [copy.noActiveRun]);
+  });
+}
+
 async function processIncoming(input: { phone: string; text: string; waMessageId: string; viaAudio?: boolean; name?: string }): Promise<EngineResult> {
   const { phone, text, waMessageId } = input;
   const none = (event: EngineEvent, outbound: string[] = []): EngineResult => ({ outbound, outboundIds: [], runId: null, event });

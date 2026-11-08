@@ -161,6 +161,8 @@ export function RuleTraceStrip({
 }
 
 export function formatPhoneBr(phoneE164: string): string {
+  // Quem entrou só pelo Telegram não tem número: a chave é "tg:<conversa>".
+  if (phoneE164.startsWith("tg:")) return "Só Telegram";
   const digits = phoneE164.replace(/\D/g, "");
   if (digits.length === 13 && digits.startsWith("55")) {
     const ddd = digits.slice(2, 4);

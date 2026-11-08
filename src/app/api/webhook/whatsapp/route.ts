@@ -1,6 +1,8 @@
 import { handleIncoming, handleMedia, type EngineResult } from "@/lib/engine/engine";
 import { markDelivery } from "@/lib/engine/repo";
-import { getMediaBase64, sendText } from "@/lib/whatsapp/evolution";
+import { getMediaBase64 } from "@/lib/whatsapp/evolution";
+import { sendToPerson } from "@/lib/channels/send";
+import { whatsappSimulatedDown } from "@/lib/channels/status";
 import { transcribeAudio } from "@/lib/voice/transcribe-message";
 import { parseWebhook } from "@/lib/whatsapp/parse-webhook";
 import { saveConnectionState } from "@/lib/whatsapp/session";
@@ -8,29 +10,16 @@ import { recordEvent } from "@/lib/obs/events";
 
 const ok = () => Response.json({ ok: true });
 
-const SEND_ATTEMPTS = 3;
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Envia com retentativa. Devolve o id do WhatsApp ou null se todas as tentativas falharem. */
-async function sendWithRetry(phone: string, text: string): Promise<string | null> {
-  const delay = Number(process.env.SEND_RETRY_DELAY_MS ?? 1500);
-  for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
-    try {
-      const { waMessageId } = await sendText(phone, text);
-      return waMessageId ?? "sem-id";
-    } catch (err) {
-      console.error(`[webhook] envio falhou (tentativa ${attempt}/${SEND_ATTEMPTS}) para ${phone}`, err);
-      if (attempt < SEND_ATTEMPTS) await wait(delay * attempt);
-    }
-  }
-  return null;
-}
-
 /** Envia cada resposta do motor em ordem e registra a entrega. */
 async function deliver(phone: string, result: EngineResult) {
   for (let i = 0; i < result.outbound.length; i++) {
-    const waId = await sendWithRetry(phone, result.outbound[i]);
-    if (!waId) recordEvent({ kind: "envio", outcome: "erro", runId: result.runId, detail: `Mensagem ${i + 1} não entregue no WhatsApp depois de ${SEND_ATTEMPTS} tentativas` });
+    // WhatsApp primeiro (a pessoa escreveu por ele); se falhar e ela tiver o Telegram ligado, vai pela reserva.
+    let waId: string | null = null;
+    try {
+      waId = (await sendToPerson(phone, result.outbound[i], { prefer: "whatsapp", runId: result.runId })).messageId;
+    } catch {
+      recordEvent({ kind: "envio", outcome: "erro", runId: result.runId, detail: `Mensagem ${i + 1} não entregue no WhatsApp depois de 3 tentativas` });
+    }
     const messageId = result.outboundIds?.[i];
     if (!messageId) continue;
     try {
@@ -74,6 +63,8 @@ export async function POST(request: Request) {
   }
 
   const parsed = parseWebhook(body);
+  // Ensaio de queda ligado na Conexão: o WhatsApp se comporta como fora do ar e não responde ninguém.
+  if (parsed.kind !== "connection" && whatsappSimulatedDown()) return ok();
   try {
     if (parsed.kind === "connection") {
       await saveConnectionState(parsed.state);

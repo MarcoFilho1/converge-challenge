@@ -51,9 +51,10 @@ async function defaultLookupName(runId: string): Promise<string | null> {
   return r?.name ?? null;
 }
 
+/** WhatsApp do consultório; se ele estiver fora e a médica tiver ligado o Telegram, vai pela reserva. */
 async function defaultSend(phoneE164: string, text: string) {
-  const { sendText } = await import("@/lib/whatsapp/evolution");
-  return sendText(phoneE164, text);
+  const { sendToPerson } = await import("@/lib/channels/send");
+  return sendToPerson(phoneE164, text);
 }
 
 async function defaultSaveNotice(n: Parameters<NonNullable<NotifyDeps["saveNotice"]>>[0]) {
