@@ -27,15 +27,21 @@ curl -s localhost:3100/api/medico/entrevista/<id> -H 'cookie: session=ok' | jq .
 ```
 
 ## Com Voicebox (voz da Helena)
-1. Instale o Voicebox (`https://voicebox.sh/download/mac-arm`), baixe o engine Qwen VoiceDesign e crie a voz "Helena" por descrição. Copie o id do perfil.
-2. `.env`: `VOICE_PROVIDER=voicebox`, `VOICEBOX_URL=http://127.0.0.1:17493`, `VOICEBOX_PROFILE_ID=<id>`, `VOICEBOX_LANGUAGE=pt`.
-3. `pnpm voz:medir` → grava `docs/medicoes-voz.md` e recomenda `INTERVIEW_MODE` (`live` ou `cache_only`).
-4. `pnpm voz:pregerar` → áudio de todas as falas fixas em `data/voz/`.
-5. Reinicie `pnpm dev` e crie um convite novo.
+1. Instale o Voicebox 0.5.0 (`Voicebox_0.5.0_aarch64.dmg` nas releases de jamiepine/voicebox). Baixe os modelos `kokoro` e `whisper-turbo`:
+   `curl -X POST localhost:17493/models/download -H 'content-type: application/json' -d '{"model_name":"kokoro"}'` (idem `whisper-turbo`).
+2. Crie a voz "Helena" (preset português do Kokoro; a 0.5.0 ainda não tem voz por descrição):
+   `curl -X POST localhost:17493/profiles -H 'content-type: application/json' -d '{"name":"Helena","language":"pt","voice_type":"preset","preset_engine":"kokoro","preset_voice_id":"pf_dora","default_engine":"kokoro"}'` → copie o `id`.
+3. `.env`: `VOICE_PROVIDER=voicebox`, `VOICEBOX_URL=http://127.0.0.1:17493`, `VOICEBOX_PROFILE_ID=<id>`, `VOICEBOX_LANGUAGE=pt`, `VOICEBOX_ENGINE=kokoro`.
+4. **Aquecer na ordem certa depois de abrir o Voicebox** (bug de MLX da 0.5.0: se o Whisper carregar depois do Kokoro, a transcrição dá "There is no Stream(gpu, 2) in current thread"): primeiro uma transcrição (`curl -X POST localhost:17493/transcribe -F file=@qualquer.wav -F language=pt -F model=turbo`, ~50 s na primeira vez), depois `pnpm voz:medir`. Se o erro aparecer, feche o Voicebox (Cmd+Q) e repita. Não use `/models/whisper-turbo/unload`: derruba o servidor.
+5. `pnpm voz:medir` → grava `docs/medicoes-voz.md` e recomenda `INTERVIEW_MODE` (`live` ou `cache_only`).
+6. `pnpm voz:pregerar` → áudio das 43 falas fixas em `data/voz/`.
+7. Reinicie `pnpm dev` e crie um convite novo.
 
 ## Celular (microfone exige HTTPS)
 ```bash
-cloudflared tunnel --url http://localhost:3100     # imprime https://xxxx.trycloudflare.com
+brew install cloudflared                            # se ainda não tiver
+cloudflared tunnel --url http://localhost:3100      # imprime https://xxxx.trycloudflare.com
+# alternativa já instalada no Mac do Marco: tailscale funnel 3100
 ```
 `.env`: `INTERVIEW_PUBLIC_URL=https://xxxx.trycloudflare.com`, reinicie o `pnpm dev`, gere o convite de novo e abra no celular.
 
