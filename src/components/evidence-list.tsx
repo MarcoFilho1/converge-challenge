@@ -13,7 +13,7 @@ function Quote({ ev }: { ev: CaseEvidenceItem }) {
   const text = clean(ev.chunk.text);
   const long = text.length > PREVIEW;
   return (
-    <figure className="mt-2 rounded-[10px] bg-[var(--bg)] px-3.5 py-3">
+    <figure className="mt-2 rounded-[10px] border-l-[3px] border-[var(--brand-soft)] bg-[var(--brand-tint)] px-3.5 py-3">
       <blockquote className="text-[13px] leading-[1.55] text-[var(--ink-2)]">
         “{long && !full ? `${text.slice(0, PREVIEW).trimEnd()}…` : text}”
       </blockquote>

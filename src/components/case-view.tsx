@@ -11,12 +11,13 @@ import type { CaseState, Severity } from "@/db/schema";
 import { describeCase, fmt, reasonsFor } from "@/lib/case/describe";
 import { formatWhen } from "@/lib/case/when";
 import type { CaseDetailData } from "@/lib/demo/fixtures";
+import { AvatarInitial } from "@/components/ui/severity-badge";
 
-const SEVERITY: Record<Severity, { label: string; dot: string; why: string }> = {
-  urgency: { label: "Urgência", dot: "var(--alert)", why: "Por que é urgência" },
-  priority: { label: "Prioridade", dot: "var(--sev-priority-dot)", why: "Por que é prioridade" },
-  attention: { label: "Atenção", dot: "var(--sev-attention-dot)", why: "Por que pede atenção" },
-  none: { label: "Sem indício", dot: "var(--sev-none-ink)", why: "Sem sinal acima do corte" },
+const SEVERITY: Record<Severity, { label: string; dot: string; bg: string; ink: string; why: string }> = {
+  urgency: { label: "Urgência", dot: "var(--alert)", bg: "var(--sev-urgency-bg)", ink: "var(--sev-urgency-ink)", why: "Por que é urgência" },
+  priority: { label: "Prioridade", dot: "var(--sev-priority-dot)", bg: "var(--sev-priority-bg)", ink: "var(--sev-priority-ink)", why: "Por que é prioridade" },
+  attention: { label: "Atenção", dot: "var(--sev-attention-dot)", bg: "var(--sev-attention-bg)", ink: "var(--sev-attention-ink)", why: "Por que pede atenção" },
+  none: { label: "Sem indício", dot: "var(--sev-none-ink)", bg: "var(--sev-none-bg)", ink: "var(--sev-none-ink)", why: "Sem sinal acima do corte" },
 };
 
 const STATE_LABEL: Record<CaseState, string> = {
@@ -57,13 +58,19 @@ function Fold({
       onToggle={(e) => onToggle((e.currentTarget as HTMLDetailsElement).open)}
       className="border-b border-[var(--rule)]"
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between py-3.5 text-[14px] font-medium [&::-webkit-details-marker]:hidden">
-        <span>{title}</span>
-        <span className="text-[13px] font-normal text-[var(--muted)]">
-          {hint} <span aria-hidden="true" className={`inline-block transition-transform ${open ? "rotate-90" : ""}`}>›</span>
+      <summary className="group flex cursor-pointer list-none items-center justify-between rounded-[10px] px-2 py-3.5 text-[14px] font-medium hover:bg-[var(--brand-tint)] [&::-webkit-details-marker]:hidden">
+        <span className="group-hover:text-[var(--brand-deep)]">{title}</span>
+        <span className="flex items-center gap-2 text-[13px] font-normal text-[var(--muted)]">
+          {hint}
+          <span
+            aria-hidden="true"
+            className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--raised)] text-[var(--brand-deep)] transition-transform group-hover:bg-[var(--brand-soft)] ${open ? "rotate-90" : ""}`}
+          >
+            ›
+          </span>
         </span>
       </summary>
-      {open && <div className="pb-5">{children}</div>}
+      {open && <div className="px-2 pb-6 pt-1">{children}</div>}
     </details>
   );
 }
@@ -127,34 +134,56 @@ export function CaseView({
       <Link href="/fila" className="text-[13px] text-[var(--muted)] no-underline hover:text-[var(--ink)]">
         ← Fila
       </Link>
-      <h1 className="mt-2.5 text-[28px] font-semibold leading-tight tracking-[-0.02em]">{run.contactName}</h1>
-      <p className="mt-1 text-[14px] text-[var(--muted)]">
-        <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: sev.dot }} aria-hidden="true" />
-        {sev.label} · {run.sector} · {run.role}
-        {run.finishedAt ? ` · respondeu ${formatWhen(run.finishedAt)}` : running ? " · questionário em andamento" : ""}
-      </p>
+      <div className="mt-4 flex items-center gap-4">
+        <AvatarInitial name={run.contactName} size="lg" />
+        <div className="min-w-0">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">{run.contactName}</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-[var(--muted)]">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-medium"
+              style={{ background: sev.bg, color: sev.ink }}
+            >
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: sev.dot }} aria-hidden="true" />
+              {sev.label}
+            </span>
+            <span>
+              {run.sector} · {run.role}
+              {run.finishedAt ? ` · respondeu ${formatWhen(run.finishedAt)}` : running ? " · questionário em andamento" : ""}
+            </span>
+          </p>
+        </div>
+      </div>
 
-      <p className="mt-6 text-[18px] leading-[1.55]">
-        {describeCase(run)}
+      <div className="mt-7 rounded-[16px] bg-[var(--peach-soft)] px-6 py-5">
+        <p className="text-[18px] leading-[1.55] text-[var(--ink)]">{describeCase(run)}</p>
         {quote && (
-          <>
-            {" "}O que mais pesa, nas próprias palavras: <q>{quote}</q>.
-          </>
+          <figure className="mt-4 border-l-[3px] border-[var(--peach)] pl-4">
+            <figcaption className="text-[13px] font-medium text-[var(--peach-ink)]">O que mais pesa, nas próprias palavras</figcaption>
+            <blockquote className="mt-1 text-[16px] leading-[1.5] text-[var(--ink-2)]">“{quote}”</blockquote>
+          </figure>
         )}
-      </p>
+      </div>
 
       {facts.length > 0 && (
-        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-[var(--ink-2)]">
+        <ul className="mt-4 flex flex-wrap gap-2" aria-label="Escores">
           {facts.map((s) => (
-            <span key={`${s.instrument}-${s.dimension}`} className="whitespace-nowrap">
-              {s.label}{" "}
-              <b className="tabular-nums font-semibold" style={{ color: s.flagged ? "var(--alert)" : "var(--ink)" }}>
+            <li
+              key={`${s.instrument}-${s.dimension}`}
+              className="inline-flex items-baseline gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-[13px]"
+              style={
+                s.flagged
+                  ? { background: "var(--sev-urgency-bg)", color: "var(--sev-urgency-ink)" }
+                  : { background: "var(--raised)", color: "var(--ink-2)" }
+              }
+            >
+              {s.label}
+              <b className="tabular-nums font-semibold" style={{ color: s.flagged ? "var(--alert-ink)" : "var(--ink)" }}>
                 {fmt(s.value)}
                 {s.maxLabel}
               </b>
-            </span>
+            </li>
           ))}
-        </p>
+        </ul>
       )}
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -163,14 +192,14 @@ export function CaseView({
           disabled={isPending}
           onClick={() => changeState("encaminhado")}
           aria-pressed={caseState === "encaminhado"}
-          className="h-[36px] cursor-pointer rounded-full bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)] disabled:opacity-60"
+          className="h-[38px] cursor-pointer rounded-full bg-[var(--primary)] px-5 text-[13px] font-medium text-[#FFFFFF] shadow-[0_1px_2px_rgba(0,80,140,0.25)] hover:bg-[var(--primary-hover)] disabled:opacity-60"
         >
           Encaminhar consulta
         </button>
         <button
           type="button"
           onClick={openInterview}
-          className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:bg-[var(--raised)]"
+          className="h-[38px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)]"
         >
           Convidar para entrevista
         </button>
@@ -179,7 +208,7 @@ export function CaseView({
           disabled={isPending}
           onClick={() => changeState("acompanhando")}
           aria-pressed={caseState === "acompanhando"}
-          className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:bg-[var(--raised)] disabled:opacity-60"
+          className="h-[38px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)] disabled:opacity-60"
         >
           Acompanhar
         </button>
@@ -192,18 +221,19 @@ export function CaseView({
           Encerrar caso
         </button>
         {caseState !== "aberto" && (
-          <span className="text-[13px] text-[var(--muted)]" role="status">
-            {STATE_LABEL[caseState]}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-soft)] px-2.5 py-1 text-[13px] font-medium text-[var(--brand-deep)]" role="status">
+            <span aria-hidden="true">✓</span> {STATE_LABEL[caseState]}
           </span>
         )}
       </div>
 
       <h2 className="mt-9 text-[15px] font-semibold">{sev.why}</h2>
       {reasons.length > 0 ? (
-        <ul className="mt-2.5 space-y-2 pl-5 text-[14px]">
+        <ul className="mt-2.5 space-y-2.5 pl-5 text-[14px] marker:text-[var(--brand)]">
           {reasons.map((r) => (
             <li key={r.text} className="list-disc">
-              {r.text} <span className="text-[12px] text-[var(--muted)]">{r.source}</span>
+              {r.text}{" "}
+              <span className="ml-1 rounded-full bg-[var(--brand-tint)] px-2 py-0.5 text-[12px] text-[var(--brand-deep)]">{r.source}</span>
             </li>
           ))}
         </ul>

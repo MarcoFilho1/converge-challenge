@@ -38,12 +38,18 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
           onClick={onClick}
           aria-current={active ? "page" : undefined}
           className={`flex h-[36px] items-center justify-between rounded-[8px] px-3 text-[14px] transition-colors ${
-            active ? "bg-[var(--raised)] font-semibold text-[var(--ink)]" : "text-[var(--ink-2)] hover:bg-[var(--raised)]"
+            active
+              ? "bg-[var(--card)] font-semibold text-[var(--brand-deep)] shadow-[0_1px_2px_rgba(10,60,100,0.08)]"
+              : "text-[var(--ink-2)] hover:bg-[var(--brand-tint)]"
           }`}
         >
           <span>{item.label}</span>
           {item.count && (
-            <span className={`tabular-nums text-[12px] ${item.hot ? "font-semibold text-[var(--alert-ink)]" : "text-[var(--muted)]"}`}>
+            <span
+              className={`tabular-nums rounded-full px-2 py-0.5 text-[12px] font-semibold ${
+                item.hot ? "bg-[var(--sev-urgency-bg)] text-[var(--alert-ink)]" : "bg-[var(--brand-soft)] text-[var(--brand-deep)]"
+              }`}
+            >
               {item.count}
               <span className="sr-only"> casos aguardando avaliação</span>
             </span>
@@ -56,13 +62,16 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
     <Link href="/fila" className="flex items-center gap-2.5" aria-label="Praevenius, início">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/brand/praevenius-mark.png" alt="" width={26} height={26} className="h-[26px] w-[26px]" />
-      <span className="text-[16px] font-semibold tracking-tight text-[var(--ink)]">praevenius</span>
+      <span className="flex flex-col leading-none">
+        <span className="text-[17px] font-semibold tracking-[-0.01em] text-[var(--ink)]">praevenius</span>
+        <span className="mt-1 text-[11px] text-[var(--muted)]">Consultório NR-7</span>
+      </span>
     </Link>
   );
 
   const me = (
     <div className="flex items-center gap-2.5">
-      <span className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[var(--raised)] text-[12px] font-semibold text-[var(--ink)]">
+      <span className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[var(--brand)] text-[12px] font-semibold text-[#FFFFFF]">
         AL
       </span>
       <span className="min-w-0 flex-1 leading-tight">
@@ -78,10 +87,10 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
   );
 
   return (
-    <div className="flex min-h-screen bg-[var(--card)] text-[var(--ink)]">
+    <div className="flex min-h-screen bg-[var(--frame)] text-[var(--ink)]">
       <aside
         aria-label="Navegação"
-        className="sticky top-0 hidden h-screen w-[220px] flex-none flex-col justify-between border-r border-[var(--rule)] px-3 py-5 lg:flex"
+        className="sticky top-0 hidden h-screen w-[232px] flex-none flex-col justify-between px-3 py-5 lg:flex"
       >
         <div>
           <div className="px-2 pb-6">{brand}</div>
@@ -91,7 +100,7 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[56px] items-center justify-between border-b border-[var(--rule)] px-4 lg:hidden">
+        <header className="flex h-[60px] items-center justify-between px-4 lg:hidden">
           {brand}
           <button
             type="button"
@@ -104,13 +113,15 @@ export function AppShell({ children, urgentCount, priorityCount }: AppShellProps
           </button>
         </header>
         {open && (
-          <div id="menu-movel" className="border-b border-[var(--rule)] px-4 py-3 lg:hidden">
+          <div id="menu-movel" className="px-4 pb-3 lg:hidden">
             <nav className="space-y-0.5" aria-label="Principal no celular">{links(() => setOpen(false))}</nav>
             <div className="mt-3 border-t border-[var(--rule)] pt-3">{me}</div>
           </div>
         )}
-        <main className="enter min-w-0 flex-1 px-4 py-6 sm:px-8 lg:px-12 lg:py-8">
-          <div className="mx-auto w-full max-w-[1080px]">{children}</div>
+        <main className="min-w-0 flex-1 px-2 pb-2 sm:px-3 sm:pb-3 lg:py-3 lg:pl-0 lg:pr-3">
+          <div className="enter min-h-full rounded-[18px] border border-[var(--frame-line)] bg-[var(--card)] px-4 py-6 shadow-[var(--sheet-shadow)] sm:px-8 lg:px-12 lg:py-9">
+            <div className="mx-auto w-full max-w-[1080px]">{children}</div>
+          </div>
         </main>
       </div>
     </div>

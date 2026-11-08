@@ -1,14 +1,35 @@
 import Link from "next/link";
+import { AvatarInitial } from "@/components/ui/severity-badge";
 import type { Severity } from "@/db/schema";
 import { describeCase } from "@/lib/case/describe";
 import { formatWhen } from "@/lib/case/when";
 import type { QueueRow } from "@/lib/demo/fixtures";
 
-const GROUPS: { severity: Severity; label: string; dot: string }[] = [
-  { severity: "urgency", label: "Urgência", dot: "var(--alert)" },
-  { severity: "priority", label: "Prioridade", dot: "var(--sev-priority-dot)" },
-  { severity: "attention", label: "Atenção", dot: "var(--sev-attention-dot)" },
+const GROUPS: { severity: Severity; label: string; one: string; many: string; dot: string; bg: string; ink: string }[] = [
+  { severity: "urgency", label: "Urgência", one: "urgência", many: "urgências", dot: "var(--alert)", bg: "var(--sev-urgency-bg)", ink: "var(--sev-urgency-ink)" },
+  { severity: "priority", label: "Prioridade", one: "prioridade", many: "prioridades", dot: "var(--sev-priority-dot)", bg: "var(--sev-priority-bg)", ink: "var(--sev-priority-ink)" },
+  { severity: "attention", label: "Atenção", one: "em atenção", many: "em atenção", dot: "var(--sev-attention-dot)", bg: "var(--sev-attention-bg)", ink: "var(--sev-attention-ink)" },
 ];
+
+function Chip({ g, children, href }: { g: (typeof GROUPS)[number]; children: React.ReactNode; href?: string }) {
+  const cls = "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-medium no-underline";
+  const style = { background: g.bg, color: g.ink };
+  const inner = (
+    <>
+      <span className="inline-block h-2 w-2 rounded-full" style={{ background: g.dot }} aria-hidden="true" />
+      {children}
+    </>
+  );
+  return href ? (
+    <a href={href} className={`${cls} hover:brightness-[0.97]`} style={style}>
+      {inner}
+    </a>
+  ) : (
+    <span className={cls} style={style}>
+      {inner}
+    </span>
+  );
+}
 
 const CASE_STATE_LABEL: Record<string, string> = {
   encaminhado: "Encaminhado",
@@ -34,12 +55,24 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.015em]">Fila de triagem</h1>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">Fila de triagem</h1>
           <p className="mt-1 text-[14px] text-[var(--muted)]">{lead}</p>
+          {open.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2" aria-label="Resumo por gravidade">
+              {GROUPS.map((g) => {
+                const n = open.filter((r) => r.severity === g.severity).length;
+                return n > 0 ? (
+                  <Chip key={g.severity} g={g} href={`#grupo-${g.severity}`}>
+                    <span className="tabular-nums">{n}</span> {n === 1 ? g.one : g.many}
+                  </Chip>
+                ) : null;
+              })}
+            </div>
+          )}
         </div>
         <Link
           href="/contatos"
-          className="inline-flex h-[36px] items-center rounded-full bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)]"
+          className="inline-flex h-[38px] items-center rounded-full bg-[var(--primary)] px-5 text-[13px] font-medium text-[#FFFFFF] no-underline shadow-[0_1px_2px_rgba(0,80,140,0.25)] hover:bg-[var(--primary-hover)]"
         >
           Disparar questionário
         </Link>
@@ -75,20 +108,26 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
                 const groupRows = open.filter((r) => r.severity === g.severity);
                 if (groupRows.length === 0) return null;
                 return [
-                  <tr key={`${g.severity}-h`}>
-                    <td colSpan={4} className="px-3 pb-2 pt-6 text-[13px] font-semibold">
-                      <span className="mr-2 inline-block h-2 w-2 rounded-full align-middle" style={{ background: g.dot }} aria-hidden="true" />
-                      {g.label} <span className="tabular-nums font-normal text-[var(--muted)]">{groupRows.length}</span>
+                  <tr key={`${g.severity}-h`} id={`grupo-${g.severity}`} className="scroll-mt-6">
+                    <td colSpan={4} className="px-3 pb-2.5 pt-7">
+                      <Chip g={g}>
+                        {g.label} <span className="tabular-nums opacity-80">{groupRows.length}</span>
+                      </Chip>
                     </td>
                   </tr>,
                   ...groupRows.map((r) => (
-                    <tr key={r.runId} className="align-top transition-colors hover:bg-[var(--bg)]">
+                    <tr key={r.runId} className="transition-colors hover:bg-[var(--brand-tint)]">
                       <td className="border-b border-[var(--rule)] px-3 py-3.5">
-                        <Link href={`/caso/${r.runId}`} className="font-semibold text-[var(--ink)] no-underline hover:underline">
-                          {r.contactName}
-                        </Link>
-                        <div className="text-[13px] text-[var(--muted)]">
-                          {r.sector} · {r.role}
+                        <div className="flex items-center gap-3">
+                          <AvatarInitial name={r.contactName} size="md" />
+                          <div className="min-w-0">
+                            <Link href={`/caso/${r.runId}`} className="font-semibold text-[var(--ink)] no-underline hover:text-[var(--brand-deep)]">
+                              {r.contactName}
+                            </Link>
+                            <div className="text-[13px] text-[var(--muted)]">
+                              {r.sector} · {r.role}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="border-b border-[var(--rule)] px-3 py-3.5 text-[14px]">{describeCase(r)}</td>
@@ -99,7 +138,11 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
                         )}
                       </td>
                       <td className="border-b border-[var(--rule)] py-3.5 pr-3 text-right">
-                        <Link href={`/caso/${r.runId}`} className="text-[13px] font-medium no-underline" aria-label={`Abrir caso de ${r.contactName}`}>
+                        <Link
+                          href={`/caso/${r.runId}`}
+                          className="inline-flex h-[30px] items-center rounded-full bg-[var(--brand-soft)] px-3.5 text-[13px] font-medium text-[var(--brand-deep)] no-underline hover:bg-[var(--brand)] hover:text-[#FFFFFF]"
+                          aria-label={`Abrir caso de ${r.contactName}`}
+                        >
                           Abrir
                         </Link>
                       </td>
@@ -117,9 +160,10 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
               if (groupRows.length === 0) return null;
               return (
                 <section key={g.severity} className="mb-5" aria-label={g.label}>
-                  <h2 className="mb-1 text-[13px] font-semibold">
-                    <span className="mr-2 inline-block h-2 w-2 rounded-full align-middle" style={{ background: g.dot }} aria-hidden="true" />
-                    {g.label} <span className="tabular-nums font-normal text-[var(--muted)]">{groupRows.length}</span>
+                  <h2 className="mb-1">
+                    <Chip g={g}>
+                      {g.label} <span className="tabular-nums opacity-80">{groupRows.length}</span>
+                    </Chip>
                   </h2>
                   {groupRows.map((r) => (
                     <Link
@@ -127,8 +171,11 @@ export function QueueView({ rows, isSyntheticFallback }: { rows: QueueRow[]; isS
                       href={`/caso/${r.runId}`}
                       className="block border-b border-[var(--rule)] py-3 text-[var(--ink)] no-underline"
                     >
-                      <div className="flex justify-between gap-3">
-                        <span className="font-semibold">{r.contactName}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-2.5 font-semibold">
+                          <AvatarInitial name={r.contactName} />
+                          {r.contactName}
+                        </span>
                         <span className="text-[12px] tabular-nums text-[var(--muted)]">{r.finishedAt ? formatWhen(r.finishedAt) : "—"}</span>
                       </div>
                       <div className="mt-0.5 text-[14px] text-[var(--ink-2)]">{describeCase(r)}</div>

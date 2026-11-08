@@ -87,7 +87,7 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
     <div className="max-w-[960px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.015em] text-[var(--ink)]">WhatsApp do consultório</h1>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">WhatsApp do consultório</h1>
           <p className="mt-1 text-[14px] text-[var(--muted)]">
             {status.state === "open" && status.phone
               ? `Conectado em ${formatPhoneBr(status.phone)}. Pronto para enviar questionários.`
@@ -99,7 +99,7 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
             type="button"
             onClick={handleRefresh}
             disabled={isPending}
-            className="h-[34px] cursor-pointer rounded-full border border-[var(--border)] px-3.5 text-[13px] font-medium hover:bg-[var(--raised)] disabled:opacity-60"
+            className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] px-4 text-[13px] font-medium hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)] disabled:opacity-60"
           >
             {isPending ? "Verificando…" : "Atualizar"}
           </button>
@@ -114,7 +114,7 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
           {status.state === "open" && (
             <Link
               href="/contatos"
-              className="inline-flex h-[34px] items-center rounded-full bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] no-underline hover:bg-[var(--primary-hover)]"
+              className="inline-flex h-[36px] items-center rounded-full bg-[var(--primary)] px-5 text-[13px] font-medium text-[#FFFFFF] no-underline shadow-[0_1px_2px_rgba(0,80,140,0.25)] hover:bg-[var(--primary-hover)]"
             >
               Ir para colaboradores
             </Link>
@@ -132,7 +132,7 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
       )}
 
       <div className="mt-8 grid grid-cols-1 items-start gap-10 md:grid-cols-[280px_1fr]">
-        <div className="flex flex-col items-center rounded-[14px] bg-[var(--bg)] p-6">
+        <div className="flex flex-col items-center rounded-[18px] bg-[var(--brand-soft)] p-6">
           {status.state === "open" ? (
             <div className="py-10 text-center">
               <span
@@ -145,23 +145,37 @@ export function QrPanel({ initial }: { initial: ConnectionStatusPayload }) {
             </div>
           ) : qrSrc ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={qrSrc} alt="QR Code para conectar o WhatsApp do consultório" className="h-[232px] w-[232px] rounded-[8px] bg-[#FFFFFF] p-2" />
+            <img src={qrSrc} alt="QR Code para conectar o WhatsApp do consultório" className="h-[232px] w-[232px] rounded-[12px] bg-[#FFFFFF] p-2.5 shadow-[0_1px_2px_rgba(10,60,100,0.08),0_8px_20px_-10px_rgba(10,60,100,0.25)]" />
           ) : (
             <p className="py-16 text-center text-[13px] text-[var(--muted)]">Gerando o código…</p>
           )}
-          <p className="mt-3 text-center text-[12px] text-[var(--muted)]">
-            {meta.label} · atualizado às <span className="tabular-nums">{status.updatedAt}</span>
+          {status.state !== "open" && (
+            <span className="mt-4 rounded-full px-3 py-1 text-[12px] font-medium" style={{ backgroundColor: meta.bg, color: meta.ink }}>
+              {meta.label}
+            </span>
+          )}
+          <p className="mt-2 text-[12px] text-[var(--brand-deep)]">
+            atualizado às <span className="tabular-nums">{status.updatedAt}</span>
           </p>
         </div>
 
         <div>
           <h2 className="text-[15px] font-semibold">Como conectar</h2>
-          <ol className="mt-3 list-decimal space-y-2 pl-5 text-[14px]">
-            <li>Abra o WhatsApp no celular do consultório.</li>
-            <li>Vá em Aparelhos conectados e toque em Conectar um aparelho.</li>
-            <li>Aponte a câmera para o código ao lado. A tela muda sozinha quando conectar.</li>
+          <ol className="mt-4 space-y-3.5 text-[14px]">
+            {[
+              "Abra o WhatsApp no celular do consultório.",
+              "Vá em Aparelhos conectados e toque em Conectar um aparelho.",
+              "Aponte a câmera para o código ao lado. A tela muda sozinha quando conectar.",
+            ].map((step, i) => (
+              <li key={step} className="flex items-start gap-3">
+                <span className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[var(--brand)] text-[12px] font-semibold tabular-nums text-[#FFFFFF]">
+                  {i + 1}
+                </span>
+                <span className="pt-0.5">{step}</span>
+              </li>
+            ))}
           </ol>
-          <p className="mt-5 text-[14px] text-[var(--ink-2)]">
+          <p className="mt-6 rounded-[12px] bg-[var(--peach-soft)] px-4 py-3 text-[14px] text-[var(--ink-2)]">
             Depois de conectado, o bot pede consentimento antes da primeira pergunta e responde a PARAR e CONTINUAR. Frases de risco são tratadas em código, antes de qualquer IA.
           </p>
           <details className="mt-6 border-t border-[var(--rule)] pt-3">

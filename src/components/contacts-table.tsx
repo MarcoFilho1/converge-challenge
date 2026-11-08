@@ -122,7 +122,7 @@ export function ContactsTable({
       {/* Título e ação primária */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.015em] text-[var(--ink)]">Colaboradores</h1>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">Colaboradores</h1>
           <p className="mt-1 text-[14px] text-[var(--muted)]">
             {totalCount} {totalCount === 1 ? "pessoa" : "pessoas"} · {flaggedCount} com indício. Selecione quem vai receber o questionário.
           </p>
@@ -142,14 +142,14 @@ export function ContactsTable({
           <button
             type="button"
             onClick={() => setAddOpen((v) => !v)}
-            className="h-[34px] cursor-pointer rounded-full border border-[var(--border)] bg-[var(--card)] px-3.5 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--raised)]"
+            className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] bg-[var(--card)] px-4 text-[13px] font-medium text-[var(--ink)] hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)]"
           >
             {addOpen ? "Fechar cadastro" : "Adicionar colaborador"}
           </button>
           <button
             type="button"
             onClick={() => setCsvDrawerOpen((v) => !v)}
-            className="h-[32px] cursor-pointer rounded-full border border-[var(--control)] bg-[var(--card)] px-3 text-[13px] font-medium text-[var(--ink)] hover:bg-[var(--raised)]"
+            className="h-[36px] cursor-pointer rounded-full border border-[var(--border)] bg-[var(--card)] px-4 text-[13px] font-medium text-[var(--ink)] hover:border-[var(--brand-soft)] hover:bg-[var(--brand-tint)] hover:text-[var(--brand-deep)]"
           >
             {csvDrawerOpen ? "Fechar importação CSV" : "Importar CSV"}
           </button>
@@ -157,7 +157,7 @@ export function ContactsTable({
             type="button"
             disabled={isPending || selectedIds.length === 0}
             onClick={() => handleSendQuestionnaire(selectedIds)}
-            className="h-[32px] cursor-pointer rounded-full bg-[var(--primary)] px-3.5 text-[13px] font-medium text-[#FFFFFF] hover:bg-[var(--primary-hover)] disabled:opacity-45"
+            className="h-[36px] cursor-pointer rounded-full bg-[var(--primary)] px-4 text-[13px] font-medium text-[#FFFFFF] shadow-[0_1px_2px_rgba(0,80,140,0.25)] hover:bg-[var(--primary-hover)] disabled:opacity-45"
           >
             Enviar questionário ({selectedIds.length})
           </button>
@@ -208,10 +208,17 @@ export function ContactsTable({
               onClick={() => setFilter(c.id)}
               aria-pressed={active}
               className={`-mb-px cursor-pointer border-b-2 pb-2.5 text-[13px] ${
-                active ? "border-[var(--ink)] font-semibold text-[var(--ink)]" : "border-transparent text-[var(--muted)] hover:text-[var(--ink)]"
+                active ? "border-[var(--brand)] font-semibold text-[var(--brand-deep)]" : "border-transparent text-[var(--muted)] hover:text-[var(--ink)]"
               }`}
             >
-              {c.label} <span className="tabular-nums">{c.count}</span>
+              {c.label}{" "}
+              <span
+                className={`ml-0.5 rounded-full px-1.5 py-px text-[12px] tabular-nums ${
+                  active ? "bg-[var(--brand-soft)] text-[var(--brand-deep)]" : "bg-[var(--raised)] text-[var(--muted)]"
+                }`}
+              >
+                {c.count}
+              </span>
             </button>
           );
         })}
@@ -437,9 +444,9 @@ export function ContactsTable({
                   return (
                     <tr
                       key={row.id}
-                      className="h-[52px] transition-colors"
+                      className={`h-[52px] transition-colors ${isSelected ? "" : "hover:bg-[var(--brand-tint)]"}`}
                       style={{
-                        backgroundColor: isSelected ? "var(--raised)" : "transparent",
+                        backgroundColor: isSelected ? "var(--brand-soft)" : undefined,
                       }}
                     >
                       <td className="pl-4 pr-2">
@@ -479,7 +486,14 @@ export function ContactsTable({
                       </td>
                       <td className="py-2 px-3">
                         {row.severity ? (
-                          <span className="inline-flex items-center gap-1.5 text-[13px]">
+                          <span
+                            className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] ${row.severity === "none" ? "text-[var(--muted)]" : "rounded-full px-2.5 py-0.5 font-medium"}`}
+                            style={
+                              row.severity === "none"
+                                ? undefined
+                                : { background: `var(--sev-${row.severity}-bg)`, color: `var(--sev-${row.severity}-ink)` }
+                            }
+                          >
                             <span className="inline-block h-2 w-2 rounded-full" style={{ background: SEV_DOT[row.severity] }} aria-hidden="true" />
                             {SEV_LABEL[row.severity]}
                           </span>
