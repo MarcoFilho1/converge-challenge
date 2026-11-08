@@ -44,7 +44,7 @@ function interpretLocal(item: Item, text: string): number | null {
   const scale = item.scale;
   if (!scale) return null;
   const normalized = normalizeText(text);
-  const numberMatch = normalized.match(/^(\d+(?:[.,]\d+)?)\b/);
+  const numberMatch = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)(?=\s|$|[.!?])/);
   if (numberMatch) {
     const value = Number(numberMatch[1].replace(",", "."));
     return value >= scale.min && value <= scale.max ? value : null;
@@ -54,6 +54,9 @@ function interpretLocal(item: Item, text: string): number | null {
     const first = normalized.split(/[^a-z]+/)[0];
     if (YES.includes(first)) return scale.min + 1;
     if (NO.includes(first)) return scale.min;
+  }
+  if (scale.labels && normalizeText(scale.labels[0]) === "nenhuma vez" && /\b(nunca|nenhum dia|nenhuma)\b/.test(normalized)) {
+    return scale.min;
   }
   if (scale.labels) {
     let best: { value: number; length: number } | null = null;

@@ -60,6 +60,15 @@ describe("sendText", () => {
   });
 });
 
+describe("resposta não-JSON", () => {
+  it("vira EvolutionError legível (ex.: página 502 de proxy)", async () => {
+    vi.stubGlobal("fetch", async () => new Response("<html>502 Bad Gateway</html>", { status: 502 }));
+    const err = await sendText("5581999990000", "Olá").catch((e) => e);
+    expect(err).toBeInstanceOf(EvolutionError);
+    expect(err.status).toBe(502);
+  });
+});
+
 describe("ensureInstance", () => {
   it("cria a instância Baileys com webhook do app", async () => {
     stubFetch(() => ({ status: 201, body: { instance: { instanceName: "consultorio" } } }));

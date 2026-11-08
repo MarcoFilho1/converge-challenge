@@ -55,6 +55,12 @@ describe("mock interpretAnswer", () => {
     expect(await ai.interpretAnswer(trunk, "sim")).toBe(1);
     expect(await ai.interpretAnswer(trunk, "Não")).toBe(0);
   });
+  it("acha o número no meio da frase", async () => {
+    expect(await ai.interpretAnswer(phq1, "acho que nota 2")).toBe(2);
+  });
+  it('entende "nunca" como "nenhuma vez"', async () => {
+    expect(await ai.interpretAnswer(phq1, "nunca")).toBe(0);
+  });
   it("devolve null para número fora da escala ou texto sem sentido", async () => {
     expect(await ai.interpretAnswer(phq1, "7")).toBeNull();
     expect(await ai.interpretAnswer(phq1, "talvez")).toBeNull();

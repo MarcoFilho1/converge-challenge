@@ -18,7 +18,8 @@ export type EngineEvent =
   | "crisis"
   | "resumed"
   | "finished"
-  | "no_active_run";
+  | "no_active_run"
+  | "already_running";
 
 export type EngineResult = {
   outbound: string[];
@@ -122,6 +123,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   const contact = await repo.findContactByPhone(phone);
   if (!contact) {
     if (unknownNotified.has(phone)) return none("ignored_unknown");
+    if (unknownNotified.size > 5000) unknownNotified.clear();
     unknownNotified.add(phone);
     return none("ignored_unknown", [copy.unknownNumber]);
   }
@@ -225,6 +227,9 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
 
   // 4. Resposta a um item.
   const item = items[active.currentItem];
+  if (command === "continuar" || command === "comecar") {
+    return reply(active.id, "already_running", [copy.alreadyRunning, formatItem(item)]);
+  }
   let value: number | null = null;
   let rawText = text;
   if (item.scale) {

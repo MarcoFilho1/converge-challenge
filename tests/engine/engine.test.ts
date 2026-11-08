@@ -136,6 +136,18 @@ describe("motor do questionário", () => {
     expect((await getRun(runId)).currentItem).toBe(before + 1);
   });
 
+  it("CONTINUAR no meio do questionário só repete a pergunta atual", async () => {
+    const contact = await setup();
+    const { startRun } = await import("@/lib/engine/engine");
+    const { runId } = await startRun(contact.id, { demoShort: true });
+    await say("1");
+    await say("sim");
+    const r = await say("continuar");
+    expect(r.event).toBe("already_running");
+    expect(r.outbound.join("\n")).toContain("Durante os últimos sete dias");
+    expect((await getRun(runId)).retryCount).toBe(0);
+  });
+
   it("número desconhecido recebe um aviso e não cria questionário", async () => {
     const { handleIncoming } = await import("@/lib/engine/engine");
     const r = await handleIncoming({ phone: "5581000000000", text: "oi", waMessageId: msgId() });

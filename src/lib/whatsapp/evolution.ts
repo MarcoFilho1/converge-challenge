@@ -38,7 +38,13 @@ async function call<T>(method: "GET" | "POST" | "DELETE", path: string, body?: u
     throw new EvolutionError("Não foi possível falar com o WhatsApp (Evolution API fora do ar?).", 0);
   }
   const text = await res.text();
-  const json = text ? JSON.parse(text) : null;
+  let json: unknown = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    if (res.ok) throw new EvolutionError("Evolution respondeu algo que não é JSON.", res.status);
+    json = { message: text.slice(0, 120) };
+  }
   if (!res.ok) throw new EvolutionError(`Evolution respondeu ${res.status}: ${errorMessage(json)}`, res.status);
   return json as T;
 }

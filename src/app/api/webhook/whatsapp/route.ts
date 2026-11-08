@@ -27,6 +27,11 @@ async function sendWithRetry(phone: string, text: string): Promise<string | null
 /** Webhook da Evolution API. Rota pública, protegida pelo cabeçalho x-webhook-secret. */
 export async function POST(request: Request) {
   const secret = process.env.WEBHOOK_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    console.error("[webhook] WEBHOOK_SECRET não configurado: recusando mensagens em produção.");
+    return Response.json({ ok: false }, { status: 503 });
+  }
+  if (!secret) console.warn("[webhook] WEBHOOK_SECRET vazio: webhook aberto (só aceitável em desenvolvimento).");
   if (secret && request.headers.get("x-webhook-secret") !== secret) {
     return Response.json({ ok: false }, { status: 401 });
   }

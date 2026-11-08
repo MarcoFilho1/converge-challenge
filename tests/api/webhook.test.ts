@@ -83,6 +83,20 @@ describe("POST /api/webhook/whatsapp", () => {
     expect(markDelivery).toHaveBeenCalledWith("m2", null);
   });
 
+  it("em produção, recusa tudo se o segredo não estiver configurado", async () => {
+    process.env.WEBHOOK_SECRET = "";
+    const env = process.env as Record<string, string | undefined>;
+    const previous = env.NODE_ENV;
+    env.NODE_ENV = "production";
+    try {
+      const res = await post(body(false, "P1"), "");
+      expect(res.status).toBe(503);
+      expect(handleIncoming).not.toHaveBeenCalled();
+    } finally {
+      env.NODE_ENV = previous;
+    }
+  });
+
   it("grava o estado da conexão", async () => {
     await post({ event: "connection.update", instance: "consultorio", data: { state: "open" } });
     expect(saveConnectionState).toHaveBeenCalledWith("open");
