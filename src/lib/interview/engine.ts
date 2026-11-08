@@ -7,6 +7,7 @@ import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
 import { buildAgenda, type Agenda } from "./agenda";
 import { askedHelena, asksRepeat, cleanGenerated, EXTRA_CRISIS_PATTERNS, extraCrisis } from "./filters";
 import { assessRisk } from "@/lib/crisis/judge";
+import { clampInput, detectInjection } from "@/lib/ai/injection";
 import { ABANDON_AVISO_PREFIX, ASKED_ACK, BLOCKS, CRISIS_SPEECH, REPEAT_ASK_PREFIX, DECLINE_SPEECH, DEFAULT_PRAZO, REPEAT_PREFIX, URGENCY_SPEECH, renderText } from "./protocol";
 import { candidateProbes, fechamentoIndex, selectNext } from "./select";
 import type { Aviso, BlockId, Finding, InterviewInput, InterviewStatus, Turn } from "./types";
@@ -73,7 +74,20 @@ export type InterviewState = {
   followUpText?: string | null;
   /** Reações já ditas, para não repetir abertura nem frase. */
   reactions?: string[];
+  /** Falas da pessoa que tentaram mudar as regras da IA: nunca vão para a IA nem para o resumo. */
+  injectionTurns?: number[];
 };
+
+/** Resposta fixa a uma tentativa de mudar as regras; depois a Helena repete a pergunta atual. */
+export const GUARD_PREFIX = "Eu só consigo seguir com as perguntas desta conversa.";
+const MASKED = "[fala removida: tentativa de mudar as instruções]";
+const MAX_INJECTION_ATTEMPTS = 3;
+
+/** Turnos como a IA pode vê-los: falas de ataque mascaradas. */
+export function turnsForAi(state: InterviewState): Turn[] {
+  const flagged = new Set(state.injectionTurns ?? []);
+  return state.turns.map((t) => (flagged.has(t.idx) ? { ...t, text: MASKED } : t));
+}
 
 export type InterviewEvent =
   | { kind: "start"; consent: boolean }
@@ -258,7 +272,7 @@ export function validFollowUp(text: string | null, state: InterviewState, upcomi
 }
 
 function recentTurns(state: InterviewState): PlanInput["recent"] {
-  return state.turns.slice(-6).map((t) => ({ speaker: t.speaker as "ai" | "person", text: t.text }));
+  return turnsForAi(state).slice(-6).map((t) => ({ speaker: t.speaker as "ai" | "person", text: t.text }));
 }
 
 function planInput(state: InterviewState, blockId: BlockId, lastText: string): PlanInput {
@@ -268,7 +282,7 @@ function planInput(state: InterviewState, blockId: BlockId, lastText: string): P
     blockId,
     blockLabel: BLOCKS[blockId].label,
     lastQuestion: currentQuestion(state, blockId).text,
-    lastText,
+    lastText: clampInput(lastText),
     recent: recentTurns(state),
     recentReactions: (state.reactions ?? []).slice(-3),
     candidates: candidateProbes(block, state.probesAsked, state.turns, state.findings).map((p) => ({ id: p.id, text: p.text })),
@@ -399,6 +413,28 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
   }
   if (blockId === "seguranca" && safetyClearlyYes(text)) return crisis({ ...ctx, state: s });
 
+  // Tentativa de mudar as regras da IA: a fala não vai para a IA, a Helena repete a pergunta e a médica é avisada.
+  if (detectInjection(text).hit) {
+    const idx = s.turns.length - 1;
+    const attempts = (s.injectionTurns ?? []).length + 1;
+    s = addAviso({ ...s, injectionTurns: [...(s.injectionTurns ?? []), idx] }, `Tentou mudar as regras da entrevista: “${text.slice(0, 120)}”. A Helena não obedeceu e seguiu a pauta.`, [idx]);
+    if (attempts >= MAX_INJECTION_ATTEMPTS) return closing({ ...ctx, state: s }, "stopped");
+    const asked = currentQuestion(state, blockId);
+    return aiTurn(
+      { ...ctx, state: s },
+      {
+        text: `${GUARD_PREFIX} ${asked.text}`,
+        probeId: state.currentProbeId,
+        blockId,
+        cacheKey: null,
+        final: false,
+        crisis: false,
+        parts: [{ text: GUARD_PREFIX, cacheKey: "guarda:prefixo" }, { text: asked.text, cacheKey: questionKey(state, blockId) }],
+      },
+      "running",
+    );
+  }
+
   const q = currentQuestion(state, blockId);
   const thisTurn = s.turns.length - 1;
 
@@ -470,7 +506,7 @@ export async function step(state: InterviewState, event: InterviewEvent, ai: Int
   let newFindings: Finding[] = [];
   if (blockId !== "abertura" && blockId !== "seguranca") {
     const probeText = state.turns.at(-1)?.text ?? "";
-    const drafts = await ai.extractFindings({ blockId, probeText, text });
+    const drafts = await ai.extractFindings({ blockId, probeText, text: clampInput(text) });
     const turnIdx = s.turns.length - 1;
     newFindings = drafts.map((d) => ({ ...d, turnIdx, blockId }));
     s = { ...s, findings: [...s.findings, ...newFindings] };
