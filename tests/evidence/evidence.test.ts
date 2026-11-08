@@ -94,3 +94,21 @@ describe("resumo estruturado", () => {
     expect(RunSummarySchema.parse(row.json).nao_respondido.length).toBeGreaterThan(0);
   });
 });
+
+describe("sanitizeSummary", () => {
+  it("mantém linha que cita o texto validado do item e remove rótulo clínico", async () => {
+    const { sanitizeSummary } = await import("@/lib/evidence/summarize");
+    const out = sanitizeSummary({
+      dificuldades_relatadas: [
+        { relato: 'Respondeu "0" para: Você tem um alto grau de influência nas decisões sobre o seu trabalho?', origem: ["COPSOQ_4A"] },
+        { relato: "Você tem burnout", origem: ["BAT_1"] },
+      ],
+      impacto_funcional: { texto: "ok", origem: [] },
+      fatores_do_trabalho: [],
+      pontos_para_avaliar: [],
+      nao_respondido: [],
+    });
+    expect(out.dificuldades_relatadas[0].relato).toContain("alto grau de influência");
+    expect(out.dificuldades_relatadas[1].relato).toBe("[texto removido: termo não permitido]");
+  });
+});

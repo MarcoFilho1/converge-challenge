@@ -12,6 +12,7 @@ export const CRISIS_PATTERNS: RegExp[] = [
   /\bquero (sumir|desaparecer)\b/,
   /\bdesaparecer de vez\b/,
   /\bme (machucar|ferir|cortar|mutilar)\b/,
+  /\bme (machuquei|feri|cortei|mutilei)\b/,
   /\b(seria|era|e) melhor (eu )?(morrer|estar morto|estar morta|nao existir|nao estar aqui)\b/,
   /\bnao quero mais acordar\b/,
   /\bsuicid/,

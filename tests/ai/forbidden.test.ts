@@ -12,3 +12,14 @@ describe("assertNoForbidden", () => {
     expect(assertNoForbidden("Relatou cansaço quase todos os dias; indício de esgotamento.")).toEqual([]);
   });
 });
+
+describe("assertNoForbidden com textos permitidos", () => {
+  it("ignora o termo quando ele faz parte do texto validado de um item", () => {
+    const item = "Você tem um alto grau de influência nas decisões sobre o seu trabalho?";
+    expect(assertNoForbidden(`Respondeu "0" para: ${item}`, { allow: [item] })).toEqual([]);
+  });
+  it("continua pegando o termo fora do texto permitido", () => {
+    const item = "Você tem um alto grau de influência nas decisões sobre o seu trabalho?";
+    expect(assertNoForbidden(`${item} Você tem burnout.`, { allow: [item] })).toEqual(["você tem", "burnout"]);
+  });
+});

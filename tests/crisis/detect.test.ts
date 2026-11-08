@@ -13,6 +13,9 @@ const positives = [
   "já pensei em me cortar",
   "seria melhor morrer",
   "penso em suicídio",
+  "me cortei de novo ontem",
+  "me machuquei de propósito",
+  "já me feri antes",
 ];
 
 const negatives = [

@@ -5,10 +5,13 @@ import { assertNoForbidden, FORBIDDEN_REPLACEMENT, getAi, RunSummarySchema, type
 import { getItems } from "@/lib/instruments";
 import type { Answers } from "@/lib/instruments/types";
 
-/** Troca por um aviso qualquer texto do resumo que traga termo clínico proibido. */
-function sanitize(summary: RunSummary): RunSummary {
+/** Textos validados dos itens: podem conter "você tem" e não são rótulo clínico. */
+export const ITEM_TEXTS = [...new Set([...getItems(false), ...getItems(true)].map((i) => i.text))];
+
+/** Troca por um aviso qualquer texto do resumo que traga termo clínico proibido fora do texto de um item. */
+export function sanitizeSummary(summary: RunSummary): RunSummary {
   const clean = (text: string) => {
-    if (assertNoForbidden(text).length === 0) return text;
+    if (assertNoForbidden(text, { allow: ITEM_TEXTS }).length === 0) return text;
     console.warn("[summary] trecho removido por termo proibido");
     return FORBIDDEN_REPLACEMENT;
   };
@@ -59,7 +62,7 @@ export async function buildSummary(runId: string): Promise<void> {
     missingInstruments: [...missing],
   });
 
-  const json = sanitize(RunSummarySchema.parse(summary));
+  const json = sanitizeSummary(RunSummarySchema.parse(summary));
   await db
     .insert(summaries)
     .values({ runId, json })
