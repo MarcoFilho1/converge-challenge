@@ -19,7 +19,7 @@
   <img alt="Tela do Caso: nome da colaboradora, gravidade Prioridade, a frase que explica o caso, os escores e os motivos com a fonte de cada um" src="docs/media/caso.png" width="800">
 </p>
 
-Produto **praevenius**, feito no Converge Challenge (Recife, 7 e 8 de novembro de 2026).
+Produto **Praevenius**, feito no Converge Challenge (Recife, 7 e 8 de novembro de 2026).
 
 ## Por quê
 
