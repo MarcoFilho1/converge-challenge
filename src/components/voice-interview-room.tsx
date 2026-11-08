@@ -51,6 +51,12 @@ function formatDoctorRef(doctorName: string): string {
     : `Dra. ${doctorName}`;
 }
 
+/** Fim de fala: pausa de 1,8 s depois de pelo menos 0,5 s de voz; ruído medido nos primeiros 0,4 s. */
+const VAD_SILENCE_MS = 1800;
+const VAD_MIN_VOICE_MS = 500;
+const VAD_CALIBRATE_MS = 400;
+const VAD_MIN_THRESHOLD = 0.14;
+
 export function VoiceInterviewRoom({
   token,
   initialView,
@@ -172,7 +178,9 @@ export function VoiceInterviewRoom({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       mediaStreamRef.current = stream;
 
       const AudioCtx =
@@ -214,6 +222,13 @@ export function VoiceInterviewRoom({
       recorder.start(200);
 
       const data = new Uint8Array(analyser.frequencyBinCount);
+      // Detecção de fim de fala: mede o ruído do ambiente no começo, exige fala sustentada
+      // e só fecha o turno depois de uma pausa longa (pausas para pensar não cortam a pessoa).
+      let noiseSum = 0;
+      let noiseFrames = 0;
+      let threshold = VAD_MIN_THRESHOLD;
+      let voicedMs = 0;
+      let lastTick = performance.now();
       const tick = () => {
         if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== "recording") {
           return;
@@ -237,14 +252,24 @@ export function VoiceInterviewRoom({
           return;
         }
 
-        // VAD: close turn after 900ms of silence once voice was detected
-        if (normalized > 0.14) {
-          spokenDetectedRef.current = true;
+        const dt = now - lastTick;
+        lastTick = now;
+        if (elapsed < VAD_CALIBRATE_MS) {
+          noiseSum += normalized;
+          noiseFrames += 1;
+          threshold = Math.max(VAD_MIN_THRESHOLD, (noiseSum / noiseFrames) * 2 + 0.05);
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+
+        if (normalized > threshold) {
+          voicedMs += dt;
+          if (voicedMs >= VAD_MIN_VOICE_MS) spokenDetectedRef.current = true;
           silenceStartRef.current = null;
-        } else if (spokenDetectedRef.current && elapsed > 1600) {
+        } else if (spokenDetectedRef.current) {
           if (silenceStartRef.current === null) {
             silenceStartRef.current = now;
-          } else if (now - silenceStartRef.current >= 900) {
+          } else if (now - silenceStartRef.current >= VAD_SILENCE_MS) {
             stopMediaResources();
             return;
           }
@@ -356,24 +381,10 @@ export function VoiceInterviewRoom({
       if (res.crisis) {
         setCrisisInfo(res.crisis);
       }
-      if (res.status === "crisis" || res.final) {
-        stopMediaResources();
-        setVoiceState("inativo");
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-          try {
-            window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(res.say);
-            utter.lang = "pt-BR";
-            window.speechSynthesis.speak(utter);
-          } catch {
-            // ignore
-          }
-        }
-      } else {
-        playUtterance(res.say, res.audioUrl, res.final);
-      }
+      // última fala e crise usam o mesmo caminho das outras: áudio do servidor (voz da Helena); voz do navegador só sem áudio
+      playUtterance(res.say, res.audioUrl, res.status === "crisis" || res.final);
     },
-    [playUtterance, stopMediaResources]
+    [playUtterance]
   );
 
   const buildFallbackTurn = useCallback(
