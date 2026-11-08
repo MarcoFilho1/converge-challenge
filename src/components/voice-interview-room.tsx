@@ -724,7 +724,7 @@ export function VoiceInterviewRoom({
         ) : (
           <>
             <span className="text-[13px] font-medium text-[var(--ink)] truncate">
-              Consultório NR-7 · {doctorRef}
+              Praevenius · {doctorRef}
             </span>
             <span className="tabular-nums text-[12px] text-[var(--muted)] shrink-0">
               Sigilo médico
@@ -1057,7 +1057,7 @@ export function VoiceInterviewRoom({
               Se precisar conversar a qualquer hora, ligue{" "}
               <a
                 href="tel:188"
-                className="font-semibold text-[var(--brand)] underline"
+                className="font-semibold text-[var(--alert-ink)] underline"
               >
                 CVV 188
               </a>{" "}

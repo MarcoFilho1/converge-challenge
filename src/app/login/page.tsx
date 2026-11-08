@@ -29,35 +29,30 @@ export default function LoginPage({
     <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)] flex flex-col justify-between p-4 sm:p-8">
       {/* Cabeçalho institucional discreto */}
       <header className="mx-auto flex w-full max-w-[1080px] items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span
-            className="mono-code inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-[var(--sev-urgency-border)] bg-[var(--sev-urgency-bg)] text-[12px] font-medium text-[var(--brand)]"
-            aria-hidden="true"
-          >
-            NR7
-          </span>
-          <div>
-            <span className="text-[14px] font-semibold tracking-tight text-[var(--ink)]">
-              Consultório NR-7
-            </span>
-            <span className="ml-2 text-[12px] text-[var(--muted)]">
-              PCMSO · Vigilância em Saúde Ocupacional
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/praevenius-mark.png" alt="" width={32} height={32} className="h-8 w-8" />
+          <div className="leading-none">
+            <span className="block text-[18px] font-semibold tracking-tight text-[var(--ink)]">praevenius</span>
+            <span className="mt-1 block text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Consultório NR-7 · PCMSO
             </span>
           </div>
         </div>
         <Link
           href="/entrevista/demo-mariana-nr7"
-          className="rounded-[6px] border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[12px] font-medium text-[var(--ink)] hover:bg-[var(--raised)]"
+          className="rounded-full border border-[var(--peach)] bg-[var(--peach-soft)] px-3.5 py-1.5 text-[12px] font-medium text-[var(--peach-ink)] hover:brightness-[0.98]"
         >
           Ver sala de entrevista (Helena) →
         </Link>
       </header>
 
       {/* Corpo em duas colunas na folha branca */}
-      <main className="mx-auto my-8 grid w-full max-w-[1080px] grid-cols-1 overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--card)] lg:grid-cols-12">
+      <main className="enter mx-auto my-8 grid w-full max-w-[1080px] grid-cols-1 overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--card)] lg:grid-cols-12">
         {/* Coluna esquerda: contexto normativo e regra clínica */}
         <section className="flex flex-col justify-between border-b border-[var(--border)] bg-[var(--raised)] p-6 sm:p-8 lg:col-span-7 lg:border-b-0 lg:border-r">
           <div>
+            <p className="eyebrow mb-1.5">Cuidar começa por escutar</p>
             <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
               Triagem psicossocial NR-7
             </h1>
@@ -81,7 +76,7 @@ export default function LoginPage({
                   </dd>
                 </div>
                 <div className="rounded-[8px] border border-[var(--border)] bg-[var(--card)] p-3.5">
-                  <dt className="text-[13px] font-semibold text-[var(--brand)]">
+                  <dt className="text-[13px] font-semibold text-[var(--alert)]">
                     2. Corte imediato de crise
                   </dt>
                   <dd className="mt-1 text-[13px] leading-[19px] text-[var(--muted)]">
@@ -169,7 +164,7 @@ export default function LoginPage({
             <div className="pt-2">
               <button
                 type="submit"
-                className="h-[38px] w-full cursor-pointer rounded-[6px] bg-[var(--primary)] px-4 text-[14px] font-medium text-[#FFFFFF] transition-colors hover:bg-[#3E2A27]"
+                className="h-[38px] w-full cursor-pointer rounded-[6px] bg-[var(--primary)] px-4 text-[14px] font-medium text-[#FFFFFF] transition-colors hover:bg-[var(--primary-hover)]"
               >
                 Acessar bancada médica
               </button>
@@ -189,7 +184,7 @@ export default function LoginPage({
       </main>
 
       <footer className="mx-auto flex w-full max-w-[1080px] items-center justify-between text-[12px] text-[var(--muted)]">
-        <span>Consultório NR-7 · Recife, 2026</span>
+        <span>Praevenius · Consultório NR-7 · Recife, 2026</span>
         <span className="mono-code">Canais de emergência: CVV 188 · SAMU 192</span>
       </footer>
     </div>

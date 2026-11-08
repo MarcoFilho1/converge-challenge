@@ -1,33 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  /* Paleta do Consultório NR-7 + tokens do estilo framed-sheet (seed 935023105) */
-  --bg: #FBF5F2;
-  --ground: #FBF5F2;
+  /* Identidade Praevenius (decisão do Guilherme, hackhub "identidade-visual-frontend"):
+     azul #006EB8 (ações, links, navegação, marca) · pêssego #FDD4BD (destaques acolhedores)
+     branco suave #F8FAF9 (fundo) · branco #FFFFFF (cartões) · grafite azulado #24363B (texto).
+     O vermelho fica reservado à urgência clínica (CVV 188 / SAMU 192). */
+  --bg: #F8FAF9;
+  --ground: #F8FAF9;
   --card: #FFFFFF;
   --surface: #FFFFFF;
-  --raised: #F3F1EE;
-  --surface-subtle: #F3F1EE;
-  --active: #EAE6E1;
+  --raised: #EEF3F5;
+  --surface-subtle: #EEF3F5;
+  --active: #E1ECF4;
 
-  --border: #EAE2DE;
-  --line: #EAE2DE;
-  --rule: #F2EAE6;
-  --line-subtle: #F2EAE6;
-  --control: #CFC0B9;
+  --border: #DCE5E9;
+  --line: #DCE5E9;
+  --rule: #E8EEF1;
+  --line-subtle: #E8EEF1;
+  --control: #B3C3CA;
 
-  --ink: #2B1D1B;
-  --ink-2: #4A3734;
-  --text: #2B1D1B;
-  --muted: #68524F;
-  --faint: #6E5855;
-  --primary: #2B1D1B;
+  --ink: #24363B;
+  --ink-2: #3B5056;
+  --text: #24363B;
+  --muted: #51646A;
+  --faint: #5C6F75;
+  --primary: #006EB8;
+  --primary-hover: #005A97;
 
-  --brand: #B3261E;
-  --brand-hover: #961E17;
-  --accent: #B3261E;
-  --brand-soft: #F6D5D2;
-  --accent-soft: #F6D5D2;
+  --brand: #006EB8;
+  --brand-hover: #005A97;
+  --accent: #006EB8;
+  --brand-soft: #DDEBF6;
+  --accent-soft: #FDD4BD;
+  --peach: #FDD4BD;
+  --peach-soft: #FEEBDF;
+  --peach-ink: #6E3A1C;
 
   --ok-bg: #DDEFE3;
   --ok-fg: #144929;
@@ -36,7 +43,7 @@
   --danger-bg: #F8DEE3;
   --danger-fg: #7D1612;
 
-  --pastel-peach: #FBE3D6;
+  --pastel-peach: #FEEBDF;
   --pastel-rose: #F8DEE3;
   --pastel-amber: #FBF0D9;
   --pastel-green: #DDEFE3;
@@ -60,6 +67,9 @@
 
   --positive: #1F6B3D;
   --negative: #B3261E;
+  /* Alerta clínico: urgência, crise e escores acima do corte. Nunca usar a cor da marca para isso. */
+  --alert: #B3261E;
+  --alert-ink: #7D1612;
 
   /* Geometria framed-sheet */
   --radius-sheet: 16px;
@@ -102,6 +112,27 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Chamada acolhedora acima dos títulos (estilo Praevenius) */
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+/* Entrada suave do conteúdo (opacidade + leve desfoque + subida), como no protótipo Praevenius */
+@keyframes praevenius-enter {
+  from { opacity: 0; filter: blur(3px); transform: translateY(8px); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+.enter {
+  animation: praevenius-enter 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .enter { animation: none; }
 }
 
 /* Browser surfaces (impeccable craft-floor) */

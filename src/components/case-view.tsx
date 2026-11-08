@@ -67,7 +67,8 @@ export function CaseView({
             <span className="mono-code">{formatPhoneBr(run.phoneE164)}</span>
           </div>
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+          <p className="eyebrow mt-3">Prontuário ocupacional · sigilo médico</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2.5">
             <h1 className="text-[22px] font-semibold leading-[28px] tracking-tight text-[var(--ink)]">
               {run.contactName}
             </h1>
@@ -151,7 +152,7 @@ export function CaseView({
             <div className="mt-1.5 flex items-baseline justify-between">
               <span
                 className="mono-code text-[24px] font-normal leading-none"
-                style={{ color: s.flagged ? "var(--brand)" : "var(--ink)" }}
+                style={{ color: s.flagged ? "var(--alert)" : "var(--ink)" }}
               >
                 {s.value}
                 <span className="ml-1 text-[13px] text-[var(--muted)]">{s.maxLabel}</span>

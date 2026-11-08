@@ -144,7 +144,7 @@ export function RuleTraceStrip({
                 style={{
                   color: it.active
                     ? it.alert
-                      ? "var(--brand)"
+                      ? "var(--alert)"
                       : "var(--ink)"
                     : "var(--muted)",
                 }}

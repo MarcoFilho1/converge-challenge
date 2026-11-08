@@ -42,7 +42,7 @@ export function ConversationPanel({
             >
               <div className="mb-1 flex items-center gap-2 px-1 text-[11px] text-[var(--muted)]">
                 <span className="font-medium text-[var(--ink)]">
-                  {isBot ? "Bot Consultório NR-7" : contactName}
+                  {isBot ? "Praevenius · bot do consultório" : contactName}
                 </span>
                 <span className="mono-code">{msg.createdAt}</span>
               </div>
