@@ -1,3 +1,4 @@
+import { wellbeingIndex } from "@/lib/instruments";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db/client";
@@ -111,6 +112,7 @@ export async function getCase(runId: string): Promise<CaseDetailData> {
           hasCrisis: run.status === "crisis" || (phq9Item9?.valueNumeric ?? 0) >= 1,
         },
         scores: chips,
+        wellbeingIndex: wellbeingIndex(Object.fromEntries(runAnswers.map((a) => [a.itemCode, a.valueNumeric])), run.demoShort),
         hasVoiceInterview: interviews.length > 0,
         voiceInterviewToken: interviews[0]?.inviteUrl?.split("/").pop() ?? "",
       },

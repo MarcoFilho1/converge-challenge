@@ -146,6 +146,14 @@ export function CaseView({
               <span className="inline-block h-2 w-2 rounded-full" style={{ background: sev.dot }} aria-hidden="true" />
               {sev.label}
             </span>
+            {run.wellbeingIndex != null && (
+              <span
+                className="inline-flex items-baseline gap-1 rounded-full bg-[var(--brand-tint)] px-2.5 py-0.5 text-[13px] text-[var(--brand-deep)]"
+                title="Índice de bem-estar calculado das respostas, de 0 a 100. Abaixo de 70, o agente convida para a entrevista."
+              >
+                Índice <b className="tabular-nums font-semibold">{run.wellbeingIndex}</b>/100
+              </span>
+            )}
             <span>
               {run.sector} · {run.role}
               {run.finishedAt ? ` · respondeu ${formatWhen(run.finishedAt)}` : running ? " · questionário em andamento" : ""}

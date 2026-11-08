@@ -1,3 +1,4 @@
+import { wellbeingIndex } from "@/lib/instruments";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { listContactSeverities } from "@/lib/severity/contact";
@@ -82,6 +83,7 @@ export async function listQueue(): Promise<{ rows: QueueRow[]; isSyntheticFallba
           hasCrisis,
         },
         scores: chips,
+        wellbeingIndex: wellbeingIndex(Object.fromEntries(runAnswers.map((a) => [a.itemCode, a.valueNumeric])), run.demoShort),
         hasVoiceInterview: interviewRuns.has(run.id),
         voiceInterviewToken: "",
       };

@@ -1,7 +1,7 @@
 import { getAi } from "@/lib/ai";
 import { CRISIS_REPLY } from "@/lib/crisis/messages";
 import { detectCrisis, normalizeText } from "@/lib/crisis/detect";
-import { computeSeverity, getItems, nextItemIndex, scoreRun } from "@/lib/instruments";
+import { computeSeverity, getItems, inviteThreshold, nextItemIndex, scoreRun, shouldInviteToInterview, wellbeingIndex } from "@/lib/instruments";
 import type { QuestionnaireRun } from "@/db/schema";
 import { copy, formatItem } from "./copy";
 import * as repo from "./repo";
@@ -32,6 +32,8 @@ export type EngineResult = {
 type Hooks = {
   onAnswer?: (answerId: string) => Promise<void>;
   onRunFinished?: (runId: string) => Promise<void>;
+  /** Cria o convite da entrevista e devolve o link para o colaborador. */
+  onInvite?: (runId: string) => Promise<string>;
 };
 /** Por padrão: cada resposta ganha indícios com trecho (RAG) e cada questionário encerrado ganha resumo. */
 const hooks: Hooks = {
@@ -40,6 +42,10 @@ const hooks: Hooks = {
   },
   onRunFinished: async (runId) => {
     await (await import("@/lib/evidence")).buildSummary(runId);
+  },
+  onInvite: async (runId) => {
+    const { getInterviewService } = await import("@/lib/interview/service");
+    return (await getInterviewService().createInvite(runId)).inviteUrl;
   },
 };
 /** Troca os ganchos (testes ou outro pipeline). Erros nos ganchos nunca derrubam a conversa. */
@@ -98,7 +104,7 @@ export async function finishRun(
   run: QuestionnaireRun,
   status: "done" | "stopped" | "crisis",
   opts: { crisisText?: boolean } = {},
-): Promise<void> {
+): Promise<{ invite: string[] }> {
   const answers = await repo.getAnswers(run.id);
   const scores = scoreRun(answers, run.demoShort);
   await repo.replaceScores(run.id, scores);
@@ -110,6 +116,23 @@ export async function finishRun(
   });
   await repo.updateRun(run.id, { status, severity, clinicalOnly, partial, finishedAt: new Date(), retryCount: 0 });
   await runHook(hooks.onRunFinished && (() => hooks.onRunFinished!(run.id)));
+  if (status !== "done") return { invite: [] };
+  return { invite: await maybeInvite(run.id, severity, wellbeingIndex(answers, run.demoShort)) };
+}
+
+/**
+ * Convite automático (ligado por padrão; INTERVIEW_AUTO_INVITE=false desliga): índice abaixo do limite
+ * ou indício pela regra. Falha ao criar o convite nunca derruba o encerramento.
+ */
+async function maybeInvite(runId: string, severity: Parameters<typeof shouldInviteToInterview>[0]["severity"], index: number | null): Promise<string[]> {
+  if (process.env.INTERVIEW_AUTO_INVITE === "false" || !hooks.onInvite) return [];
+  if (!shouldInviteToInterview({ severity, index, threshold: inviteThreshold() })) return [];
+  try {
+    return [copy.interviewInvite(await hooks.onInvite(runId))];
+  } catch (err) {
+    console.error("[engine] não consegui criar o convite da entrevista", err);
+    return [];
+  }
 }
 
 export function handleIncoming(input: { phone: string; text: string; waMessageId: string }): Promise<EngineResult> {
@@ -195,8 +218,8 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
     const from = items.findIndex((it, i) => i >= latest.currentItem && answers[it.code] === undefined);
     const next = from < 0 ? -1 : nextItemIndex(items, answers, from);
     if (next < 0) {
-      await finishRun(run, "done");
-      return reply(run.id, "finished", [copy.closing()]);
+      const { invite } = await finishRun(run, "done");
+      return reply(run.id, "finished", [copy.closing(), ...invite]);
     }
     await repo.updateRun(run.id, { currentItem: next });
     return reply(run.id, "resumed", [copy.resumed, formatItem(items[next])]);
@@ -256,8 +279,8 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   }
 
   if (next < 0) {
-    await finishRun(active, "done");
-    return reply(active.id, "finished", [copy.closing()]);
+    const { invite } = await finishRun(active, "done");
+    return reply(active.id, "finished", [copy.closing(), ...invite]);
   }
   await repo.updateRun(active.id, { currentItem: next, retryCount: 0 });
   return reply(active.id, "answer", [formatItem(items[next])]);

@@ -35,6 +35,12 @@ export const copy = {
       `Suas respostas foram para ${doctor()}, só para ele(a). Se for o caso, ele(a) vai chamar você para conversar.`,
       "Lembrete: em emergência, 192. Para conversar a qualquer hora, 188 (CVV).",
     ].join("\n"),
+  interviewInvite: (url: string) =>
+    [
+      `Para entender melhor como você está, a Helena, assistente de ${doctor()}, pode conversar com você por uns 10 minutos, por voz ou por texto.`,
+      "É sigiloso, só vai para o(a) médico(a), e você pode pular perguntas ou parar quando quiser.",
+      `Quando puder, abra este link: ${url}`,
+    ].join("\n"),
   unknownNumber: "Olá! Este número é usado pela saúde ocupacional da empresa e não encontrou seu cadastro. Fale com o RH se achar que deveria estar aqui.",
   noActiveRun: `Olá! No momento não há questionário em andamento para você. Se precisar falar com ${doctor()}, escreva aqui que repassamos. Em emergência, 192. CVV: 188.`,
 };

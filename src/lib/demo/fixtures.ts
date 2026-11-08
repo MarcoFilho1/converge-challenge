@@ -34,6 +34,8 @@ export interface QueueRow {
     hasCrisis: boolean;
   };
   scores: QueueScoreChip[];
+  /** Índice de bem-estar de 0 a 100 (100 = melhor), calculado das respostas. Ausente nos dados sintéticos. */
+  wellbeingIndex?: number | null;
   hasVoiceInterview: boolean;
   voiceInterviewToken?: string;
 }

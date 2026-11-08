@@ -41,6 +41,7 @@ describe("Caso real nunca mostra dado sintético", () => {
     expect(c.run.severity).toBe("priority");
     expect(c.run.ruleTrace.hasClinicalSignal).toBe(true);
     expect(c.run.scores.find((x) => x.label === "PHQ-9 item 9")?.maxLabel).toBe("/3");
+    expect(c.run.wellbeingIndex).toBe(20);
   });
 
   it("id que não existe não vira caso sintético", async () => {

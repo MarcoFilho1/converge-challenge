@@ -172,3 +172,54 @@ describe("motor do questionário", () => {
     expect(r.outbound.join("\n")).toContain("Pouco interesse ou pouco prazer");
   });
 });
+
+describe("convite automático para a entrevista", () => {
+  async function runDemo(answers: string[]) {
+    const contact = await setup();
+    const { startRun } = await import("@/lib/engine/engine");
+    const start = await startRun(contact.id, { demoShort: true });
+    await say("1");
+    let last;
+    for (const text of answers) last = await say(text);
+    return { runId: start.runId, last: last! };
+  }
+
+  async function interviewsOf(runId: string) {
+    const { db } = await import("@/db/client");
+    const { interviews } = await import("@/db/schema-interview");
+    return db.select().from(interviews).where(eq(interviews.runId, runId));
+  }
+
+  it("índice abaixo do limite: o agente manda o link da Helena junto com o encerramento", async () => {
+    const { runId, last } = await runDemo(["2", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
+    expect(last.event).toBe("finished");
+    expect(last.outbound).toHaveLength(2);
+    expect(last.outbound[1]).toMatch(/Helena/);
+    const rows = await interviewsOf(runId);
+    expect(rows).toHaveLength(1);
+    expect(last.outbound[1]).toContain(`/entrevista/${rows[0].token}`);
+  });
+
+  it("sem indício e índice alto: só o encerramento, sem convite", async () => {
+    const { runId, last } = await runDemo(["1", "0", "1", "0", "0", "0", "1", "tudo tranquilo"]);
+    expect(last.outbound).toHaveLength(1);
+    expect(await interviewsOf(runId)).toHaveLength(0);
+  });
+
+  it("crise pelo item 9: nada de convite, só a mensagem de segurança", async () => {
+    const { runId, last } = await runDemo(["2", "4", "3", "1", "1", "1"]);
+    expect(last.event).toBe("crisis");
+    expect(await interviewsOf(runId)).toHaveLength(0);
+  });
+
+  it("INTERVIEW_AUTO_INVITE=false desliga o convite", async () => {
+    process.env.INTERVIEW_AUTO_INVITE = "false";
+    try {
+      const { runId, last } = await runDemo(["2", "7", "4", "2", "2", "0", "4", "as metas dobraram"]);
+      expect(last.outbound).toHaveLength(1);
+      expect(await interviewsOf(runId)).toHaveLength(0);
+    } finally {
+      delete process.env.INTERVIEW_AUTO_INVITE;
+    }
+  });
+});
