@@ -36,7 +36,7 @@ type Hooks = {
   onInvite?: (runId: string) => Promise<string>;
 };
 /** Por padrão: cada resposta ganha indícios com trecho (RAG) e cada questionário encerrado ganha resumo. */
-const hooks: Hooks = {
+const defaultHooks: Hooks = {
   onAnswer: async (answerId) => {
     await (await import("@/lib/evidence")).recordEvidence(answerId);
   },
@@ -48,9 +48,35 @@ const hooks: Hooks = {
     return (await getInterviewService().createInvite(runId)).inviteUrl;
   },
 };
+const hooks: Hooks = { ...defaultHooks };
 /** Troca os ganchos (testes ou outro pipeline). Erros nos ganchos nunca derrubam a conversa. */
 export function registerEngineHooks(h: Hooks) {
   Object.assign(hooks, h);
+}
+/** Volta aos ganchos padrão (testes). */
+export function restoreDefaultEngineHooks() {
+  Object.assign(hooks, defaultHooks);
+}
+
+/**
+ * Indícios e resumo rodam em segundo plano: a pessoa recebe a próxima pergunta sem esperar a IA.
+ * O resumo de um questionário só começa depois que os indícios dele terminaram.
+ */
+const pending = new Map<string, Promise<void>[]>();
+function inBackground(runId: string, task: () => Promise<void>, after: Promise<unknown>[] = []): void {
+  const p = Promise.allSettled(after).then(() => runHook(task));
+  const list = pending.get(runId) ?? [];
+  list.push(p);
+  pending.set(runId, list);
+  p.finally(() => {
+    const now = (pending.get(runId) ?? []).filter((x) => x !== p);
+    if (now.length) pending.set(runId, now);
+    else pending.delete(runId);
+  });
+}
+/** Espera tudo o que está em segundo plano terminar (testes, evals e scripts). */
+export async function settleBackground(): Promise<void> {
+  while (pending.size > 0) await Promise.allSettled([...pending.values()].flat());
 }
 async function runHook(fn: (() => Promise<void>) | undefined) {
   try {
@@ -115,7 +141,7 @@ export async function finishRun(
     crisisText: !!opts.crisisText || status === "crisis",
   });
   await repo.updateRun(run.id, { status, severity, clinicalOnly, partial, finishedAt: new Date(), retryCount: 0 });
-  await runHook(hooks.onRunFinished && (() => hooks.onRunFinished!(run.id)));
+  if (hooks.onRunFinished) inBackground(run.id, () => hooks.onRunFinished!(run.id), [...(pending.get(run.id) ?? [])]);
   if (status !== "done") return { invite: [] };
   return { invite: await maybeInvite(run.id, severity, wellbeingIndex(answers, run.demoShort)) };
 }
@@ -266,7 +292,7 @@ async function processIncoming(input: { phone: string; text: string; waMessageId
   }
 
   const answerRow = await repo.upsertAnswer(active.id, item, rawText, value);
-  await runHook(hooks.onAnswer && (() => hooks.onAnswer!(answerRow.id)));
+  if (hooks.onAnswer) inBackground(active.id, () => hooks.onAnswer!(answerRow.id));
 
   const answers = await repo.getAnswers(active.id);
   const next = nextItemIndex(items, answers, active.currentItem + 1);

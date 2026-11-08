@@ -44,12 +44,12 @@ export function createGatewayProvider(): AiProvider {
         async () => {
           const { output } = await withChat((model) => generateText({
             model,
-            ...chatCallOptions(),
+            ...chatCallOptions("fast"),
             system: INTERPRET_SYSTEM,
             temperature: 0,
             output: Output.object({ schema: z.object({ value: z.number().nullable() }) }),
             prompt: JSON.stringify({ item: item.text, scale, resposta: text }),
-          }));
+          }), "fast", "interpretar");
           const v = output.value;
           return v !== null && v >= scale.min && v <= scale.max ? v : null;
         },
@@ -64,12 +64,12 @@ export function createGatewayProvider(): AiProvider {
         async () => {
           const { output } = await withChat((model) => generateText({
             model,
-            ...chatCallOptions(),
+            ...chatCallOptions("long"),
             system: CLASSIFY_SYSTEM,
             temperature: 0,
             output: Output.object({ schema: ClassificationSchema }),
             prompt: JSON.stringify(input),
-          }));
+          }), "long", "classificar");
           const allowed = new Set(input.chunks.map((c) => c.id));
           const trechos = output.trechos.filter((t) => allowed.has(t.chunkId));
           return { ...output, trechos, relevante: output.relevante && trechos.length > 0 };
@@ -84,12 +84,12 @@ export function createGatewayProvider(): AiProvider {
         async () => {
           const { output } = await withChat((model) => generateText({
             model,
-            ...chatCallOptions(),
+            ...chatCallOptions("long"),
             system: SUMMARY_SYSTEM,
             temperature: 0,
             output: Output.object({ schema: RunSummarySchema }),
             prompt: JSON.stringify(input),
-          }));
+          }), "long", "resumo do questionário");
           return output;
         },
         () => local.summarizeRun(input),

@@ -14,6 +14,10 @@ export type ChatTarget = { label: string; key: string; model: LanguageModel };
 const FEATHERLESS_URL = "https://api.featherless.ai/v1";
 const DEFAULT_GATEWAY_MODEL = "anthropic/claude-sonnet-5-5";
 const DEFAULT_FEATHERLESS_MODEL = "moonshotai/Kimi-K2-Instruct-0905";
+const DEFAULT_FAST_MODEL = "deepseek-ai/DeepSeek-V3-0324";
+
+/** fast: respostas curtas no meio da conversa (interpretar, reagir, extrair). long: resumo e classificação. */
+export type ChatPurpose = "fast" | "long";
 
 type Env = Record<string, string | undefined>;
 
@@ -32,13 +36,15 @@ export function hasChatKey(env: Env = process.env): boolean {
   return featherlessKeys(env).length > 0 || !!env.AI_GATEWAY_API_KEY;
 }
 
-export function chatTargets(env: Env = process.env): ChatTarget[] {
+export function chatTargets(env: Env = process.env, purpose: ChatPurpose = "long"): ChatTarget[] {
   const keys = featherlessKeys(env);
   if (keys.length === 0) {
     const model = env.AI_CHAT_MODEL ?? DEFAULT_GATEWAY_MODEL;
     return [{ label: `gateway:${model}`, key: "gateway", model }];
   }
-  const models = [env.AI_CHAT_MODEL ?? DEFAULT_FEATHERLESS_MODEL, env.AI_CHAT_MODEL_FALLBACK].filter(
+  const main = env.AI_CHAT_MODEL ?? DEFAULT_FEATHERLESS_MODEL;
+  const ordered = purpose === "fast" ? [env.AI_FAST_MODEL ?? DEFAULT_FAST_MODEL, env.AI_FAST_MODEL_FALLBACK, main] : [main, env.AI_CHAT_MODEL_FALLBACK];
+  const models = ordered.filter(
     (m, i, all): m is string => !!m && all.indexOf(m) === i,
   );
   return models.flatMap((modelId) =>
@@ -76,12 +82,25 @@ export function resetExhaustedKeys() {
  * Roda a chamada no primeiro alvo que funcionar. Lança o último erro se todos falharem
  * (quem chama decide o caminho simulado).
  */
-export async function withChat<T>(run: (model: LanguageModel, target: ChatTarget) => Promise<T>, targets: ChatTarget[] = chatTargets()): Promise<T> {
+export async function withChat<T>(
+  run: (model: LanguageModel, target: ChatTarget) => Promise<T>,
+  targetsOrPurpose: ChatTarget[] | ChatPurpose = "long",
+  stage = "outros",
+  budget?: { attemptMs: number; budgetMs: number; clock?: () => number },
+): Promise<T> {
+  const targets = Array.isArray(targetsOrPurpose) ? targetsOrPurpose : chatTargets(process.env, targetsOrPurpose);
+  // Tarefa rápida tem teto total: a conversa não pode esperar uma fila de tentativas lentas.
+  const limit = budget ?? (targetsOrPurpose === "fast" ? fastBudget() : undefined);
+  const clock = limit?.clock ?? Date.now;
+  const started = clock();
   let last: unknown = new Error("Nenhuma chave de IA disponível.");
   for (const target of targets) {
     if (exhausted.has(target.key)) continue;
+    if (limit && clock() - started + limit.attemptMs > limit.budgetMs) break;
     try {
-      return await run(target.model, target);
+      const result = await run(target.model, target);
+      recordCost(stage, result);
+      return result;
     } catch (err) {
       last = err;
       if (isCreditError(err)) {
@@ -95,8 +114,32 @@ export async function withChat<T>(run: (model: LanguageModel, target: ChatTarget
   throw last;
 }
 
-/** Limite de tempo de cada tentativa. A troca de alvo faz o papel da retentativa. */
-export const chatCallOptions = () => ({
-  maxRetries: 0,
-  abortSignal: AbortSignal.timeout(Number(process.env.AI_CALL_TIMEOUT_MS ?? 15_000)),
-});
+/**
+ * Limite de tempo de cada tentativa: 8 s para tarefa rápida (AI_FAST_TIMEOUT_MS), 45 s para resumo e
+ * classificação (AI_CALL_TIMEOUT_MS). A troca de alvo faz o papel da retentativa.
+ */
+export function chatCallOptions(purpose: ChatPurpose = "long", env: Env = process.env) {
+  const timeoutMs = Number(purpose === "fast" ? (env.AI_FAST_TIMEOUT_MS ?? 7_000) : (env.AI_CALL_TIMEOUT_MS ?? 45_000));
+  return { maxRetries: 0, abortSignal: AbortSignal.timeout(timeoutMs), timeoutMs };
+}
+
+/** Teto da tarefa rápida: AI_FAST_BUDGET_MS (padrão 14 s), com tentativas do tamanho de AI_FAST_TIMEOUT_MS. */
+function fastBudget(env: Env = process.env): { attemptMs: number; budgetMs: number; clock?: () => number } {
+  return { attemptMs: chatCallOptions("fast", env).timeoutMs, budgetMs: Number(env.AI_FAST_BUDGET_MS ?? 14_000) };
+}
+
+/** Custo em dólar que a Featherless devolve em cada chamada (usage.raw.cost), somado por etapa. */
+const costs = new Map<string, { calls: number; usd: number }>();
+function recordCost(stage: string, result: unknown) {
+  const cost = (result as { usage?: { raw?: { cost?: unknown } } } | null)?.usage?.raw?.cost;
+  const c = costs.get(stage) ?? { calls: 0, usd: 0 };
+  c.calls += 1;
+  if (typeof cost === "number") c.usd = Math.round((c.usd + cost) * 1e9) / 1e9;
+  costs.set(stage, c);
+}
+export function costTotals(): Record<string, { calls: number; usd: number }> {
+  return Object.fromEntries([...costs.entries()].map(([k, v]) => [k, { ...v }]));
+}
+export function resetCostTotals() {
+  costs.clear();
+}

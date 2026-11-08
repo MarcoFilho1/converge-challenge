@@ -26,10 +26,10 @@ export function createInterviewGateway(): InterviewAi {
     extractFindings(input) {
       return withFallback("extractFindings", async () => {
         const { output } = await withChat((model) => generateText({
-          model, ...chatCallOptions(), system: EXTRACT_SYSTEM, temperature: 0,
+          model, ...chatCallOptions("fast"), system: EXTRACT_SYSTEM, temperature: 0,
           output: Output.object({ schema: z.object({ achados: z.array(FindingDraftSchema) }) }),
           prompt: JSON.stringify({ bloco: input.blockId, pergunta: input.probeText, fala: input.text }),
-        }));
+        }), "fast", "extrair da fala");
         return output.achados;
       }, () => mock.extractFindings(input));
     },
@@ -37,10 +37,10 @@ export function createInterviewGateway(): InterviewAi {
     phraseAck(input) {
       return withFallback("phraseAck", async () => {
         const { output } = await withChat((model) => generateText({
-          model, ...chatCallOptions(), system: ACK_SYSTEM, temperature: 0,
+          model, ...chatCallOptions("fast"), system: ACK_SYSTEM, temperature: 0,
           output: Output.object({ schema: z.object({ ack: z.string().max(140) }) }),
           prompt: JSON.stringify({ fala: input.lastText, achados: input.findings, proximaPergunta: input.probeText }),
-        }));
+        }), "fast", "reação da Helena");
         return cleanGenerated(output.ack);
       }, () => mock.phraseAck(input));
     },
@@ -48,10 +48,10 @@ export function createInterviewGateway(): InterviewAi {
     summarize(input) {
       return withFallback("summarize", async () => {
         const { output } = await withChat((model) => generateText({
-          model, ...chatCallOptions(), system: INTERVIEW_SUMMARY_SYSTEM, temperature: 0,
+          model, ...chatCallOptions("long"), system: INTERVIEW_SUMMARY_SYSTEM, temperature: 0,
           output: Output.object({ schema: InterviewSummary }),
           prompt: JSON.stringify({ turnos: input.turns, achados: input.findings, naoRespondido: input.skipped }),
-        }));
+        }), "long", "resumo da entrevista");
         return output;
       }, () => mock.summarize(input));
     },

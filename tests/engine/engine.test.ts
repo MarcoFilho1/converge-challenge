@@ -223,3 +223,41 @@ describe("convite automático para a entrevista", () => {
     }
   });
 });
+
+describe("indícios e resumo em segundo plano", () => {
+  it("a próxima pergunta não espera a busca de indícios; o resumo só sai depois dos indícios", async () => {
+    const { registerEngineHooks, settleBackground } = await import("@/lib/engine/engine");
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    registerEngineHooks({
+      onAnswer: async () => {
+        await gate;
+        order.push("indício");
+      },
+      onRunFinished: async () => {
+        order.push("resumo");
+      },
+    });
+    try {
+      const contact = await setup();
+      const { startRun } = await import("@/lib/engine/engine");
+      await startRun(contact.id, { demoShort: true });
+      await say("1");
+      const first = await say("2");
+      expect(first.event).toBe("answer");
+      expect(order).toEqual([]);
+      let last;
+      for (const t of ["7", "4", "2", "2", "0", "4", "metas"]) last = await say(t);
+      expect(last!.event).toBe("finished");
+      expect(order).toEqual([]);
+      release();
+      await settleBackground();
+      expect(order.at(-1)).toBe("resumo");
+      expect(order.filter((x) => x === "indício")).toHaveLength(8);
+    } finally {
+      const { restoreDefaultEngineHooks } = await import("@/lib/engine/engine");
+      restoreDefaultEngineHooks();
+    }
+  });
+});
