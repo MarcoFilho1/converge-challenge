@@ -41,7 +41,9 @@ const trunk: Item = {
   instruction: "Pensando no último mês:",
   text: "NOS ÚLTIMOS 30 DIAS, você esteve presente no trabalho apesar de apresentar algum problema de saúde ou algum sinal ou sintoma de adoecimento?",
   scale: { min: 1, max: 2, higherIsWorse: true, labels: ["não", "sim"] },
-  scaleLine: "1 não · 2 sim",
+  // Mesma ordem do consentimento (1 = sim). O valor gravado segue o instrumento: 2 = sim.
+  scaleLine: "1 sim · 2 não",
+  choices: { "1": 2, "2": 1 },
 };
 
 const wpaiQ5: Item = {

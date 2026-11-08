@@ -51,7 +51,7 @@ describe("rastro do agente", () => {
     const [c] = await db.insert(contacts).values({ name: "Obs Demo", phoneE164: PHONE }).returning();
     const { startRun, settleBackground } = await import("@/lib/engine/engine");
     const { runId } = await startRun(c.id, { demoShort: true });
-    for (const t of ["1", "2", "7", "com frequência", "2", "2", "0", "4", "metas"]) await say(t);
+    for (const t of ["1", "1", "7", "com frequência", "2", "2", "0", "4", "metas"]) await say(t);
     await settleBackground();
     const rows = await eventsOf(runId);
     const values = rows.filter((r) => r.kind === "valor da resposta");
